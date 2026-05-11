@@ -30,7 +30,7 @@ export function ScreenContainer({
 
   return (
     <SafeAreaView style={[styles.safe, style]}>
-      <View style={[styles.content, contentStyle]}>{children}</View>
+      <View style={[styles.fill, contentStyle]}>{children}</View>
     </SafeAreaView>
   );
 }
@@ -46,5 +46,8 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingBottom: 40,
+  },
+  fill: {
+    flex: 1,
   },
 });
