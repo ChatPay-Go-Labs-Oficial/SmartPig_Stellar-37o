@@ -1,53 +1,107 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+// Piggy Bank Grow Design System — Dark-only theme
 
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
+// ─── Surfaces ───────────────────────────────────────────────────────────────
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
-  },
+  background:      'hsl(260, 20%, 8%)',
+  card:            'hsl(260, 20%, 12%)',
+  surface:         'hsl(260, 20%, 13%)',
+  surface2:        'hsl(260, 20%, 14%)',
+  muted:           'hsl(260, 15%, 18%)',
+  border:          'hsl(260, 15%, 20%)',
+  foreground:      'hsl(0, 0%, 96%)',
+  mutedForeground: 'hsl(260, 10%, 55%)',
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+// ─── Accent ──────────────────────────────────────────────────────────────────
+export const Accent = {
+  primary:     'hsl(320, 90%, 58%)',  // Neon Pink — CTA principal
+  secondary:   'hsl(270, 80%, 60%)',  // Purple
+  accent:      'hsl(38, 100%, 55%)',  // Amber
+  gold:        'hsl(42, 100%, 58%)',  // Gold — conquistas
+  neonOrange:  'hsl(25, 100%, 55%)',  // Orange Hot
+  success:     'hsl(145, 80%, 48%)', // Neon Green
+  destructive: 'hsl(0, 84%, 60%)',   // Vermelho
+};
+
+// ─── Gradients ───────────────────────────────────────────────────────────────
+// Use with expo-linear-gradient: <LinearGradient colors={Gradients.primary} start={{x:0,y:0}} end={{x:1,y:1}} />
+export const Gradients = {
+  primary: ['hsl(320, 90%, 58%)', 'hsl(270, 80%, 60%)'] as const,   // pink → purple
+  hot:     ['hsl(25, 100%, 55%)',  'hsl(320, 90%, 58%)'] as const,  // orange → pink
+  gold:    ['hsl(42, 100%, 58%)',  'hsl(25, 100%, 55%)'] as const,  // gold → orange
+  card:    ['hsl(260, 20%, 14%)',  'hsl(260, 20%, 10%)'] as const,  // surface dark
+};
+
+// ─── Radius ──────────────────────────────────────────────────────────────────
+export const Radius = {
+  sm:   12,
+  md:   14,
+  lg:   16,
+  full: 9999,
+} as const;
+
+// ─── Spacing ─────────────────────────────────────────────────────────────────
+export const Spacing = {
+  1: 4,
+  2: 8,
+  3: 12,
+  4: 16,
+  6: 24,
+  8: 32,
+  12: 48,
+  16: 64,
+} as const;
+
+// ─── Typography ──────────────────────────────────────────────────────────────
+// Font family names match @expo-google-fonts/nunito keys loaded in root _layout.tsx
+export const Font = {
+  regular:   'Nunito_400Regular',
+  semiBold:  'Nunito_600SemiBold',
+  bold:      'Nunito_700Bold',
+  extraBold: 'Nunito_800ExtraBold',
+  black:     'Nunito_900Black',
+} as const;
+
+export const FontSize = {
+  display:    35,
+  displaySm:  28,
+  heading:    24,
+  subheading: 18,
+  body:       16,
+  bodySmall:  14,
+  label:      12,
+} as const;
+
+// ─── Shadows (glow effects) ──────────────────────────────────────────────────
+// iOS: shadowColor + shadowOffset + shadowOpacity + shadowRadius
+// Android: elevation
+export const Glow = {
+  pink: {
+    shadowColor: 'hsl(320, 90%, 58%)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 8,
   },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+  gold: {
+    shadowColor: 'hsl(42, 100%, 58%)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 8,
   },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  green: {
+    shadowColor: 'hsl(145, 80%, 48%)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 6,
   },
-});
+  purple: {
+    shadowColor: 'hsl(270, 80%, 60%)',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+} as const;
