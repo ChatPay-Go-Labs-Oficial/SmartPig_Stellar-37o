@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
+const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
@@ -8,5 +9,16 @@ config.resolver.unstable_conditionNames = ['require', 'default', 'import'];
 
 // Support .mjs and .cjs files
 config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs', 'cjs'];
+
+// Shim Node.js built-ins used by @stellar/stellar-sdk Horizon client.
+// We only use Soroban/RPC — Horizon SSE is not needed in React Native.
+config.resolver.extraNodeModules = {
+  eventsource: path.resolve(__dirname, 'shims/eventsource.js'),
+  http: path.resolve(__dirname, 'shims/http.js'),
+  https: path.resolve(__dirname, 'shims/https.js'),
+  stream: path.resolve(__dirname, 'shims/stream.js'),
+  url: require.resolve('react-native-url-polyfill'),
+  events: require.resolve('events'),
+};
 
 module.exports = config;
