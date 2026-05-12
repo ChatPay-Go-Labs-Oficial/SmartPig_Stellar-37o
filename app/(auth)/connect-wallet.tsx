@@ -1,9 +1,27 @@
-import { View, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients, Spacing, Radius, Font, FontSize } from '@/constants/theme';
+import { Colors, Gradients, Spacing, Radius, Font, FontSize, Accent } from '@/constants/theme';
+import { useSmartAccount } from '@/hooks/use-smart-account';
 
 export default function ConnectWalletScreen() {
+  const { isConnecting, error, connect } = useSmartAccount();
+
+  async function handleConnect() {
+    try {
+      await connect();
+      router.replace('/(tabs)');
+    } catch {
+      // error is already set in the hook
+    }
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -13,15 +31,32 @@ export default function ConnectWalletScreen() {
         </Text>
       </View>
 
-      {/* TODO: integrar kit.connectWallet() via useSmartAccount() */}
-      <LinearGradient
-        colors={Gradients.primary}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.btn}
-      >
-        <Text style={styles.btnText}>Entrar com biometria</Text>
-      </LinearGradient>
+      <View style={styles.footer}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <TouchableOpacity onPress={handleConnect} disabled={isConnecting}>
+          <LinearGradient
+            colors={Gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.btn, isConnecting && styles.btnDisabled]}
+          >
+            {isConnecting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Entrar com biometria</Text>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.linkBtn}
+          onPress={() => router.push('/(auth)/create-wallet')}
+          disabled={isConnecting}
+        >
+          <Text style={styles.linkText}>Criar nova carteira</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -48,15 +83,30 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontFamily: Font.regular,
   },
+  footer: { gap: Spacing[4] },
+  errorText: {
+    fontSize: FontSize.bodySmall,
+    color: Accent.destructive,
+    fontFamily: Font.regular,
+    textAlign: 'center',
+  },
   btn: {
     paddingVertical: 14,
     borderRadius: Radius.sm,
     alignItems: 'center',
   },
+  btnDisabled: { opacity: 0.5 },
   btnText: {
     color: '#fff',
     fontSize: FontSize.body,
     fontWeight: '700',
     fontFamily: Font.bold,
   },
+  linkBtn: { alignItems: 'center', paddingVertical: Spacing[2] },
+  linkText: {
+    color: Colors.mutedForeground,
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+  },
 });
+

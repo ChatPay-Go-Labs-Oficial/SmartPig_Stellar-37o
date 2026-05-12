@@ -15,7 +15,13 @@ export const useAuthStore = create<AuthState>()(
       contractId: null,
       isAuthenticated: false,
       setAuth: (contractId) => set({ contractId, isAuthenticated: true }),
-      clearAuth: () => set({ contractId: null, isAuthenticated: false }),
+      clearAuth: () => {
+        // Lazily import to avoid circular dependency at module load time
+        import('@/lib/stellar/kit').then(({ getKit }) => {
+          getKit().disconnect().catch(() => {});
+        });
+        set({ contractId: null, isAuthenticated: false });
+      },
     }),
     {
       name: 'smartpig-auth',
@@ -23,3 +29,4 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 );
+
