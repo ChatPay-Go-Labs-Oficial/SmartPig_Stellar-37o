@@ -1,20 +1,22 @@
 {
   "expo": {
-    "name": "smartpig-app",
-    "slug": "smartpig-app",
+    "name": "stellarpig-app",
+    "slug": "stellarpig-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "smartpigapp",
+    "scheme": "stellarpigapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.smartpig.app",
-      "associatedDomains": ["webcredentials:smartpig.app"]
+      "bundleIdentifier": "com.stellarpig.app",
+      "associatedDomains": [
+        "webcredentials:stellarpig.app"
+      ]
     },
     "android": {
-      "package": "com.smartpig.app",
+      "package": "com.stellarpig.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -60,6 +62,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fd0ed8a4-0753-49b5-8d64-1b5816b2d1a5"
+      }
     }
   }
 }
