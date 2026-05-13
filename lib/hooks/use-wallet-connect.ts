@@ -28,8 +28,10 @@ export function useWalletConnect() {
 
       const { uri, approval } = await createWalletConnectPairing();
 
-      // Try Lobstr-specific deep link first, then fall back to raw WC URI
-      const lobstrUri = `lobstr://wc?uri=${encodeURIComponent(uri)}`;
+      // Try Lobstr-specific deep link first, then fall back to raw WC URI.
+      // redirectUrl brings the user back to this app after approving in Lobstr.
+      const redirectUrl = encodeURIComponent('stellarpigapp://');
+      const lobstrUri = `lobstr://wc?uri=${encodeURIComponent(uri)}&redirectUrl=${redirectUrl}`;
       const canOpenLobstr = await Linking.canOpenURL(lobstrUri);
 
       if (canOpenLobstr) {

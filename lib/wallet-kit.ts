@@ -40,6 +40,10 @@ export async function initWalletConnect(): Promise<void> {
       description: 'Seu portfólio DeFi na rede Stellar',
       url: 'https://stellarpig.com',
       icons: ['https://stellarpig.com/icon.png'],
+      redirect: {
+        native: 'stellarpigapp://',
+        universal: 'https://stellarpig.com',
+      },
     },
   }).then((client) => {
     _client = client;
