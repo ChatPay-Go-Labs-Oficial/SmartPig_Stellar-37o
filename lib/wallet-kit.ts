@@ -23,14 +23,17 @@ function getStellarChain(): string {
 }
 
 let _client: Awaited<ReturnType<typeof SignClient.init>> | null = null;
+let _initPromise: Promise<void> | null = null;
 
 export async function initWalletConnect(): Promise<void> {
   if (_client) return;
+  // Reuse in-flight promise so concurrent calls don't create multiple clients
+  if (_initPromise) return _initPromise;
   if (!PROJECT_ID) {
     console.warn('[WalletConnect] EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID not set — WalletConnect will not work.');
     return;
   }
-  _client = await SignClient.init({
+  _initPromise = SignClient.init({
     projectId: PROJECT_ID,
     metadata: {
       name: 'SmartPig',
@@ -38,7 +41,14 @@ export async function initWalletConnect(): Promise<void> {
       url: 'https://smartpig.app',
       icons: ['https://smartpig.app/icon.png'],
     },
+  }).then((client) => {
+    _client = client;
+    _initPromise = null;
+  }).catch((e) => {
+    _initPromise = null;
+    throw e;
   });
+  return _initPromise;
 }
 
 export function getWalletConnectClient() {
@@ -54,7 +64,9 @@ export async function createWalletConnectPairing(): Promise<{
   uri: string;
   approval: () => Promise<string>;
 }> {
-  if (!_client) throw new Error('WalletConnect não inicializado. Verifique EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID.');
+  // Auto-initialize if not done yet (handles race condition on startup)
+  await initWalletConnect();
+  if (!_client) throw new Error('WalletConnect não pôde ser inicializado. Verifique EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID.');
 
   const chain = getStellarChain();
   const { uri, approval: rawApproval } = await _client.connect({
