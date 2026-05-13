@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients, Spacing, Radius, Font, FontSize, Accent } from '@/constants/theme';
+import { Colors, Gradients, Spacing, Radius, Font, FontSize } from '@/constants/theme';
 
 export default function CreateWalletScreen() {
   return (
@@ -14,15 +14,21 @@ export default function CreateWalletScreen() {
         </Text>
       </View>
 
-      {/* TODO: integrar kit.createWallet() via useSmartAccount() */}
-      <LinearGradient
-        colors={Gradients.primary}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.btn}
-      >
-        <Text style={styles.btnText}>Criar com Face ID / Touch ID</Text>
-      </LinearGradient>
+      <View style={styles.actions}>
+        {/* TODO: integrar criação de smart account com passkeys (biometria) */}
+        <LinearGradient
+          colors={Gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.btn}
+        >
+          <Text style={styles.btnText}>Criar com Face ID / Touch ID</Text>
+        </LinearGradient>
+
+        <Pressable onPress={() => router.push('/(auth)/connect-wallet')} style={styles.linkBtn}>
+          <Text style={styles.linkText}>Já tenho uma carteira → Conectar</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -49,6 +55,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontFamily: Font.regular,
   },
+  actions: {
+    gap: Spacing[3],
+  },
   btn: {
     paddingVertical: 14,
     borderRadius: Radius.sm,
@@ -59,5 +68,14 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontWeight: '700',
     fontFamily: Font.bold,
+  },
+  linkBtn: {
+    paddingVertical: Spacing[2],
+    alignItems: 'center',
+  },
+  linkText: {
+    fontSize: FontSize.bodySmall,
+    color: Colors.mutedForeground,
+    fontFamily: Font.semiBold,
   },
 });
