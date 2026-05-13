@@ -36,10 +36,10 @@ export async function initWalletConnect(): Promise<void> {
   _initPromise = SignClient.init({
     projectId: PROJECT_ID,
     metadata: {
-      name: 'SmartPig',
+      name: 'StellarPig',
       description: 'Seu portfólio DeFi na rede Stellar',
-      url: 'https://smartpig.app',
-      icons: ['https://smartpig.app/icon.png'],
+      url: 'https://stellarpig.com',
+      icons: ['https://stellarpig.com/icon.png'],
     },
   }).then((client) => {
     _client = client;

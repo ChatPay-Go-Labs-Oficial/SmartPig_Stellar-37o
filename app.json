@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "smartpig-app",
-    "slug": "smartpig-app",
+    "name": "stellarpig-app",
+    "slug": "stellarpig-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "smartpigapp",
+    "scheme": "stellarpigapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

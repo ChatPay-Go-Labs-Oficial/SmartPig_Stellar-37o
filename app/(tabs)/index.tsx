@@ -45,7 +45,7 @@ export default function HomeScreen() {
     <ScreenContainer>
       {/* Greeting */}
       <View style={styles.greetingRow}>
-        <GradientText variant="primary" style={styles.greeting}>SmartPig</GradientText>
+        <GradientText variant="primary" style={styles.greeting}>StellarPig</GradientText>
         <Text style={styles.greetingSub}>Seu portfólio DeFi</Text>
       </View>
 
