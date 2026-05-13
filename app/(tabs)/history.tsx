@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { ScreenContainer } from '@/components/layout';
-import { Card, Badge, GradientText } from '@/components/ui';
-import { Colors, Font, FontSize, Spacing, Accent } from '@/constants/theme';
+import { Badge, GradientText } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useWithdrawals } from '@/lib/queries/withdrawals.queries';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 type TxType = 'deposit' | 'withdrawal';
 
@@ -119,7 +119,7 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing[6],
-    paddingTop: Spacing[6],
+    paddingTop: Spacing[12],
     paddingBottom: Spacing[4],
   },
   title: { fontSize: FontSize.displaySm, fontFamily: Font.extraBold },

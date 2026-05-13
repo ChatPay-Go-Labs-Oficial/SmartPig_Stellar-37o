@@ -1,14 +1,14 @@
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenContainer } from '@/components/layout';
-import { Card, Badge, GradientText } from '@/components/ui';
-import { Colors, Font, FontSize, Spacing, Accent, Gradients, Radius, Glow } from '@/constants/theme';
-import { useVaults } from '@/lib/queries/vaults.queries';
+import { Badge, Card, GradientText } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing } from '@/constants/theme';
+import type { Vault } from '@/lib/api/vaults';
 import { useDeposits } from '@/lib/queries/deposits.queries';
+import { useVaults } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useWalletStore } from '@/lib/stores/wallet.store';
-import type { Vault } from '@/lib/api/vaults';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatApy(apy: string | null): string {
   if (!apy) return '—';
@@ -96,7 +96,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  greetingRow: { marginBottom: Spacing[6] },
+  greetingRow: { marginBottom: Spacing[6], marginTop: Spacing[6] },
   greeting: {
     fontSize: FontSize.displaySm,
     fontFamily: Font.extraBold,
