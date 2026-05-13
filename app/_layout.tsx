@@ -1,6 +1,3 @@
-// WalletConnect polyfills — must be the first import in the entry file
-import '@walletconnect/react-native-compat';
-
 import { Colors } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { initWalletConnect } from '@/lib/wallet-kit';
