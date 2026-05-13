@@ -1,50 +1,144 @@
-# Welcome to your Expo app 👋
+# StellarPig 🐷
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+> 🇧🇷 [Leia em Português](README.pt-BR.md)
 
-## Get started
+A DeFi personal finance mobile app built with **Expo / React Native**, integrated with the **Stellar** network. Users can connect or create Stellar wallets and deposit into yield vaults managed by the Defindex protocol.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Stack
 
-2. Start the app
+| Layer | Technology |
+|---|---|
+| Framework | Expo SDK 54 · React Native 0.81 |
+| Language | TypeScript 5.9 |
+| Routing | expo-router 6 (file-based) |
+| Global state | Zustand 5 + AsyncStorage (persisted) |
+| Remote data | TanStack Query v5 + Axios |
+| Wallet | `@creit.tech/stellar-wallets-kit` + WalletConnect |
+| UI / Animations | expo-linear-gradient · react-native-reanimated 4 |
+| Fonts | Nunito via `@expo-google-fonts/nunito` |
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## Prerequisites
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- Node.js ≥ 20
+- [Expo Go](https://expo.dev/go) on a physical device, or a configured iOS simulator / Android emulator
+- `EXPO_PUBLIC_API_URL` environment variable pointing to the backend (see `.env.example`)
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
-
-When you're ready, run:
+## Installation & running
 
 ```bash
-npm run reset-project
+# install dependencies
+npm install
+
+# development server (QR code for Expo Go)
+npx expo start
+
+# specific platforms
+npx expo start --ios
+npx expo start --android
+npx expo start --web
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## Available scripts
 
-To learn more about developing your project with Expo, look at the following resources:
+| Command | Description |
+|---|---|
+| `npm start` | Starts the Expo server |
+| `npm run ios` | Opens on iOS simulator |
+| `npm run android` | Opens on Android emulator |
+| `npm run web` | Opens in the browser |
+| `npm run lint` | ESLint (`eslint-config-expo/flat`) |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## Architecture
 
-Join our community of developers creating universal apps.
+### Routing (`app/`)
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```
+app/
+  _layout.tsx          # Root: QueryClient + Nunito + auth redirect
+  (auth)/              # Onboarding, create and connect Stellar wallet
+    index.tsx          # Welcome screen
+    create-wallet.tsx  # New wallet creation
+    connect-wallet.tsx # Connect via WalletConnect / private key
+  (tabs)/              # Bottom tab navigation
+    index.tsx          # Home — portfolio and active vaults
+    vaults.tsx         # All available vaults listing
+    history.tsx        # Transaction history
+    profile.tsx        # Profile and settings
+  vault/
+    [id].tsx           # Vault detail + actions (deposit / withdraw)
+```
+
+**Auth flow:** the root layout checks `useAuthStore.isAuthenticated` after fonts are loaded and redirects to `/(auth)` or `/(tabs)`.
+
+### Data layer (`lib/`)
+
+```
+lib/
+  api/
+    client.ts          # Axios with baseURL and userId interceptor
+    vaults.ts          # Vault endpoints (list, detail, APY, balance)
+    deposits.ts        # Deposit endpoints
+    withdrawals.ts     # Withdrawal endpoints
+  queries/             # TanStack Query hooks (useVaults, useDeposits…)
+  stores/
+    auth.store.ts      # contractId + isAuthenticated (Zustand + AsyncStorage)
+    wallet.store.ts    # walletAddress (Zustand + AsyncStorage)
+    ui.store.ts        # Transient UI state
+  wallet-kit.ts        # StellarWalletsKit + WalletConnect initialization
+```
+
+### Components (`components/`)
+
+```
+components/
+  ui/
+    Button.tsx         # Variants: primary, ghost, secondary, gold
+    Card.tsx           # LinearGradient card with border; flat variant
+    Badge.tsx          # Pills: destaque, conquista, sucesso, erro, muted
+    GradientText.tsx   # Gradient text via MaskedView + LinearGradient
+    ConfirmModal.tsx   # Reusable confirmation modal
+    icon-symbol.tsx    # MaterialIcons (Android/Web)
+    icon-symbol.ios.tsx# SF Symbols (iOS native)
+  layout/
+    ScreenContainer.tsx# SafeAreaView + ScrollView + default padding
+  haptic-tab.tsx       # Tab button with haptic feedback (iOS only)
+```
+
+---
+
+## Design System
+
+Dark-only visual with neon pink as primary color. All tokens live in `constants/theme.ts`.
+
+| Export | Content |
+|---|---|
+| `Colors` | Surfaces: `background`, `card`, `surface2`, `muted`, `border`, `foreground` |
+| `Accent` | `primary` (neon pink), `secondary` (purple), `gold`, `success`, `destructive`… |
+| `Gradients` | `primary`, `hot`, `gold`, `card` — use with `expo-linear-gradient` |
+| `Radius` | `sm`=12, `md`=14, `lg`=16, `full`=9999 |
+| `Spacing` | 4 px base scale (tokens 1–16) |
+| `Font` | Nunito: `regular`, `semiBold`, `bold`, `extraBold`, `black` |
+| `FontSize` | `display`=35 → `label`=12 |
+| `Glow` | Glow shadows: `pink`, `gold`, `green`, `purple` |
+
+Full reference: [`docs/design-system.md`](docs/design-system.md).
+
+---
+
+## Conventions
+
+- Imports always via `@/` alias (mapped to the repository root)
+- No manual `useMemo` / `useCallback` — **React Compiler** is active (`experiments.reactCompiler: true`)
+- Dark-only theme: no light theme logic in screens
+- Platform files: `foo.ios.tsx` for iOS, `foo.tsx` as fallback (Android + Web)
+- Public environment variables prefixed with `EXPO_PUBLIC_`

@@ -1,30 +1,29 @@
 # Design System — Smart Piggy
 
-> 🇧🇷 [Leia em Português](design-system.pt-BR.md)
-
+> 🇺🇸 [Read in English](design-system.md)
 
 **Stack:** Expo SDK 54 · React Native 0.81 · TypeScript · `expo-font` · `expo-linear-gradient` · `react-native-reanimated`
 
 ---
 
-## Table of Contents
+## Índice
 
-- [Colors — Surfaces](#colors--surfaces-dark-only)
-- [Accent Colors](#accent-colors)
-- [Gradients](#gradients)
-- [Typography](#typography)
+- [Cores — Superfícies](#cores--superfícies-dark-only)
+- [Cores de Destaque](#cores-de-destaque)
+- [Gradientes](#gradientes)
+- [Tipografia](#tipografia)
 - [Border Radius](#border-radius)
-- [Spacing](#spacing)
-- [Shadows (iOS / Android)](#shadows-ios--android)
-- [Animations](#animations)
-- [Components](#components)
-- [Gradient Text](#gradient-text)
+- [Espaçamento](#espaçamento)
+- [Sombras (iOS / Android)](#sombras-ios--android)
+- [Animações](#animações)
+- [Componentes](#componentes)
+- [Texto Gradiente](#texto-gradiente)
 
 ---
 
-## Colors — Surfaces (Dark-only)
+## Cores — Superfícies (Dark-only)
 
-Add to `constants/theme.ts`:
+Adicione ao `constants/theme.ts`:
 
 ```ts
 export const Colors = {
@@ -37,18 +36,18 @@ export const Colors = {
 };
 ```
 
-| Name          | HSL Value              | Usage                      |
+| Nome          | Valor HSL              | Uso                        |
 |---------------|------------------------|----------------------------|
-| `background`  | `hsl(260, 20%, 8%)`    | Main screen background     |
+| `background`  | `hsl(260, 20%, 8%)`    | Fundo principal da tela    |
 | `card`        | `hsl(260, 20%, 12%)`   | Cards, Modals              |
-| `surface2`    | `hsl(260, 20%, 14%)`   | Card gradient start        |
-| `muted`       | `hsl(260, 15%, 18%)`   | Muted areas                |
-| `border`      | `hsl(260, 15%, 20%)`   | Borders and inputs         |
-| `foreground`  | `hsl(0, 0%, 96%)`      | Primary text               |
+| `surface2`    | `hsl(260, 20%, 14%)`   | Início do gradiente de card|
+| `muted`       | `hsl(260, 15%, 18%)`   | Áreas silenciadas          |
+| `border`      | `hsl(260, 15%, 20%)`   | Bordas e inputs            |
+| `foreground`  | `hsl(0, 0%, 96%)`      | Texto principal            |
 
 ---
 
-## Accent Colors
+## Cores de Destaque
 
 ```ts
 export const Accent = {
@@ -58,34 +57,34 @@ export const Accent = {
   gold:            'hsl(42, 100%, 58%)',  // Gold
   neonOrange:      'hsl(25, 100%, 55%)',  // Orange Hot
   success:         'hsl(145, 80%, 48%)', // Neon Green
-  destructive:     'hsl(0, 84%, 60%)',   // Red
-  mutedForeground: 'hsl(260, 10%, 55%)', // Muted text
+  destructive:     'hsl(0, 84%, 60%)',   // Vermelho
+  mutedForeground: 'hsl(260, 10%, 55%)', // Texto muted
 };
 ```
 
-| Name              | HSL Value              | Usage                     |
+| Nome              | Valor HSL              | Uso                       |
 |-------------------|------------------------|---------------------------|
-| `primary`         | `hsl(320, 90%, 58%)`   | Neon Pink — primary CTA   |
-| `secondary`       | `hsl(270, 80%, 60%)`   | Purple — secondary        |
-| `accent`          | `hsl(38, 100%, 55%)`   | Amber — highlight         |
-| `gold`            | `hsl(42, 100%, 58%)`   | Gold — achievements       |
+| `primary`         | `hsl(320, 90%, 58%)`   | Neon Pink — CTA principal |
+| `secondary`       | `hsl(270, 80%, 60%)`   | Purple — secundário       |
+| `accent`          | `hsl(38, 100%, 55%)`   | Amber — destaque          |
+| `gold`            | `hsl(42, 100%, 58%)`   | Gold — conquistas         |
 | `neonOrange`      | `hsl(25, 100%, 55%)`   | Orange Hot                |
-| `success`         | `hsl(145, 80%, 48%)`   | Neon Green — success      |
-| `destructive`     | `hsl(0, 84%, 60%)`     | Errors / danger           |
-| `mutedForeground` | `hsl(260, 10%, 55%)`   | Secondary text            |
+| `success`         | `hsl(145, 80%, 48%)`   | Neon Green — sucesso      |
+| `destructive`     | `hsl(0, 84%, 60%)`     | Erros / perigo            |
+| `mutedForeground` | `hsl(260, 10%, 55%)`   | Texto secundário          |
 
 ---
 
-## Gradients
+## Gradientes
 
-> Requires `expo-linear-gradient`: `npx expo install expo-linear-gradient`
+> Requer `expo-linear-gradient`: `npx expo install expo-linear-gradient`
 
-| Name               | Colors                   | Usage                        |
+| Nome               | Cores                    | Uso                          |
 |--------------------|--------------------------|------------------------------|
-| `gradientPrimary`  | Pink `→` Purple          | Primary button, titles       |
-| `gradientHot`      | Orange `→` Pink          | Intense highlight            |
-| `gradientGold`     | Gold `→` Orange          | Gold button, achievements    |
-| `gradientCard`     | Surface-2 `→` Background | Card backgrounds             |
+| `gradientPrimary`  | Pink `→` Purple          | Botão primário, títulos      |
+| `gradientHot`      | Orange `→` Pink          | Destaque intenso             |
+| `gradientGold`     | Gold `→` Orange          | Botão gold, conquistas       |
+| `gradientCard`     | Surface-2 `→` Background | Background de cards          |
 
 ```tsx
 import { LinearGradient } from 'expo-linear-gradient';
@@ -111,7 +110,7 @@ import { LinearGradient } from 'expo-linear-gradient';
   end={{ x: 1, y: 1 }}
 />
 
-// gradient-card (145deg ≈ slightly more vertical)
+// gradient-card (145deg ≈ ligeiramente mais vertical)
 <LinearGradient
   colors={['hsl(260, 20%, 14%)', 'hsl(260, 20%, 10%)']}
   start={{ x: 0, y: 0 }}
@@ -121,11 +120,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 ---
 
-## Typography
+## Tipografia
 
-**Font:** `Nunito` — weights: 400, 600, 700, 800, 900. Single font for the entire app.
+**Fonte:** `Nunito` — pesos: 400, 600, 700, 800, 900. Única fonte da aplicação.
 
-### Loading with expo-font
+### Carregamento com expo-font
 
 ```tsx
 import { useFonts } from 'expo-font';
@@ -139,19 +138,19 @@ const [loaded] = useFonts({
 });
 ```
 
-### Type scale
+### Escala tipográfica
 
-| Style           | fontSize | fontWeight | Color                  | Usage                       |
+| Estilo          | fontSize | fontWeight | Cor                    | Uso                         |
 |-----------------|----------|------------|------------------------|-----------------------------|
-| Display         | 35       | `'900'`    | Gradient (see below)   | Main screen title           |
-| Heading         | 24       | `'800'`    | `foreground`           | Sections, main cards        |
-| Subheading      | 18       | `'700'`    | `foreground`           | Card title                  |
-| Body            | 16       | `'600'`    | `foreground`           | Primary content             |
-| Body Muted      | 14       | `'400'`    | `mutedForeground`      | Descriptions, labels        |
-| Label Uppercase | 12       | `'700'`    | `mutedForeground`      | Metadata, categories        |
+| Display         | 35       | `'900'`    | Gradiente (ver abaixo) | Título principal da tela    |
+| Heading         | 24       | `'800'`    | `foreground`           | Seções, cards principais    |
+| Subheading      | 18       | `'700'`    | `foreground`           | Título de card              |
+| Body            | 16       | `'600'`    | `foreground`           | Conteúdo principal          |
+| Body Muted      | 14       | `'400'`    | `mutedForeground`      | Descrições, labels          |
+| Label Uppercase | 12       | `'700'`    | `mutedForeground`      | Metadata, categorias        |
 
 ```ts
-// Label Uppercase in StyleSheet
+// Label Uppercase em StyleSheet
 labelUppercase: {
   fontSize: 12,
   fontWeight: '700',
@@ -166,12 +165,12 @@ labelUppercase: {
 
 ## Border Radius
 
-Base value: **16px**. All components derive from this value.
+Valor base: **16px**. Todos os componentes derivam desse valor.
 
-| Name    | Value  | Usage                 |
+| Nome    | Valor  | Uso                   |
 |---------|--------|-----------------------|
-| `sm`    | 12     | Buttons, inputs       |
-| `md`    | 14     | Internal components   |
+| `sm`    | 12     | Botões, inputs        |
+| `md`    | 14     | Componentes internos  |
 | `lg`    | 16     | Cards, containers     |
 | `full`  | 9999   | Badges, pills         |
 
@@ -181,9 +180,9 @@ export const Radius = { sm: 12, md: 14, lg: 16, full: 9999 };
 
 ---
 
-## Spacing
+## Espaçamento
 
-Horizontal screen padding: **32px**. 4px base scale:
+Padding horizontal de tela: **32px**. Escala base de 4px:
 
 | Token | px  |
 |-------|-----|
@@ -202,9 +201,9 @@ export const Spacing = { 1: 4, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32, 12: 48, 16: 64 
 
 ---
 
-## Shadows (iOS / Android)
+## Sombras (iOS / Android)
 
-> React Native does not support `box-shadow` or multiple shadows. The glow effect is approximated with shadow props on iOS and `elevation` on Android.
+> React Native não suporta `box-shadow` nem múltiplas sombras. O efeito de glow é aproximado com as props de sombra no iOS e `elevation` no Android.
 
 ```ts
 // glow-pink
@@ -246,16 +245,16 @@ const glowPurple = {
 
 ---
 
-## Animations
+## Animações
 
-Uses `react-native-reanimated` (already included in the project).
+Usa `react-native-reanimated` (já incluído no projeto).
 
-| Name         | Behavior                           | Usage                |
+| Nome         | Comportamento                      | Uso                  |
 |--------------|------------------------------------|----------------------|
-| `glowPulse`  | opacity 0.6→1 + scale 1→1.05       | Decorative           |
-| `float`      | translateY 0→-12                   | Mascot / icon        |
-| `wiggle`     | rotate -3deg→3deg                  | Playful interaction  |
-| `coinSpin`   | rotateY 0→360deg                   | Coin / achievement   |
+| `glowPulse`  | opacity 0.6→1 + scale 1→1.05       | Decorativo           |
+| `float`      | translateY 0→-12                   | Mascote / ícone      |
+| `wiggle`     | rotate -3deg→3deg                  | Interação lúdica     |
+| `coinSpin`   | rotateY 0→360deg                   | Moeda / conquista    |
 
 ```ts
 import Animated, {
@@ -282,7 +281,7 @@ rotate.value = withRepeat(
   ), -1, true,
 );
 
-// coinSpin (single trigger)
+// coinSpin (disparo único)
 const rotateY = useSharedValue(0);
 const startSpin = () => { rotateY.value = withTiming(360, { duration: 600 }); };
 const animStyle = useAnimatedStyle(() => ({
@@ -290,37 +289,37 @@ const animStyle = useAnimatedStyle(() => ({
 }));
 ```
 
-> `accordion` (expand/collapse): use `react-native-reanimated` Layout Animations or `withTiming` on `height` with `useAnimatedStyle`.
+> `accordion` (expand/collapse): use `react-native-reanimated` Layout Animations ou `withTiming` em `height` com `useAnimatedStyle`.
 
 ---
 
-## Components
+## Componentes
 
-### Buttons
+### Botões
 
-| Variant     | Background             | Text                      | Shadow         |
+| Variante    | Background             | Texto                     | Sombra         |
 |-------------|------------------------|---------------------------|----------------|
 | **Primary** | `gradientPrimary`      | `#fff`                    | `glowPink`     |
 | **Gold**    | `gradientGold`         | `hsl(42, 100%, 10%)`      | `glowGold`     |
-| **Ghost**   | `transparent`          | `hsl(320, 90%, 58%)`      | 1px pink border|
-| **Secondary**| `hsl(260, 20%, 14%)`  | `hsl(0, 0%, 96%)`         | 1px border     |
+| **Ghost**   | `transparent`          | `hsl(320, 90%, 58%)`      | Borda 1px pink |
+| **Secondary**| `hsl(260, 20%, 14%)`  | `hsl(0, 0%, 96%)`         | Borda 1px border|
 
 ```tsx
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// Primary Button
+// Botão Primary
 <Pressable style={styles.btnBase}>
   <LinearGradient
     colors={['hsl(320, 90%, 58%)', 'hsl(270, 80%, 60%)']}
     start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
     style={[styles.btnBase, glowPink]}
   >
-    <Text style={styles.btnPrimaryText}>Primary</Text>
+    <Text style={styles.btnPrimaryText}>Primário</Text>
   </LinearGradient>
 </Pressable>
 
-// Ghost Button
+// Botão Ghost
 <Pressable style={[styles.btnBase, styles.btnGhost]}>
   <Text style={styles.btnGhostText}>Ghost</Text>
 </Pressable>
@@ -358,7 +357,7 @@ const styles = StyleSheet.create({
 
 ### Badges
 
-| Variant     | backgroundColor               | color                      | borderColor                   |
+| Variante    | backgroundColor               | color                      | borderColor                   |
 |-------------|-------------------------------|----------------------------|-------------------------------|
 | `destaque`  | `rgba(244, 52, 180, 0.18)`    | `hsl(320, 90%, 75%)`       | `rgba(244, 52, 180, 0.28)`    |
 | `conquista` | `rgba(247, 185, 0, 0.18)`     | `hsl(42, 100%, 75%)`       | `rgba(247, 185, 0, 0.28)`     |
@@ -369,7 +368,7 @@ const styles = StyleSheet.create({
 import { View, Text, StyleSheet } from 'react-native';
 
 <View style={[styles.badge, styles.badgeDestaque]}>
-  <Text style={[styles.badgeText, styles.badgeDestaqueText]}>Highlight</Text>
+  <Text style={[styles.badgeText, styles.badgeDestaqueText]}>Destaque</Text>
 </View>
 
 const styles = StyleSheet.create({
@@ -392,7 +391,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(244, 52, 180, 0.28)',
   },
   badgeDestaqueText: { color: 'hsl(320, 90%, 75%)' },
-  // repeat pattern for conquista, sucesso, erro...
+  // repetir padrão para conquista, sucesso, erro...
 });
 ```
 
@@ -410,8 +409,8 @@ import { LinearGradient } from 'expo-linear-gradient';
   end={{ x: 0.94, y: 1 }}
   style={styles.card}
 >
-  <Text style={styles.cardTitle}>Monthly Savings</Text>
-  <Text style={styles.cardBody}>You saved $1,200 this month.</Text>
+  <Text style={styles.cardTitle}>Economias do Mês</Text>
+  <Text style={styles.cardBody}>Você economizou R$ 1.200 este mês.</Text>
 </LinearGradient>
 
 const styles = StyleSheet.create({
@@ -440,7 +439,7 @@ const styles = StyleSheet.create({
 
 ### Navigation Item (Tab / Drawer)
 
-Mobile equivalent of the "Sidebar" pattern. Used in side menus (Drawer) or custom tabs.
+Equivalente mobile do padrão "Sidebar". Usado em menus laterais (Drawer) ou tabs customizadas.
 
 ```tsx
 import { Pressable, Text, StyleSheet } from 'react-native';
@@ -480,11 +479,11 @@ const styles = StyleSheet.create({
 
 ---
 
-## Gradient Text
+## Texto Gradiente
 
-> `-webkit-background-clip: text` **is not supported in React Native**.
+> `-webkit-background-clip: text` **não é suportado em React Native**.
 
-**Option 1 — `@react-native-masked-view/masked-view` + `expo-linear-gradient`:**
+**Opção 1 — Biblioteca `@react-native-masked-view/masked-view` + `expo-linear-gradient`:**
 
 ```tsx
 import MaskedView from '@react-native-masked-view/masked-view';
@@ -493,18 +492,18 @@ import { Text } from 'react-native';
 
 // npx expo install @react-native-masked-view/masked-view
 
-<MaskedView maskElement={<Text style={styles.displayText}>Title</Text>}>
+<MaskedView maskElement={<Text style={styles.displayText}>Título</Text>}>
   <LinearGradient
     colors={['hsl(320, 90%, 58%)', 'hsl(270, 80%, 60%)']}
     start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
   >
-    <Text style={[styles.displayText, { opacity: 0 }]}>Title</Text>
+    <Text style={[styles.displayText, { opacity: 0 }]}>Título</Text>
   </LinearGradient>
 </MaskedView>
 ```
 
-**Option 2 — Solid color (simpler):** use `color: 'hsl(320, 90%, 58%)'` (neon pink) for highlight titles without a gradient.
+**Opção 2 — Cor sólida (mais simples):** use `color: 'hsl(320, 90%, 58%)'` (neon pink) para títulos de destaque sem gradiente.
 
 ---
 
-*Adapted from github.com/CarolTea/piggy-bank-grow for React Native — May/2026*
+*Adaptado de github.com/CarolTea/piggy-bank-grow para React Native — maio/2026*
