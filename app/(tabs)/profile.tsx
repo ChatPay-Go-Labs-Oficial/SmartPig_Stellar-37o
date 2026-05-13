@@ -1,32 +1,23 @@
 import { Button } from '@/components/ui/Button';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { Colors, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useWalletConnect } from '@/lib/hooks/use-wallet-connect';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useWalletStore } from '@/lib/stores/wallet.store';
 import { router } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 export default function ProfileScreen() {
   const contractId = useAuthStore((s) => s.contractId);
   const walletAddress = useWalletStore((s) => s.walletAddress);
   const { disconnect } = useWalletConnect();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  function handleLogout() {
-    Alert.alert(
-      'Desconectar carteira',
-      'Tem certeza que deseja sair?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Sair',
-          style: 'destructive',
-          onPress: async () => {
-            await disconnect();
-            router.replace('/(auth)');
-          },
-        },
-      ],
-    );
+  async function handleConfirmLogout() {
+    setShowLogoutModal(false);
+    await disconnect();
+    router.replace('/(auth)');
   }
 
   const shortAddress = walletAddress
@@ -34,37 +25,50 @@ export default function ProfileScreen() {
     : null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.heading}>Perfil</Text>
-      <Text style={styles.sub}>Configurações e carteira</Text>
+    <>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Text style={styles.heading}>Perfil</Text>
+        <Text style={styles.sub}>Configurações e carteira</Text>
 
-      {(walletAddress || contractId) && (
-        <View style={styles.card}>
-          <Text style={styles.cardLabel}>Carteira conectada</Text>
-          {shortAddress && (
-            <Text style={styles.cardValue} numberOfLines={1}>
-              {shortAddress}
-            </Text>
-          )}
-          {contractId && (
-            <>
-              <Text style={[styles.cardLabel, { marginTop: Spacing[3] }]}>Contrato</Text>
+        {(walletAddress || contractId) && (
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Carteira conectada</Text>
+            {shortAddress && (
               <Text style={styles.cardValue} numberOfLines={1}>
-                {contractId.slice(0, 8)}…{contractId.slice(-8)}
+                {shortAddress}
               </Text>
-            </>
-          )}
-        </View>
-      )}
+            )}
+            {contractId && (
+              <>
+                <Text style={[styles.cardLabel, { marginTop: Spacing[3] }]}>Contrato</Text>
+                <Text style={styles.cardValue} numberOfLines={1}>
+                  {contractId.slice(0, 8)}…{contractId.slice(-8)}
+                </Text>
+              </>
+            )}
+          </View>
+        )}
 
-      <Button
-        label="Desconectar carteira"
+        <Button
+          label="Desconectar carteira"
+          variant="destructive"
+          fullWidth
+          style={{ marginTop: Spacing[6] }}
+          onPress={() => setShowLogoutModal(true)}
+        />
+      </ScrollView>
+
+      <ConfirmModal
+        visible={showLogoutModal}
+        title="Desconectar carteira"
+        description="Tem certeza que deseja sair? Você precisará reconectar sua carteira para acessar o app."
+        confirmLabel="Sair"
+        cancelLabel="Cancelar"
         variant="destructive"
-        fullWidth
-        style={{ marginTop: Spacing[6] }}
-        onPress={handleLogout}
+        onConfirm={handleConfirmLogout}
+        onCancel={() => setShowLogoutModal(false)}
       />
-    </ScrollView>
+    </>
   );
 }
 
