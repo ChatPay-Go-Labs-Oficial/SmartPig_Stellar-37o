@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
-import { router } from 'expo-router';
 import { ScreenContainer } from '@/components/layout';
-import { Card, Badge, GradientText } from '@/components/ui';
-import { Colors, Font, FontSize, Spacing, Accent } from '@/constants/theme';
+import { Badge, Card, GradientText } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
+import type { Vault } from '@/lib/api/vaults';
 import { useVaults } from '@/lib/queries/vaults.queries';
 import { useWalletStore } from '@/lib/stores/wallet.store';
-import type { Vault } from '@/lib/api/vaults';
+import { router } from 'expo-router';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatApy(apy: string | null): string {
   if (!apy) return '—';
@@ -103,7 +103,7 @@ export default function VaultsScreen() {
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing[6],
-    paddingTop: Spacing[6],
+    paddingTop: Spacing[12],
     paddingBottom: Spacing[4],
   },
   title: {

@@ -1,6 +1,6 @@
 {
-  "name": "smartpig-app",
-  "main": "expo-router/entry",
+  "name": "stellarpig-app",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
@@ -11,6 +11,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@creit.tech/stellar-wallets-kit": "^2.2.0",
     "@expo-google-fonts/nunito": "^0.4.2",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -19,10 +20,13 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "@tanstack/react-query": "^5.100.10",
+    "@walletconnect/react-native-compat": "^2.23.9",
     "axios": "^1.16.0",
     "buffer": "^6.0.3",
     "expo": "~54.0.33",
+    "expo-application": "~7.0.8",
     "expo-constants": "~18.0.13",
+    "expo-crypto": "~15.0.9",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",

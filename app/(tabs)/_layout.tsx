@@ -1,7 +1,7 @@
-import { Tabs } from 'expo-router';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors, Accent } from '@/constants/theme';
+import { Accent, Colors } from '@/constants/theme';
+import { Tabs } from 'expo-router';
 
 export default function TabLayout() {
   return (

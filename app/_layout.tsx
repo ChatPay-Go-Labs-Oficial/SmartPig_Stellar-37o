@@ -1,5 +1,6 @@
 import { Colors } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { initWalletConnect } from '@/lib/wallet-kit';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -9,7 +10,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/nunito';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -28,6 +29,9 @@ const queryClient = new QueryClient({
   },
 });
 
+// Initialize WalletConnect once at app startup
+initWalletConnect().catch((e) => console.warn('[WalletConnect] Init failed:', e));
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -41,9 +45,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    // if (!isAuthenticated) {
-    //   router.replace('/(auth)');
-    // }
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    } else {
+      router.replace('/(auth)');
+    }
   }, [fontsLoaded, isAuthenticated]);
 
   if (!fontsLoaded) {
@@ -53,7 +59,7 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <Stack screenOptions={{ headerShown: false }}>
-        {/* <Stack.Screen name="(auth)" /> */}
+        <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="vault/[id]" options={{ headerShown: true, title: '' }} />
       </Stack>

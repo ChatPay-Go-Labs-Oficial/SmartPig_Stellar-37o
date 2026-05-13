@@ -1,16 +1,20 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients, Spacing, Radius, Font, FontSize } from '@/constants/theme';
+import { router } from 'expo-router';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
-        <Text style={styles.title}>SmartPig</Text>
+        <Text style={styles.title}>StellarPig</Text>
         <Text style={styles.subtitle}>
           Faça seu dinheiro crescer com{'\n'}vaults DeFi na rede Stellar
         </Text>
+        <Image
+          source={require('@/assets/images/pig.png')}
+          style={styles.logo}
+        />
       </View>
 
       <View style={styles.actions}>
@@ -47,6 +51,11 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     gap: Spacing[4],
+  },
+  logo: {
+    width: 400,
+    height: 400,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: FontSize.display,

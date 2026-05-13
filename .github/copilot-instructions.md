@@ -1,4 +1,4 @@
-# Copilot Instructions — smartpig-app
+# Copilot Instructions — stellarpig-app
 
 React Native / Expo app for personal finance (piggy bank theme). Uses the **Smart Piggy design system** — documented in `docs/design-system.md`.
 
