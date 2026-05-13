@@ -45,7 +45,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    if (!isAuthenticated) {
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    } else {
       router.replace('/(auth)');
     }
   }, [fontsLoaded, isAuthenticated]);
