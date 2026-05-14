@@ -42,15 +42,18 @@ export default function RootLayout() {
   });
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isOnboarded = useAuthStore((s) => s.isOnboarded);
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    if (isAuthenticated) {
+    if (isAuthenticated && isOnboarded) {
       router.replace('/(tabs)');
+    } else if (isAuthenticated && !isOnboarded) {
+      router.replace('/onboarding' as any);
     } else {
       router.replace('/(auth)');
     }
-  }, [fontsLoaded, isAuthenticated]);
+  }, [fontsLoaded, isAuthenticated, isOnboarded]);
 
   if (!fontsLoaded) {
     return <View style={styles.splash} />;
