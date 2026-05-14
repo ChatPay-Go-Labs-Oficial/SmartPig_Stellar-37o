@@ -7,7 +7,7 @@ export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
-        <Text style={styles.title}>StellarPig</Text>
+        <Text style={styles.title}>PigFi</Text>
         <Text style={styles.subtitle}>
           Faça seu dinheiro crescer com{'\n'}vaults DeFi na rede Stellar
         </Text>

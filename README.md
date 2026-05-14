@@ -1,4 +1,4 @@
-# StellarPig 🐷
+# PigFi 🐷
 
 > 🇧🇷 [Leia em Português](README.pt-BR.md)
 
