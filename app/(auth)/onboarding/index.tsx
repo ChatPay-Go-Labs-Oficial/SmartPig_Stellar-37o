@@ -6,13 +6,11 @@ import { StepItem } from '@/components/ui/StepItem';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 const ChevronRight = () => <IconSymbol name="chevron.right" size={18} color="#fff" />;
-import { Colors, Font, FontSize, Spacing, Accent } from '@/constants/theme';
+import { Colors, Font, FontSize, Spacing } from '@/constants/theme';
 
 const STEPS = [
-  { icon: 'doc.text.fill',             title: 'Aceite de Termos', subtitle: 'Para sua segurança' },
-  { icon: 'person.fill',               title: 'Dados Pessoais',   subtitle: 'Precisamos conhecer você' },
-  { icon: 'person.text.rectangle.fill', title: 'Documentos',       subtitle: 'Verificação de identidade' },
-  { icon: 'wallet.pass.fill',          title: 'Chave PIX',        subtitle: 'Para seus saques e depósitos' },
+  { icon: 'person.fill',       title: 'Dados Pessoais',   subtitle: 'Precisamos conhecer você' },
+  { icon: 'person.badge.plus', title: 'Criação de Conta', subtitle: 'Acesso seguro via Etherfuse' },
 ] as const;
 
 export default function OnboardingWelcomeScreen() {
@@ -53,7 +51,7 @@ export default function OnboardingWelcomeScreen() {
           variant="primary"
           size="lg"
           fullWidth
-          onPress={() => router.push('/(auth)/onboarding/terms')}
+          onPress={() => router.push('/(auth)/onboarding/personal-data')}
         />
       </View>
     </SafeAreaView>

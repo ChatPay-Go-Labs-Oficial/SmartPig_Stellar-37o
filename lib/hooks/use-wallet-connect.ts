@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react';
 import { Linking } from 'react-native';
+import * as ExpoLinking from 'expo-linking';
 import { createWalletConnectPairing, disconnectWallet } from '@/lib/wallet-kit';
 import { useWalletStore } from '@/lib/stores/wallet.store';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { AuthApi } from '@/lib/api/auth.api';
 
 /**
  * Hook for WalletConnect-based wallet connection (Lobstr mobile and other WC v2 wallets).
@@ -19,6 +21,7 @@ export function useWalletConnect() {
   const setWalletAddress = useWalletStore((s) => s.setWalletAddress);
   const clearWallet = useWalletStore((s) => s.clearWallet);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setUserId = useAuthStore((s) => s.setUserId);
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   const connect = useCallback(async (): Promise<string> => {
@@ -30,7 +33,9 @@ export function useWalletConnect() {
 
       // Try Lobstr-specific deep link first, then fall back to raw WC URI.
       // redirectUrl brings the user back to this app after approving in Lobstr.
-      const redirectUrl = encodeURIComponent('stellarpigapp://');
+      // ExpoLinking.createURL resolves to the correct scheme for the current environment
+      // (stellarpigapp:// in dev builds, exp://... in Expo Go).
+      const redirectUrl = encodeURIComponent(ExpoLinking.createURL(''));
       const lobstrUri = `lobstr://wc?uri=${encodeURIComponent(uri)}&redirectUrl=${redirectUrl}`;
       const canOpenLobstr = await Linking.canOpenURL(lobstrUri);
 
@@ -47,6 +52,9 @@ export function useWalletConnect() {
       setWalletAddress(address);
       setAuth(address);
 
+      const { user } = await AuthApi.walletLogin(address);
+      setUserId(user.id);
+
       return address;
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Erro ao conectar carteira';
@@ -55,7 +63,7 @@ export function useWalletConnect() {
     } finally {
       setIsConnecting(false);
     }
-  }, [setWalletAddress, setAuth]);
+  }, [setWalletAddress, setAuth, setUserId]);
 
   const disconnect = useCallback(async (): Promise<void> => {
     try {

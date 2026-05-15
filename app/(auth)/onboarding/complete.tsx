@@ -1,31 +1,22 @@
-import { useState } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Button } from '@/components/ui/Button';
 import { StepItem } from '@/components/ui/StepItem';
-
-const ChevronRight = () => <IconSymbol name="chevron.right" size={18} color="#fff" />;
 import { GradientText } from '@/components/ui/GradientText';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useOnboardingStore } from '@/lib/stores/onboarding.store';
-import { OnboardingService } from '@/lib/services/onboarding.service';
 import { Colors, Font, FontSize, Spacing } from '@/constants/theme';
+
+const ChevronRight = () => <IconSymbol name="chevron.right" size={18} color="#fff" />;
 
 export default function OnboardingCompleteScreen() {
   const setOnboarded = useAuthStore((s) => s.setOnboarded);
   const reset = useOnboardingStore((s) => s.reset);
-  const [loading, setLoading] = useState(false);
 
-  async function handleGoToDashboard() {
-    setLoading(true);
-    try {
-      await OnboardingService.completeOnboarding();
-      reset();
-      setOnboarded(); // root layout detecta isAuthenticated && isOnboarded e vai para /(tabs)
-    } finally {
-      setLoading(false);
-    }
+  function handleGoToDashboard() {
+    reset();
+    setOnboarded();
   }
 
   return (
@@ -53,10 +44,8 @@ export default function OnboardingCompleteScreen() {
         </View>
 
         <View style={styles.steps}>
-          <StepItem icon="doc.text.fill"              title="Aceite de Termos" status="complete" />
-          <StepItem icon="person.fill"               title="Dados Pessoais"  status="complete" />
-          <StepItem icon="person.text.rectangle.fill" title="Documentos"      status="complete" />
-          <StepItem icon="wallet.pass.fill"           title="Chave PIX"       status="complete" />
+          <StepItem icon="person.fill"       title="Dados Pessoais"   status="complete" />
+          <StepItem icon="person.badge.plus" title="Criação de Conta" status="complete" />
         </View>
 
         <Button
@@ -65,7 +54,6 @@ export default function OnboardingCompleteScreen() {
           variant="primary"
           size="lg"
           fullWidth
-          loading={loading}
           onPress={handleGoToDashboard}
         />
       </View>

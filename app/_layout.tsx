@@ -1,6 +1,8 @@
 import { Colors } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { ToastContainer } from '@/components/ui/ToastContainer';
 import { initWalletConnect } from '@/lib/wallet-kit';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -60,14 +62,17 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="vault/[id]" options={{ headerShown: true, title: '' }} />
-      </Stack>
-      <StatusBar style="light" />
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="vault/[id]" options={{ headerShown: true, title: '' }} />
+        </Stack>
+        <ToastContainer />
+        <StatusBar style="light" />
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }
 

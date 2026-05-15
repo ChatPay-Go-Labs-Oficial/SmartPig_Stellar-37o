@@ -7,6 +7,8 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { TextInput } from '@/components/ui/TextInput';
 import { Button } from '@/components/ui/Button';
 import { useOnboardingStore } from '@/lib/stores/onboarding.store';
+import { useAuthStore } from '@/lib/stores/auth.store';
+import { useUIStore } from '@/lib/stores/ui.store';
 import { OnboardingService } from '@/lib/services/onboarding.service';
 import { Colors, Font, FontSize, Spacing, Accent } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -16,6 +18,9 @@ const ChevronRight = () => <IconSymbol name="chevron.right" size={18} color="#ff
 export default function PersonalDataScreen() {
   const saved = useOnboardingStore((s) => s.personalData);
   const savePersonalData = useOnboardingStore((s) => s.savePersonalData);
+  const saveEtherfuseData = useOnboardingStore((s) => s.saveEtherfuseData);
+  const userId = useAuthStore((s) => s.userId);
+  const addToast = useUIStore((s) => s.addToast);
 
   const [firstName, setFirstName] = useState(saved?.firstName ?? '');
   const [lastName, setLastName] = useState(saved?.lastName ?? '');
@@ -37,12 +42,22 @@ export default function PersonalDataScreen() {
       setErrors(e);
       return;
     }
+
+    if (!userId) {
+      addToast('Sessão inválida. Reconecte sua carteira.', 'error');
+      return;
+    }
+
     setLoading(true);
     try {
       const data = { firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() };
-      await OnboardingService.submitPersonalData(data);
+      const { etherfuseOrgId } = await OnboardingService.submitPersonalData(data, userId);
       savePersonalData(data);
-      router.push('/(auth)/onboarding/address');
+      saveEtherfuseData({ etherfuseOrgId });
+      router.push('/(auth)/onboarding/account-creation');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Erro ao salvar seus dados. Tente novamente.';
+      addToast(msg, 'error');
     } finally {
       setLoading(false);
     }
@@ -56,8 +71,8 @@ export default function PersonalDataScreen() {
       >
         <View style={styles.header}>
           <OnboardingHeader />
-          <ProgressBar currentStep={2} />
-          <Text style={styles.stepLabel}>PASSO 1/2</Text>
+          <ProgressBar currentStep={1} totalSteps={2} />
+          <Text style={styles.stepLabel}>PASSO 1 DE 2</Text>
         </View>
 
         <ScrollView
@@ -108,7 +123,7 @@ export default function PersonalDataScreen() {
 
         <View style={styles.footer}>
           <Button
-            label="Próximo: Endereço"
+            label="Próximo"
             rightIcon={<ChevronRight />}
             variant="primary"
             size="lg"
