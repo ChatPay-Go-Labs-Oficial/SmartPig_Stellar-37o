@@ -46,6 +46,7 @@ export const OnboardingService = {
       if (axios.isAxiosError(e) && e.response?.status === 400) {
         const serverMsg: string = e.response?.data?.message ?? '';
         if (serverMsg.toLowerCase().includes('already has')) {
+          console.warn('[OnboardingService] Organização já existe, buscando registro existente...');
           try {
             org = await EtherfuseApi.getOrganization();
           } catch (fetchErr) {

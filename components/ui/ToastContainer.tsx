@@ -56,23 +56,24 @@ export function ToastContainer() {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    left: Spacing[6],
-    right: Spacing[6],
+    right: Spacing[4],
     zIndex: 9999,
     gap: Spacing[2],
+    alignItems: 'flex-end',
   },
   toast: {
     borderRadius: Radius.sm,
     borderWidth: 1,
     overflow: 'hidden',
+    maxWidth: 220,
   },
   toastInner: {
-    paddingVertical: Spacing[3],
-    paddingHorizontal: Spacing[4],
+    paddingVertical: Spacing[2],
+    paddingHorizontal: Spacing[3],
   },
   message: {
     fontFamily: Font.semiBold,
-    fontSize: FontSize.bodySmall,
-    lineHeight: 20,
+    fontSize: FontSize.label,
+    lineHeight: 18,
   },
 });

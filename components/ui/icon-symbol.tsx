@@ -36,6 +36,17 @@ const MAPPING = {
   'arrow.up.right.square': 'open-in-new',
   'pencil': 'edit',
   'plus': 'add',
+  // Wallet / dashboard
+  'eye': 'visibility',
+  'eye.slash': 'visibility-off',
+  'doc.on.doc': 'content-copy',
+  'arrow.right': 'arrow-forward',
+  'exclamationmark': 'priority-high',
+  // Onboarding
+  'person.badge.plus': 'person-add',
+  'globe': 'public',
+  'checkmark.shield.fill': 'verified-user',
+  'arrow.uturn.left': 'undo',
 } as IconMapping;
 
 /**

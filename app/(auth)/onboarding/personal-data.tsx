@@ -20,6 +20,7 @@ export default function PersonalDataScreen() {
   const savePersonalData = useOnboardingStore((s) => s.savePersonalData);
   const saveEtherfuseData = useOnboardingStore((s) => s.saveEtherfuseData);
   const userId = useAuthStore((s) => s.userId);
+  const setUserName = useAuthStore((s) => s.setUserName);
   const addToast = useUIStore((s) => s.addToast);
 
   const [firstName, setFirstName] = useState(saved?.firstName ?? '');
@@ -54,6 +55,7 @@ export default function PersonalDataScreen() {
       const { etherfuseOrgId } = await OnboardingService.submitPersonalData(data, userId);
       savePersonalData(data);
       saveEtherfuseData({ etherfuseOrgId });
+      setUserName(firstName.trim());
       router.push('/(auth)/onboarding/account-creation');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Erro ao salvar seus dados. Tente novamente.';
