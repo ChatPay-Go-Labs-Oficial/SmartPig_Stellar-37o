@@ -81,6 +81,13 @@ export async function createWalletConnectPairing(): Promise<{
         events: [],
       },
     },
+    optionalNamespaces: {
+      [STELLAR_NAMESPACE]: {
+        methods: STELLAR_METHODS,
+        chains: [chain],
+        events: [],
+      },
+    },
   });
 
   if (!uri) throw new Error('Falha ao gerar URI do WalletConnect.');

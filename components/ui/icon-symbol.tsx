@@ -51,6 +51,10 @@ const MAPPING = {
   'bell.fill': 'notifications',
   'headphones': 'headset',
   'rectangle.portrait.and.arrow.right': 'logout',
+  // Balance
+  'arrow.down': 'arrow-downward',
+  'arrow.up': 'arrow-upward',
+  'arrow.clockwise': 'refresh',
 } as IconMapping;
 
 /**
