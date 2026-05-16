@@ -47,6 +47,10 @@ const MAPPING = {
   'globe': 'public',
   'checkmark.shield.fill': 'verified-user',
   'arrow.uturn.left': 'undo',
+  // Profile
+  'bell.fill': 'notifications',
+  'headphones': 'headset',
+  'rectangle.portrait.and.arrow.right': 'logout',
 } as IconMapping;
 
 /**

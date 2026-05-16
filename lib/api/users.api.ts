@@ -15,6 +15,9 @@ export interface UpdateUserDto {
 }
 
 export const UsersApi = {
+  getUser: (userId: string): Promise<UserResponse> =>
+    apiClient.get<UserResponse>(`/users/${userId}`).then((r) => r.data),
+
   updateUser: (userId: string, data: UpdateUserDto): Promise<UserResponse> =>
     apiClient
       .patch<UserResponse>(`/users/${userId}`, data)
