@@ -36,4 +36,9 @@ export const EtherfuseApi = {
     apiClient
       .post<PresignedUrlResponse>('/etherfuse/onboarding/presigned-url', { userId, pubkey })
       .then((r) => r.data),
+
+  syncBankAccounts: (userId: string): Promise<void> =>
+    apiClient
+      .post('/etherfuse/onboarding/bank-accounts/sync', { userId })
+      .then(() => undefined),
 };

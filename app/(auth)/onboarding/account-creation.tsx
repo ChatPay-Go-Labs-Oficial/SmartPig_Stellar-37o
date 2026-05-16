@@ -12,6 +12,7 @@ import { useAuthStore } from '@/lib/stores/auth.store';
 import { useOnboardingStore } from '@/lib/stores/onboarding.store';
 import { useUIStore } from '@/lib/stores/ui.store';
 import { OnboardingService } from '@/lib/services/onboarding.service';
+import { EtherfuseApi } from '@/lib/api/etherfuse.api';
 import { Colors, Font, FontSize, Spacing, Accent, Radius, Gradients } from '@/constants/theme';
 
 const ChevronRight = () => <IconSymbol name="chevron.right" size={18} color="#fff" />;
@@ -55,6 +56,11 @@ export default function AccountCreationScreen() {
       );
       saveBankAccountId(bankAccountId);
       await openBrowserAsync(presignedUrl);
+      try {
+        await EtherfuseApi.syncBankAccounts(userId);
+      } catch (e) {
+        console.warn('[AccountCreation] syncBankAccounts falhou:', e);
+      }
       router.replace('/(auth)/onboarding/complete');
     } catch {
       addToast('Erro ao gerar o link de criação de conta. Tente novamente.', 'error');
