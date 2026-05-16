@@ -56,6 +56,13 @@ export default function AccountCreationScreen() {
       );
       saveBankAccountId(bankAccountId);
       await openBrowserAsync(presignedUrl);
+      // Explicitly accept all 3 Etherfuse agreements — required before creating orders.
+      // The browser flow shows the agreements, but the API calls are what register acceptance.
+      try {
+        await EtherfuseApi.acceptAgreements(userId, presignedUrl);
+      } catch (e) {
+        console.warn('[AccountCreation] acceptAgreements falhou:', e);
+      }
       try {
         await EtherfuseApi.syncBankAccounts(userId);
       } catch (e) {

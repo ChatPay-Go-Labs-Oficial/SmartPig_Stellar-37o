@@ -90,7 +90,7 @@ export default function HomeScreen() {
               variant="primary"
               size="md"
               fullWidth
-              onPress={() => addToast('Em breve', 'info')}
+              onPress={() => router.push('/(modals)/deposit' as any)}
             />
           </View>
           <View style={styles.balanceBtn}>
