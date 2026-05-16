@@ -1,22 +1,13 @@
-import { useState } from 'react';
-import * as Clipboard from 'expo-clipboard';
 import { ScreenContainer } from '@/components/layout';
 import { Badge, Button, Card, GradientText } from '@/components/ui';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Accent, Colors, Font, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useUIStore } from '@/lib/stores/ui.store';
-import { useWalletStore } from '@/lib/stores/wallet.store';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-
-function truncateAddress(address: string): string {
-  if (address.length <= 12) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
 
 function formatApy(apy: string | null): string {
   if (!apy) return '—';
@@ -37,11 +28,6 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 
 export default function HomeScreen() {
   const userName = useAuthStore((s) => s.userName);
-  const contractId = useAuthStore((s) => s.contractId);
-  const walletAddress = useWalletStore((s) => s.walletAddress);
-  const addToast = useUIStore((s) => s.addToast);
-
-  const [addressVisible, setAddressVisible] = useState(false);
 
   const { data: vaults, isLoading: vaultsLoading } = useVaults();
   const { data: deposits } = useDeposits();
@@ -50,61 +36,28 @@ export default function HomeScreen() {
   const activeVaultIds = [...new Set(confirmedDeposits.map((d) => d.vaultId))];
   const activeVaults = vaults?.filter((v) => activeVaultIds.includes(v.id)) ?? [];
 
-  const address = walletAddress ?? contractId ?? '';
-
-  async function handleCopy() {
-    if (!address) return;
-    await Clipboard.setStringAsync(address);
-    addToast('Endereço copiado!', 'success');
-  }
-
   return (
     <ScreenContainer>
-      {/* Header — apenas logo */}
       <View style={styles.header}>
         <GradientText variant="primary" style={styles.logo}>PigFi</GradientText>
       </View>
 
-      {/* Greeting — acima do card da carteira */}
       <View style={styles.greetingBlock}>
         <Text style={styles.greetingLine}>
           Olá,{' '}
           <Text style={styles.greetingName}>{userName ?? 'bem-vindo'}</Text>!
         </Text>
-        <Text style={styles.greetingSub}>Aqui está o resumo da sua carteira.</Text>
+        <Text style={styles.greetingSub}>Aqui está o resumo dos seus investimentos.</Text>
       </View>
 
-      {/* Wallet card */}
-      <View style={styles.walletCard}>
-        <View style={styles.walletTop}>
-          <Text style={styles.walletLabel}>CARTEIRA PIGFI</Text>
-          <View style={styles.walletActions}>
-            <Pressable onPress={() => setAddressVisible((v) => !v)} hitSlop={8} style={styles.iconBtn}>
-              <IconSymbol
-                name={addressVisible ? 'eye.slash' : 'eye'}
-                size={18}
-                color={Colors.mutedForeground}
-              />
-            </Pressable>
-            <Pressable onPress={handleCopy} hitSlop={8} style={styles.iconBtn}>
-              <IconSymbol name="doc.on.doc" size={18} color={Colors.mutedForeground} />
-            </Pressable>
-          </View>
-        </View>
-
-        <Text style={styles.walletAddress} numberOfLines={addressVisible ? undefined : 1}>
-          {address ? (addressVisible ? address : truncateAddress(address)) : '—'}
+      <View style={styles.summaryRow}>
+        <View style={styles.activeDot} />
+        <Text style={styles.summaryText}>
+          <Text style={styles.summaryCount}>{vaultsLoading ? '—' : activeVaults.length}</Text>
+          {' '}investimento{activeVaults.length !== 1 ? 's' : ''} ativo{activeVaults.length !== 1 ? 's' : ''}
         </Text>
-
-        <View style={styles.walletFooter}>
-          <View style={styles.activeDot} />
-          <Text style={styles.walletSub}>
-            Investimentos Ativos: {activeVaults.length}
-          </Text>
-        </View>
       </View>
 
-      {/* Investments section */}
       <Text style={styles.sectionTitle}>Seus Investimentos</Text>
 
       {vaultsLoading && (
@@ -175,57 +128,28 @@ const styles = StyleSheet.create({
     color: Colors.mutedForeground,
   },
 
-  // Wallet card
-  walletCard: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    padding: Spacing[6],
-    marginBottom: Spacing[6],
-    gap: Spacing[3],
-  },
-  walletTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  walletLabel: {
-    fontSize: FontSize.label,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-    letterSpacing: 1,
-  },
-  walletActions: {
-    flexDirection: 'row',
-    gap: Spacing[3],
-  },
-  iconBtn: {
-    padding: Spacing[1],
-  },
-  walletAddress: {
-    fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
-    color: Colors.foreground,
-  },
-  walletFooter: {
+  summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing[2],
+    marginBottom: Spacing[4],
   },
   activeDot: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     backgroundColor: Accent.success,
   },
-  walletSub: {
+  summaryText: {
     fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  summaryCount: {
+    fontFamily: Font.bold,
     color: Accent.success,
   },
 
-  // Section
   sectionTitle: {
     fontSize: FontSize.subheading,
     fontFamily: Font.extraBold,
@@ -233,7 +157,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[3],
   },
 
-  // Active vaults
   vaultsCard: { padding: 0, overflow: 'hidden' },
   vaultRow: {
     flexDirection: 'row',
@@ -258,7 +181,6 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing[4],
   },
 
-  // Empty state
   emptyCard: {
     alignItems: 'center',
     gap: Spacing[3],
