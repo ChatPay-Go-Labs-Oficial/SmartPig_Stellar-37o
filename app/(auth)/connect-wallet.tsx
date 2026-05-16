@@ -10,7 +10,7 @@ export default function ConnectWalletScreen() {
   async function handleConnect() {
     try {
       await connect();
-      router.replace('/onboarding' as any);
+      // _layout.tsx lida com o roteamento baseado em isAuthenticated + isOnboarded
     } catch {
       // error already set in hook state
     }

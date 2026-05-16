@@ -102,6 +102,9 @@ export default function DepositQuoteScreen() {
           etherfuseOrderId: order.etherfuseOrderId ?? '',
           sourceAmount: order.sourceAmount,
           destinationAmount: order.destinationAmount,
+          depositInstructions: order.depositInstructions
+            ? JSON.stringify(order.depositInstructions)
+            : '',
         },
       });
     } catch (e: any) {
@@ -133,6 +136,9 @@ export default function DepositQuoteScreen() {
               etherfuseOrderId: order.etherfuseOrderId ?? '',
               sourceAmount: order.sourceAmount,
               destinationAmount: order.destinationAmount,
+              depositInstructions: order.depositInstructions
+                ? JSON.stringify(order.depositInstructions)
+                : '',
             },
           });
           return;

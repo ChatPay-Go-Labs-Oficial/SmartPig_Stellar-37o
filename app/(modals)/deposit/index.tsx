@@ -24,6 +24,7 @@ const DEPOSIT_SOURCE_ASSET = 'BRL';
 
 // Etherfuse requires the full Stellar asset identifier (code:issuer).
 const _isTestnet = (process.env.EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE ?? '').includes('Test');
+const _isMock = process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true';
 const DEPOSIT_TARGET_ASSET = _isTestnet
   ? 'USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
   : 'USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
@@ -48,10 +49,28 @@ export default function DepositAmountScreen() {
   const canQuote = !isNaN(parsedAmount) && parsedAmount >= 1 && !!compliantAccount && !!walletAddress;
 
   async function ensureTrustline(): Promise<boolean> {
+    if (_isMock) return true;
     if (!walletAddress) return true;
     try {
       const has = await TrustlineService.hasTrustline(walletAddress);
       if (has) return true;
+
+      // On testnet, if the account doesn't exist yet, activate it via Friendbot automatically.
+      // On mainnet the user must fund the account themselves.
+      const exists = await TrustlineService.accountExists(walletAddress);
+      if (!exists) {
+        if (!_isTestnet) {
+          addToast(
+            'Sua conta Stellar não está ativada. Envie XLM para o endereço da sua carteira para ativá-la.',
+            'error',
+          );
+          return false;
+        }
+        setLoadingLabel('Ativando conta no testnet…');
+        await TrustlineService.fundWithFriendbot(walletAddress);
+        setLoadingLabel('Conta ativada! Configurando trustline…');
+      }
+
       if (!hasActiveSession()) {
         addToast('Conecte sua carteira para continuar', 'error');
         return false;
@@ -72,11 +91,16 @@ export default function DepositAmountScreen() {
       if (errMsg.includes('cancel') || errMsg.includes('reject') || errMsg.includes('declined')) {
         addToast('Aprovação cancelada. Abra o Lobstr e aprove a trustline para continuar.', 'info');
       } else if (errMsg.includes('horizon rejeitou')) {
-        // Show the result_codes directly so the exact failure is visible.
         addToast(e.message, 'error');
       } else {
-        console.warn('[Trustline] Failed:', e?.message ?? e);
-        addToast('Falha ao configurar trustline USDC. Tente novamente.', 'error');
+        const detail =
+          e?.response?.data?.message ??
+          e?.response?.data?.detail ??
+          e?.response?.status ??
+          e?.message ??
+          'erro desconhecido';
+        console.error('[Trustline] Unexpected error:', e);
+        addToast(`Trustline falhou: ${detail}`, 'error');
       }
       return false;
     }
@@ -222,7 +246,6 @@ const styles = StyleSheet.create({
     fontFamily: Font.extraBold,
     color: Colors.foreground,
   },
-
   amountCard: {
     backgroundColor: Colors.surface,
     borderWidth: 1,

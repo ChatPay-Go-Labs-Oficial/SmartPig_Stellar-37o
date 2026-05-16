@@ -18,9 +18,11 @@ export function useWalletConnect() {
   const [error, setError] = useState<string | null>(null);
 
   const setWalletAddress = useWalletStore((s) => s.setWalletAddress);
+  const setWalletAccountId = useWalletStore((s) => s.setWalletAccountId);
   const clearWallet = useWalletStore((s) => s.clearWallet);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setUserId = useAuthStore((s) => s.setUserId);
+  const setOnboarded = useAuthStore((s) => s.setOnboarded);
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   const connect = useCallback(async (): Promise<string> => {
@@ -54,8 +56,10 @@ export function useWalletConnect() {
       setWalletAddress(address);
       setAuth(address);
 
-      const { user } = await AuthApi.walletLogin(address);
+      const { user, wallet, isOnboarded } = await AuthApi.walletLogin(address);
       setUserId(user.id);
+      setWalletAccountId(wallet.id);
+      if (isOnboarded) setOnboarded();
 
       return address;
     } catch (e) {
@@ -65,7 +69,7 @@ export function useWalletConnect() {
     } finally {
       setIsConnecting(false);
     }
-  }, [setWalletAddress, setAuth, setUserId]);
+  }, [setWalletAddress, setWalletAccountId, setAuth, setUserId]);
 
   const disconnect = useCallback(async (): Promise<void> => {
     try {

@@ -2,15 +2,24 @@ import { ScreenContainer } from '@/components/layout';
 import { Button, Card } from '@/components/ui';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
-import { EtherfuseApi } from '@/lib/api/etherfuse.api';
+import { EtherfuseApi, DepositInstructions } from '@/lib/api/etherfuse.api';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useUIStore } from '@/lib/stores/ui.store';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Clipboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-const IS_SANDBOX = (process.env.EXPO_PUBLIC_API_URL ?? '').includes('localhost') ||
-  (process.env.EXPO_PUBLIC_ETHERFUSE_SANDBOX === 'true');
+const IS_SANDBOX =
+  (process.env.EXPO_PUBLIC_API_URL ?? '').includes('localhost') ||
+  process.env.EXPO_PUBLIC_ETHERFUSE_SANDBOX === 'true' ||
+  process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true';
 
 function formatAmount(val: string | number, decimals = 2): string {
   return parseFloat(String(val)).toLocaleString('pt-BR', {
@@ -66,10 +75,30 @@ export default function DepositPaymentScreen() {
     etherfuseOrderId: string;
     sourceAmount: string;
     destinationAmount: string;
+    depositInstructions: string;
   }>();
+
+  const instructions: DepositInstructions | null = params.depositInstructions
+    ? (() => {
+        try {
+          return JSON.parse(params.depositInstructions) as DepositInstructions;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
 
   const [simulating, setSimulating] = useState(false);
   const [simulated, setSimulated] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function handleCopyPix() {
+    if (!instructions?.pixKey) return;
+    Clipboard.setString(instructions.pixKey);
+    setCopied(true);
+    addToast('Chave PIX copiada!', 'success');
+    setTimeout(() => setCopied(false), 3000);
+  }
 
   async function handleSimulate() {
     if (!userId) return;
@@ -77,7 +106,11 @@ export default function DepositPaymentScreen() {
     try {
       await EtherfuseApi.sandboxSimulatePayment(params.orderId, userId);
       setSimulated(true);
-      addToast('Pagamento simulado! USDC será creditado em breve.', 'sucesso');
+      addToast('Pagamento simulado! USDC será creditado em breve.', 'success');
+      setTimeout(() => {
+        router.dismissAll();
+        router.replace('/(tabs)');
+      }, 1500);
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? e?.message ?? 'Erro ao simular pagamento';
       addToast(typeof msg === 'string' ? msg : 'Erro ao simular pagamento', 'error');
@@ -87,7 +120,7 @@ export default function DepositPaymentScreen() {
   }
 
   return (
-    <ScreenContainer scrollable={false}>
+    <ScreenContainer scrollable>
       {/* Header */}
       <View style={styles.header}>
         <View style={{ width: 20 }} />
@@ -100,17 +133,69 @@ export default function DepositPaymentScreen() {
       {/* Success icon */}
       <View style={styles.heroBlock}>
         <View style={styles.successIcon}>
-          <IconSymbol name="checkmark.circle.fill" size={48} color={Accent.success} />
+          <IconSymbol name="checkmark.circle.fill" size={56} color={Accent.success} />
         </View>
         <Text style={styles.heroTitle}>Pedido confirmado!</Text>
         <Text style={styles.heroSub}>
-          Assim que recebermos seu pagamento em BRL, enviaremos{' '}
+          Pague via PIX o valor abaixo para receber{' '}
           <Text style={styles.heroHighlight}>
             {formatAmount(params.destinationAmount, 4)} USDC
           </Text>{' '}
-          para sua carteira Stellar.
+          na sua carteira Stellar.
         </Text>
       </View>
+
+      {/* PIX Payment Instructions */}
+      {instructions ? (
+        <Card style={styles.pixCard}>
+          <View style={styles.pixHeader}>
+            <IconSymbol name="qrcode" size={18} color={Accent.primary} />
+            <Text style={styles.pixTitle}>Instrução de Pagamento PIX</Text>
+          </View>
+
+          <View style={styles.pixAmountRow}>
+            <Text style={styles.pixAmountLabel}>Valor a pagar</Text>
+            <Text style={styles.pixAmount}>
+              R$ {formatAmount(instructions.amount)}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.pixKeyBlock}>
+            <Text style={styles.pixKeyLabel}>Chave PIX ({instructions.pixKeyType?.toUpperCase()})</Text>
+            <View style={styles.pixKeyRow}>
+              <Text style={styles.pixKey} numberOfLines={1} ellipsizeMode="middle">
+                {instructions.pixKey}
+              </Text>
+              <Pressable
+                onPress={handleCopyPix}
+                style={[styles.copyBtn, copied && styles.copyBtnDone]}
+                hitSlop={8}
+              >
+                <IconSymbol
+                  name={copied ? 'checkmark' : 'doc.on.doc'}
+                  size={14}
+                  color={copied ? Accent.success : Accent.primary}
+                />
+                <Text style={[styles.copyLabel, copied && styles.copyLabelDone]}>
+                  {copied ? 'Copiado' : 'Copiar'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {instructions.beneficiaryName ? (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.pixBeneficiaryRow}>
+                <Text style={styles.pixKeyLabel}>Beneficiário</Text>
+                <Text style={styles.pixBeneficiary}>{instructions.beneficiaryName}</Text>
+              </View>
+            </>
+          ) : null}
+        </Card>
+      ) : null}
 
       {/* Order details */}
       <Card style={styles.detailCard}>
@@ -122,7 +207,7 @@ export default function DepositPaymentScreen() {
         <View style={styles.divider} />
         <InfoRow
           icon="arrow.down"
-          label="Valor a pagar"
+          label="Valor enviado"
           value={`R$ ${formatAmount(params.sourceAmount)}`}
         />
         <View style={styles.divider} />
@@ -136,15 +221,17 @@ export default function DepositPaymentScreen() {
       <View style={styles.notice}>
         <IconSymbol name="exclamationmark" size={13} color={Colors.mutedForeground} />
         <Text style={styles.noticeText}>
-          As instruções de pagamento PIX foram enviadas ao nosso parceiro Etherfuse.
-          O crédito ocorre automaticamente após confirmação da transferência.
+          O USDC será creditado automaticamente na sua carteira Stellar após a
+          confirmação do pagamento PIX.
         </Text>
       </View>
 
       {/* Sandbox simulate */}
       {IS_SANDBOX && (
         <Card style={styles.sandboxCard}>
-          <Text style={styles.sandboxTitle}>Ambiente Sandbox</Text>
+          <Text style={styles.sandboxTitle}>
+            {process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true' ? 'MODO MOCK' : 'AMBIENTE SANDBOX'}
+          </Text>
           <Text style={styles.sandboxSub}>
             Simule o recebimento do pagamento para testar o fluxo completo.
           </Text>
@@ -192,6 +279,7 @@ const styles = StyleSheet.create({
     fontFamily: Font.extraBold,
     color: Colors.foreground,
   },
+
   heroBlock: {
     alignItems: 'center',
     gap: Spacing[3],
@@ -218,8 +306,90 @@ const styles = StyleSheet.create({
     fontFamily: Font.bold,
     color: Accent.success,
   },
+
+  pixCard: {
+    gap: Spacing[3],
+    marginBottom: Spacing[4],
+    borderColor: Accent.primary,
+    borderWidth: 1,
+  },
+  pixHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+  },
+  pixTitle: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Accent.primary,
+    letterSpacing: 0.5,
+  },
+  pixAmountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pixAmountLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  pixAmount: {
+    fontSize: FontSize.subheading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  pixKeyBlock: {
+    gap: Spacing[2],
+  },
+  pixKeyLabel: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  pixKeyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+  },
+  pixKey: {
+    flex: 1,
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(244, 52, 180, 0.12)',
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[1],
+    borderRadius: 8,
+  },
+  copyBtnDone: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
+  copyLabel: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Accent.primary,
+  },
+  copyLabelDone: {
+    color: Accent.success,
+  },
+  pixBeneficiaryRow: {
+    gap: 2,
+  },
+  pixBeneficiary: {
+    fontSize: FontSize.body,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+
   detailCard: {
     gap: Spacing[3],
+    marginBottom: Spacing[4],
   },
   divider: {
     height: 1,
@@ -229,7 +399,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: Spacing[2],
-    marginTop: Spacing[4],
+    marginBottom: Spacing[4],
     paddingHorizontal: Spacing[1],
   },
   noticeText: {
@@ -240,16 +410,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   sandboxCard: {
-    marginTop: Spacing[4],
+    marginBottom: Spacing[4],
     gap: Spacing[3],
     borderColor: Accent.accent,
     borderWidth: 1,
   },
   sandboxTitle: {
-    fontSize: FontSize.bodySmall,
+    fontSize: FontSize.label,
     fontFamily: Font.bold,
     color: Accent.accent,
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   sandboxSub: {
     fontSize: FontSize.label,
@@ -258,7 +428,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   footer: {
-    marginTop: 'auto',
-    paddingTop: Spacing[4],
+    paddingTop: Spacing[2],
+    paddingBottom: Spacing[4],
   },
 });

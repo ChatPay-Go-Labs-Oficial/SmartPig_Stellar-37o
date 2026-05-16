@@ -1,4 +1,12 @@
 import { apiClient } from './client';
+import {
+  MOCK_BANK_ACCOUNT,
+  mockCreateOnramp,
+  mockGetQuote,
+  mockSimulatePayment,
+} from './etherfuse.mock';
+
+const IS_MOCK = process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true';
 
 export interface CreateOrganizationDto {
   userId: string;
@@ -57,6 +65,15 @@ export interface CreateOnrampDto {
   destinationAmount: string;
 }
 
+export interface DepositInstructions {
+  pixKey: string;
+  pixKeyType: 'evp' | 'cpf' | 'cnpj' | 'email' | 'phone';
+  amount: number;
+  currency: string;
+  bankName?: string;
+  beneficiaryName?: string;
+}
+
 export interface OnrampOrder {
   id: string;
   etherfuseOrderId?: string | null;
@@ -66,6 +83,7 @@ export interface OnrampOrder {
   sourceAsset: string;
   targetAsset: string;
   walletAddress: string;
+  depositInstructions?: DepositInstructions | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -114,28 +132,46 @@ export const EtherfuseApi = {
     await apiClient.post('/etherfuse/onboarding/agreements/customer', { userId, presignedUrl });
   },
 
-  listBankAccounts: (): Promise<BankAccount[]> =>
-    apiClient
+  listBankAccounts: (): Promise<BankAccount[]> => {
+    if (IS_MOCK) return Promise.resolve([MOCK_BANK_ACCOUNT]);
+    return apiClient
       .get<BankAccount[]>('/etherfuse/onboarding/bank-accounts')
-      .then((r) => r.data),
+      .then((r) => r.data);
+  },
 
-  getQuote: (data: GetQuoteDto): Promise<QuoteResponse> =>
-    apiClient
+  getQuote: (data: GetQuoteDto): Promise<QuoteResponse> => {
+    if (IS_MOCK) return Promise.resolve(mockGetQuote(data.sourceAmount));
+    return apiClient
       .post<QuoteResponse>('/etherfuse/quote', data)
-      .then((r) => r.data),
+      .then((r) => r.data);
+  },
 
-  createOnramp: (data: CreateOnrampDto): Promise<OnrampOrder> =>
-    apiClient
+  createOnramp: (data: CreateOnrampDto): Promise<OnrampOrder> => {
+    if (IS_MOCK) {
+      return Promise.resolve(
+        mockCreateOnramp({
+          sourceAmount: data.sourceAmount,
+          destinationAmount: data.destinationAmount,
+          walletAddress: data.walletAddress,
+          sourceAsset: data.sourceAsset,
+          targetAsset: data.targetAsset,
+        }),
+      );
+    }
+    return apiClient
       .post<OnrampOrder>('/etherfuse/onramp', data)
-      .then((r) => r.data),
+      .then((r) => r.data);
+  },
 
   getOrder: (id: string, userId: string): Promise<OnrampOrder> =>
     apiClient
       .get<OnrampOrder>(`/etherfuse/orders/${id}`, { params: { userId } })
       .then((r) => r.data),
 
-  sandboxSimulatePayment: (orderId: string, userId: string): Promise<{ simulated: boolean }> =>
-    apiClient
+  sandboxSimulatePayment: (orderId: string, userId: string): Promise<{ simulated: boolean }> => {
+    if (IS_MOCK) return Promise.resolve(mockSimulatePayment());
+    return apiClient
       .post<{ simulated: boolean }>(`/etherfuse/sandbox/onramp/${orderId}/simulate-payment`, { userId })
-      .then((r) => r.data),
+      .then((r) => r.data);
+  },
 };

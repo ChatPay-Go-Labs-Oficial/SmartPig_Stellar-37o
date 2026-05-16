@@ -112,6 +112,43 @@ export async function signTransaction(xdr: string): Promise<string> {
   const session = sessions[sessions.length - 1];
   const chain = getStellarChain();
 
+  // ── Diagnóstico: logar o que a sessão WC reporta ──────────────────────
+  const sessionAccounts = session.namespaces?.[STELLAR_NAMESPACE]?.accounts ?? [];
+  console.log('[WalletKit] signTransaction ─────────────────────────');
+  console.log('[WalletKit] chain esperado (app):', chain);
+  console.log('[WalletKit] session topic:', session.topic);
+  console.log('[WalletKit] session accounts:', JSON.stringify(sessionAccounts));
+  console.log('[WalletKit] session chains:', JSON.stringify(session.namespaces?.[STELLAR_NAMESPACE]?.chains ?? []));
+  console.log('[WalletKit] XDR (primeiros 80 chars):', xdr.slice(0, 80));
+
+  // Detectar mismatch de rede: app é testnet mas Lobstr retornou conta pubnet (mainnet)
+  // Isso causa tx_bad_auth porque o passphrase de assinatura seria diferente.
+  const sessionChains: string[] = session.namespaces?.[STELLAR_NAMESPACE]?.chains ?? [];
+  const sessionAcctChains = sessionAccounts.map((a) => a.split(':').slice(0, 2).join(':'));
+  const allChains = [...new Set([...sessionChains, ...sessionAcctChains])];
+  const hasTestnet = allChains.some((c) => c.includes('testnet'));
+  const hasMainnet = allChains.some((c) => c.includes('pubnet'));
+  const isAppTestnet = chain === 'stellar:testnet';
+
+  console.log('[WalletKit] rede do Lobstr:', hasTestnet ? 'TESTNET' : hasMainnet ? 'MAINNET (pubnet)' : 'desconhecida');
+  console.log('[WalletKit] rede do app:', isAppTestnet ? 'TESTNET' : 'MAINNET');
+
+  if (isAppTestnet && hasMainnet && !hasTestnet) {
+    const err = new Error(
+      'Lobstr está em modo MAINNET mas o app está em TESTNET. ' +
+      'Abra o Lobstr → Configurações → Rede → mude para Testnet e reconecte a carteira.',
+    );
+    console.error('[WalletKit] NETWORK MISMATCH:', err.message);
+    throw err;
+  }
+  if (!isAppTestnet && hasTestnet && !hasMainnet) {
+    const err = new Error(
+      'Lobstr está em modo TESTNET mas o app está em MAINNET. Reconecte a carteira.',
+    );
+    console.error('[WalletKit] NETWORK MISMATCH:', err.message);
+    throw err;
+  }
+
   // Fire the WC request first (don't await yet), then open Lobstr so the user
   // sees the signing prompt immediately — push notifications are unreliable in
   // dev builds and Lobstr needs to be in the foreground to respond.
@@ -131,8 +168,11 @@ export async function signTransaction(xdr: string): Promise<string> {
     Linking.openURL('lobstr://').catch(() => {}),
   );
 
-  const { signedXDR } = await requestPromise;
-  return signedXDR;
+  const response = await requestPromise;
+  console.log('[WalletKit] resposta WC raw:', JSON.stringify(response));
+  const signedXDR = (response as any)?.signedXDR ?? (response as any)?.signed_xdr ?? response;
+  console.log('[WalletKit] signedXDR (primeiros 60):', String(signedXDR).slice(0, 60));
+  return String(signedXDR);
 }
 
 export async function disconnectWallet(): Promise<void> {
