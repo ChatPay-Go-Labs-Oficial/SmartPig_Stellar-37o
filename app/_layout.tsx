@@ -14,9 +14,10 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
+import { OnboardingService } from '@/lib/services/onboarding.service';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -44,20 +45,67 @@ export default function RootLayout() {
   });
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const isOnboarded = useAuthStore((s) => s.isOnboarded);
+  const userId = useAuthStore((s) => s.userId);
+  const onboardingStatus = useAuthStore((s) => s.onboardingStatus);
+  const setOnboardingStatus = useAuthStore((s) => s.setOnboardingStatus);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  const [validatedUserId, setValidatedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    if (isAuthenticated && isOnboarded) {
-      router.replace('/(tabs)');
-    } else if (isAuthenticated && !isOnboarded) {
-      router.replace('/onboarding' as any);
-    } else {
+    if (!isAuthenticated) {
+      setValidatedUserId(null);
+      setIsCheckingOnboarding(false);
       router.replace('/(auth)');
+      return;
     }
-  }, [fontsLoaded, isAuthenticated, isOnboarded]);
+    if (!userId) return;
 
-  if (!fontsLoaded) {
+    let isActive = true;
+    setValidatedUserId(null);
+    setIsCheckingOnboarding(true);
+
+    OnboardingService.resolveOnboardingStatus(userId)
+      .then(({ status }) => {
+        if (!isActive) return;
+        setOnboardingStatus(status);
+        setValidatedUserId(userId);
+      })
+      .catch((e) => {
+        if (!isActive) return;
+        console.warn('[RootLayout] Falha ao validar onboarding:', e);
+        setOnboardingStatus('not_started');
+        setValidatedUserId(userId);
+      })
+      .finally(() => {
+        if (isActive) {
+          setIsCheckingOnboarding(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [fontsLoaded, isAuthenticated, userId, setOnboardingStatus]);
+
+  useEffect(() => {
+    if (!fontsLoaded) return;
+    if (!isAuthenticated) {
+      router.replace('/(auth)');
+      return;
+    }
+    if (!userId || isCheckingOnboarding || validatedUserId !== userId) return;
+
+    if (onboardingStatus === 'completed') {
+      router.replace('/(tabs)');
+    } else if (onboardingStatus === 'organization_created') {
+      router.replace('/(auth)/onboarding/account-creation');
+    } else {
+      router.replace('/onboarding' as any);
+    }
+  }, [fontsLoaded, isAuthenticated, isCheckingOnboarding, onboardingStatus, userId, validatedUserId]);
+
+  if (!fontsLoaded || (isAuthenticated && (!userId || isCheckingOnboarding || validatedUserId !== userId))) {
     return <View style={styles.splash} />;
   }
 

@@ -10,7 +10,6 @@ export default function ConnectWalletScreen() {
   async function handleConnect() {
     try {
       await connect();
-      router.replace('/onboarding' as any);
     } catch {
       // error already set in hook state
     }

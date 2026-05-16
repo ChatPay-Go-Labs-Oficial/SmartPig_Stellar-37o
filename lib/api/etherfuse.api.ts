@@ -14,6 +14,7 @@ export interface OrganizationResponse {
   kycStatus: string;
   createdAt: string;
   updatedAt: string;
+  bankAccounts?: BankAccount[];
 }
 
 export interface PresignedUrlResponse {

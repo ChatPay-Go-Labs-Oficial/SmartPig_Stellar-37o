@@ -12,6 +12,10 @@ export interface PresignedUrlResult {
   bankAccountId: string;
 }
 
+export interface ResolveOnboardingStatusResult {
+  status: 'not_started' | 'organization_created' | 'completed';
+}
+
 function extractErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
     const data = e.response?.data;
@@ -88,5 +92,43 @@ export const OnboardingService = {
       console.error('[OnboardingService] getPresignedUrl falhou:', msg, e);
       throw new Error(msg);
     }
+  },
+
+  resolveOnboardingStatus: async (userId: string): Promise<ResolveOnboardingStatusResult> => {
+    let organization;
+
+    try {
+      organization = await EtherfuseApi.getOrganization();
+    } catch (e) {
+      if (axios.isAxiosError(e) && e.response?.status === 404) {
+        return { status: 'not_started' };
+      }
+      const msg = extractErrorMessage(e);
+      console.error('[OnboardingService] getOrganization falhou:', msg, e);
+      throw new Error(`Etherfuse: ${msg}`);
+    }
+
+    try {
+      await EtherfuseApi.syncBankAccounts(userId);
+    } catch (e) {
+      const msg = extractErrorMessage(e);
+      console.warn('[OnboardingService] syncBankAccounts falhou durante validação:', msg);
+    }
+
+    try {
+      const bankAccounts = await EtherfuseApi.listBankAccounts();
+      if (bankAccounts.length > 0) {
+        return { status: 'completed' };
+      }
+    } catch (e) {
+      const msg = extractErrorMessage(e);
+      console.warn('[OnboardingService] listBankAccounts falhou durante validação:', msg);
+    }
+
+    return {
+      status: organization.bankAccounts && organization.bankAccounts.length > 0
+        ? 'completed'
+        : 'organization_created',
+    };
   },
 };
