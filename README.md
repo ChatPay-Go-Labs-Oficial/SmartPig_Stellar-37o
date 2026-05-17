@@ -365,3 +365,15 @@ The blockchain and DeFi layers are infrastructure, not the user-facing story.
 ## Disclaimer
 
 PigFi is currently a hackathon MVP running in a testnet environment. It is not a regulated production investment product and must not be used as financial advice. Any production release would require additional compliance, custody, risk, legal, security and infrastructure reviews.
+---
+## Current project status
+
+This version represents the current state of the product for the hackathon submission.
+
+> **Evaluation branch note**
+>
+> For this hackathon submission, we are using the `feat/build-mvp` branch because it contains the mock data and temporary behaviors needed to demonstrate the current MVP flow in a testnet environment.
+>
+> This was done intentionally to avoid polluting the `main` branch with hackathon-specific mocks. The `main` branch remains the cleaner project baseline, while `feat/build-mvp` concentrates the demo, testing and validation adjustments required for this submission.
+
+...
