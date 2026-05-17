@@ -51,6 +51,13 @@ function mockCreateDeposit(params: CreateDepositParams): DepositIntent {
   };
 }
 
+// Backward-compatible named exports for deposits.queries.ts
+export type Deposit = DepositIntent;
+export const listDeposits = (userId: string): Promise<DepositIntent[]> =>
+  apiClient.get<DepositIntent[]>('/deposits', { params: { userId } }).then((r) => r.data);
+export const getDeposit = (id: string): Promise<DepositIntent> =>
+  apiClient.get<DepositIntent>(`/deposits/${id}`).then((r) => r.data);
+
 export const DepositsApi = {
   createDeposit: (params: CreateDepositParams): Promise<DepositIntent> => {
     if (IS_MOCK) return new Promise((res) => setTimeout(() => res(mockCreateDeposit(params)), 800));

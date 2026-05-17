@@ -1,10 +1,5 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  createDeposit,
-  submitSignedDeposit,
-  getDeposit,
-  listDeposits,
-} from '@/lib/api/deposits';
+import { useQuery } from '@tanstack/react-query';
+import { getDeposit, listDeposits } from '@/lib/api/deposits';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
 export const depositKeys = {
@@ -13,11 +8,11 @@ export const depositKeys = {
 };
 
 export const useDeposits = () => {
-  const contractId = useAuthStore((s) => s.contractId);
+  const userId = useAuthStore((s) => s.userId);
   return useQuery({
-    queryKey: depositKeys.all(contractId ?? ''),
-    queryFn: () => listDeposits(contractId!),
-    enabled: !!contractId,
+    queryKey: depositKeys.all(userId ?? ''),
+    queryFn: () => listDeposits(userId!),
+    enabled: !!userId,
   });
 };
 
@@ -26,23 +21,6 @@ export const useDeposit = (id: string) =>
     queryKey: depositKeys.detail(id),
     queryFn: () => getDeposit(id),
     enabled: !!id,
-    // Poll until confirmed
     refetchInterval: (query) =>
-      query.state.data?.status === 'PENDING' ? 5_000 : false,
-  });
-
-export const useCreateDeposit = () => {
-  const qc = useQueryClient();
-  const contractId = useAuthStore((s) => s.contractId);
-  return useMutation({
-    mutationFn: ({ vaultId, amount }: { vaultId: string; amount: number }) =>
-      createDeposit(vaultId, amount),
-    onSuccess: () => qc.invalidateQueries({ queryKey: depositKeys.all(contractId ?? '') }),
-  });
-};
-
-export const useSubmitDeposit = () =>
-  useMutation({
-    mutationFn: ({ depositId, signedXdr }: { depositId: string; signedXdr: string }) =>
-      submitSignedDeposit(depositId, signedXdr),
+      query.state.data?.status === 'SUBMITTED' ? 5_000 : false,
   });

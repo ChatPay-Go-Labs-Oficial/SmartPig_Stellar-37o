@@ -15,6 +15,8 @@ import { OnboardingService } from '@/lib/services/onboarding.service';
 import { EtherfuseApi } from '@/lib/api/etherfuse.api';
 import { Colors, Font, FontSize, Spacing, Accent, Radius, Gradients } from '@/constants/theme';
 
+const IS_MOCK = process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true';
+
 const ChevronRight = () => <IconSymbol name="chevron.right" size={18} color="#fff" />;
 
 const STEPS = [
@@ -43,21 +45,32 @@ export default function AccountCreationScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleCreateAccount() {
-    if (!userId || !contractId) {
+    if (!userId) {
       addToast('Sessão inválida. Reconecte sua carteira.', 'error');
       return;
     }
 
     setLoading(true);
     try {
+      if (IS_MOCK) {
+        // In mock mode: skip real browser flow, simulate 1s delay then proceed
+        saveBankAccountId('mock-bank-account-id');
+        await new Promise((res) => setTimeout(res, 1200));
+        router.replace('/(auth)/onboarding/complete');
+        return;
+      }
+
+      if (!contractId) {
+        addToast('Sessão inválida. Reconecte sua carteira.', 'error');
+        return;
+      }
+
       const { presignedUrl, bankAccountId } = await OnboardingService.getPresignedUrl(
         userId,
         contractId,
       );
       saveBankAccountId(bankAccountId);
       await openBrowserAsync(presignedUrl);
-      // Explicitly accept all 3 Etherfuse agreements — required before creating orders.
-      // The browser flow shows the agreements, but the API calls are what register acceptance.
       try {
         await EtherfuseApi.acceptAgreements(userId, presignedUrl);
       } catch (e) {
@@ -97,8 +110,9 @@ export default function AccountCreationScreen() {
 
           <Text style={styles.title}>Criação da sua conta</Text>
           <Text style={styles.description}>
-            O próximo passo acontece em uma página segura externa. Você será redirecionado para
-            o ambiente da Etherfuse para finalizar o cadastro.
+            {IS_MOCK
+              ? 'Modo demo ativo. A criação de conta será simulada sem abrir o navegador.'
+              : 'O próximo passo acontece em uma página segura externa. Você será redirecionado para o ambiente da Etherfuse para finalizar o cadastro.'}
           </Text>
 
           <View style={styles.stepsCard}>

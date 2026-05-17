@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import {
   MOCK_BANK_ACCOUNT,
   mockCreateOnramp,
+  mockCreateOfframp,
   mockGetQuote,
   mockSimulatePayment,
 } from './etherfuse.mock';
@@ -88,6 +89,34 @@ export interface OnrampOrder {
   updatedAt: string;
 }
 
+// ─── Offramp ──────────────────────────────────────────────────────────────────
+
+export interface CreateOfframpDto {
+  userId: string;
+  bankAccountId: string;
+  quoteId: string;
+  walletAddress: string;
+  sourceAmount: string;
+  destinationAmount: string;
+}
+
+export interface OfframpOrder {
+  id: string;
+  etherfuseOrderId?: string | null;
+  status: string;
+  sourceAmount: string;
+  destinationAmount: string;
+  sourceAsset: string;
+  targetAsset: string;
+  walletAddress: string;
+  unsignedBurnXdr?: string;
+  pixPayoutKey?: string;
+  pixPayoutKeyType?: string;
+  pixPayoutAmount?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Bank Accounts ────────────────────────────────────────────────────────────
 
 export interface BankAccount {
@@ -119,14 +148,15 @@ export const EtherfuseApi = {
       .post<PresignedUrlResponse>('/etherfuse/onboarding/presigned-url', { userId, pubkey })
       .then((r) => r.data),
 
-  syncBankAccounts: (userId: string): Promise<void> =>
-    apiClient
+  syncBankAccounts: (userId: string): Promise<void> => {
+    if (IS_MOCK) return Promise.resolve();
+    return apiClient
       .post('/etherfuse/onboarding/bank-accounts/sync', { userId })
-      .then(() => undefined),
+      .then(() => undefined);
+  },
 
-  // Accepts all 3 Etherfuse agreements that are required before creating orders.
-  // Must be called with the presignedUrl returned by getPresignedUrl.
   acceptAgreements: async (userId: string, presignedUrl: string): Promise<void> => {
+    if (IS_MOCK) return;
     await apiClient.post('/etherfuse/onboarding/agreements/esign', { userId, presignedUrl });
     await apiClient.post('/etherfuse/onboarding/agreements/terms', { userId, presignedUrl });
     await apiClient.post('/etherfuse/onboarding/agreements/customer', { userId, presignedUrl });
@@ -140,7 +170,7 @@ export const EtherfuseApi = {
   },
 
   getQuote: (data: GetQuoteDto): Promise<QuoteResponse> => {
-    if (IS_MOCK) return Promise.resolve(mockGetQuote(data.sourceAmount));
+    if (IS_MOCK) return Promise.resolve(mockGetQuote(data.sourceAmount, data.direction));
     return apiClient
       .post<QuoteResponse>('/etherfuse/quote', data)
       .then((r) => r.data);
@@ -160,6 +190,40 @@ export const EtherfuseApi = {
     }
     return apiClient
       .post<OnrampOrder>('/etherfuse/onramp', data)
+      .then((r) => r.data);
+  },
+
+  createOfframp: (data: CreateOfframpDto): Promise<OfframpOrder> => {
+    if (IS_MOCK) {
+      return new Promise((res) =>
+        setTimeout(
+          () =>
+            res(
+              mockCreateOfframp({
+                sourceAmount: data.sourceAmount,
+                destinationAmount: data.destinationAmount,
+                walletAddress: data.walletAddress,
+              }),
+            ),
+          800,
+        ),
+      );
+    }
+    return apiClient
+      .post<OfframpOrder>('/etherfuse/offramp', data)
+      .then((r) => r.data);
+  },
+
+  submitOfframpSignedXdr: (
+    id: string,
+    signedXdr: string,
+    userId: string,
+  ): Promise<{ submitted: boolean }> => {
+    if (IS_MOCK) {
+      return new Promise((res) => setTimeout(() => res({ submitted: true }), 800));
+    }
+    return apiClient
+      .post<{ submitted: boolean }>(`/etherfuse/offramp/${id}/signed-xdr`, { signedXdr, userId })
       .then((r) => r.data);
   },
 

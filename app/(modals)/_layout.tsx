@@ -12,6 +12,7 @@ export default function ModalsLayout() {
       <Stack.Screen name="deposit/index" />
       <Stack.Screen name="deposit/quote" />
       <Stack.Screen name="deposit/payment" />
+      <Stack.Screen name="offramp/index" />
     </Stack>
   );
 }

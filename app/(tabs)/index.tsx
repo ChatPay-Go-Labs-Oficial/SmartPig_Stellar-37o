@@ -100,7 +100,7 @@ export default function HomeScreen() {
               variant="secondary"
               size="md"
               fullWidth
-              onPress={() => addToast('Em breve', 'info')}
+              onPress={() => router.push('/(modals)/offramp' as any)}
             />
           </View>
         </View>
