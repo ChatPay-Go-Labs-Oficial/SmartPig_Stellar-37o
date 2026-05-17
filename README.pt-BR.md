@@ -1,46 +1,210 @@
-# StellarPig 🐷
+# PigFi 🐷
 
-> 🇺🇸 [Read in English](README.md)
+**Pequenos investimentos, um universo de possibilidades.**
 
-App móvel de finanças pessoais DeFi construído com **Expo / React Native**, integrado à rede **Stellar**. Permite que usuários conectem ou criem carteiras Stellar e depositem em vaults de rendimento gerenciados pelo protocolo Defindex.
+A **PigFi** é um aplicativo mobile de investimento em dólar criado para tornar o primeiro investimento simples, acessível e divertido. A proposta é permitir que pessoas que nunca investiram — ou que acham que investir é complicado, caro ou “coisa de rico” — consigam começar com valores baixos, usando uma experiência familiar, leve e gamificada.
+
+Este repositório contém o **aplicativo mobile** da PigFi, desenvolvido em **React Native / Expo** e integrado à infraestrutura da rede **Stellar**.
+
+> Projeto desenvolvido em contexto de hackathon.  
+> O ambiente atual usa **testnet** e demonstra os fluxos técnicos possíveis dentro das limitações das integrações disponíveis para avaliação.
 
 ---
 
-## Stack
+## Visão geral
+
+A PigFi combina três ideias principais:
+
+1. **Investimento acessível**  
+   Uma experiência pensada para quem quer começar com pouco dinheiro e sem precisar entender termos técnicos.
+
+2. **Blockchain invisível para o usuário**  
+   A infraestrutura Web3 existe “por baixo do capô”, mas a interface evita jargões como wallet, DeFi, smart contract ou token.
+
+3. **Experiência gamificada**  
+   O usuário acompanha seu porquinho crescendo conforme avança no hábito de investir.
+
+Na comunicação com o usuário final, a PigFi não se posiciona como um app cripto. A marca se posiciona como um app simples de investimento em dólar, com linguagem próxima, divertida e objetiva.
+
+---
+
+## Estado atual do projeto
+
+Esta versão representa o estado atual do produto para apresentação no hackathon.
+
+O app mobile já demonstra:
+
+- interface mobile em React Native / Expo;
+- fluxo de onboarding;
+- criação ou conexão de carteira Stellar;
+- navegação por abas;
+- listagem de vaults;
+- visualização de saldo, histórico e perfil;
+- integração com backend próprio;
+- preparação para fluxos de depósito, saque e ramp;
+- experiência visual alinhada à identidade PigFi.
+
+O backend relacionado ao projeto está em outro repositório:
+
+```txt
+https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend
+```
+
+---
+
+## Backend
+
+A PigFi depende do backend `smartpig-backend` para a orquestração dos fluxos de API, wallet, vaults, depósitos, saques, ramp e integrações com Stellar/DeFindex.
+
+O backend atua como intermediário entre o app mobile e os serviços externos. Entre suas responsabilidades estão:
+
+- autenticação via carteira Stellar;
+- cadastro ou recuperação de usuário a partir do endereço da wallet;
+- consulta de vaults;
+- geração de XDRs para depósito e saque;
+- recebimento de XDRs assinados pelo app;
+- submissão de transações para a rede Stellar;
+- persistência de intenções de depósito e saque;
+- reconciliação e atualização de status;
+- integração com serviços de on/off ramp.
+
+Repositório do backend:
+
+```txt
+https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend
+```
+
+---
+
+## Observação importante sobre Etherfuse, on/off ramp e testnet
+
+No desenho do produto, a PigFi usa infraestrutura de **on/off ramp** para permitir que o usuário entre e saia da experiência de investimento a partir de dinheiro local.
+
+No estado atual do hackathon, a integração considerada para ramp é a **Etherfuse**.
+
+Porém, existe uma limitação relevante no ambiente de avaliação:
+
+> Em ambiente de **testnet**, a Etherfuse não executa o fluxo completo de on/off ramp para terceiros integrados ao **DeFindex**.
+
+Isso significa que, para esta entrega, o app consegue demonstrar a arquitetura, a experiência mobile, a integração com Stellar, a preparação dos fluxos e a lógica de produto, mas o fluxo completo de dinheiro local → investimento em DeFindex → retirada via ramp depende de condições que não estão disponíveis em testnet para terceiros.
+
+Essa limitação não é uma ausência de intenção do produto, mas uma restrição do ambiente de integração durante o hackathon.
+
+Na prática, para avaliação:
+
+- o app deve ser testado como **MVP mobile em testnet**;
+- a experiência de produto e os fluxos de carteira/vault devem ser avaliados dentro do ambiente disponível;
+- o on/off ramp completo deve ser entendido como dependente da disponibilidade da integração em ambiente compatível;
+- em produção, o fluxo exigiria credenciais, ambiente habilitado, compliance e integração operacional completa com o provedor de ramp.
+
+---
+
+## Arquitetura geral
+
+```txt
+Usuário
+  │
+  ▼
+App Mobile PigFi
+React Native / Expo
+  │
+  │ HTTPS / REST
+  ▼
+PigFi Backend
+NestJS / Prisma / PostgreSQL
+  │
+  ├── Stellar Network
+  │
+  ├── DeFindex
+  │
+  └── Etherfuse
+      On/Off Ramp
+      Limitação em testnet para terceiros + DeFindex
+```
+
+---
+
+## Stack do app mobile
 
 | Camada | Tecnologia |
 |---|---|
-| Framework | Expo SDK 54 · React Native 0.81 |
-| Linguagem | TypeScript 5.9 |
-| Roteamento | expo-router 6 (file-based) |
-| Estado global | Zustand 5 + AsyncStorage (persistido) |
-| Dados remotos | TanStack Query v5 + Axios |
-| Carteira | `@creit.tech/stellar-wallets-kit` + WalletConnect |
-| UI/Animações | expo-linear-gradient · react-native-reanimated 4 |
-| Fontes | Nunito via `@expo-google-fonts/nunito` |
+| Framework | Expo SDK 54 / React Native 0.81 |
+| Linguagem | TypeScript |
+| Roteamento | Expo Router |
+| Estado global | Zustand + AsyncStorage |
+| Dados remotos | TanStack Query + Axios |
+| Wallet | Stellar Wallets Kit + WalletConnect |
+| UI e animações | Expo Linear Gradient / Reanimated |
+| Rede | Stellar testnet |
+| Backend | NestJS API em repositório separado |
 
 ---
 
-## Pré-requisitos
+## Instalação para desenvolvimento local
 
-- Node.js ≥ 20
-- [Expo Go](https://expo.dev/go) no dispositivo físico, ou simulador iOS / emulador Android configurado
-- Variável de ambiente `EXPO_PUBLIC_API_URL` apontando para o backend (veja `.env.example`)
+### Pré-requisitos
 
----
+- Node.js 20 ou superior;
+- npm;
+- Expo;
+- Android Studio ou dispositivo físico Android;
+- backend da PigFi rodando ou uma URL de backend disponível;
+- variáveis de ambiente configuradas.
 
-## Instalação e execução
+### 1. Clonar o repositório mobile
 
 ```bash
-# instalar dependências
+git clone https://github.com/ChatPay-Go-Labs-Oficial/SmartPig_Stellar-37o.git
+cd SmartPig_Stellar-37o
+```
+
+### 2. Instalar dependências
+
+```bash
 npm install
+```
 
-# servidor de desenvolvimento (QR code para Expo Go)
+### 3. Configurar variáveis de ambiente
+
+Crie um arquivo `.env` com base no `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Exemplo de variáveis usadas pelo app:
+
+```env
+EXPO_PUBLIC_API_URL=http://localhost:3000
+EXPO_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
+EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
+EXPO_PUBLIC_ACCOUNT_WASM_HASH=
+EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID=
+```
+
+Para rodar com backend remoto, substitua `EXPO_PUBLIC_API_URL` pela URL pública da API.
+
+### 4. Rodar o app
+
+```bash
 npx expo start
+```
 
-# plataformas específicas
-npx expo start --ios
+Para Android:
+
+```bash
 npx expo start --android
+```
+
+Para iOS:
+
+```bash
+npx expo start --ios
+```
+
+Para web:
+
+```bash
 npx expo start --web
 ```
 
@@ -51,94 +215,144 @@ npx expo start --web
 | Comando | Descrição |
 |---|---|
 | `npm start` | Inicia o servidor Expo |
-| `npm run ios` | Abre no simulador iOS |
-| `npm run android` | Abre no emulador Android |
-| `npm run web` | Abre no navegador |
-| `npm run lint` | ESLint (`eslint-config-expo/flat`) |
+| `npm run android` | Abre o app no Android |
+| `npm run ios` | Abre o app no iOS |
+| `npm run web` | Abre o app no navegador |
+| `npm run lint` | Executa lint do projeto |
 
 ---
 
-## Arquitetura
+## Instalação via APK para avaliação
 
-### Roteamento (`app/`)
+Como a PigFi é um aplicativo mobile em **React Native**, a forma mais direta de avaliação no hackathon é por meio do **APK Android**.
 
-```
+### Como instalar o APK
+
+1. Acesse o link do APK entregue na submissão do hackathon.
+2. Baixe o arquivo `.apk` em um dispositivo Android.
+3. Caso o Android bloqueie a instalação, habilite a opção de instalar apps de fontes desconhecidas para o navegador ou gerenciador de arquivos usado.
+4. Abra o APK baixado.
+5. Confirme a instalação.
+6. Abra o app PigFi.
+7. Teste o fluxo disponível em ambiente de testnet.
+
+### Observações para avaliadores
+
+- O APK é destinado à avaliação técnica e de produto no contexto do hackathon.
+- O app usa ambiente de testnet.
+- O app não deve ser usado como produto financeiro real.
+- O fluxo completo de on/off ramp com Etherfuse + DeFindex possui limitação em testnet para terceiros.
+- A experiência avaliada deve considerar o estado atual do MVP e as restrições externas de integração.
+
+---
+
+## Como testar o fluxo principal
+
+1. Instale o APK ou rode o app localmente via Expo.
+2. Abra o app PigFi.
+3. Avance pelo onboarding.
+4. Crie ou conecte uma carteira Stellar.
+5. Acesse a home do app.
+6. Consulte vaults disponíveis.
+7. Navegue entre as abas de vaults, histórico e perfil.
+8. Observe os fluxos preparados para depósito, saque e ramp.
+9. Considere a limitação de testnet da Etherfuse para o fluxo completo de on/off ramp com DeFindex.
+
+---
+
+## Estrutura principal do projeto
+
+```txt
 app/
-  _layout.tsx          # Root: QueryClient + Nunito + redirecionamento auth
-  (auth)/              # Onboarding, criar e conectar carteira Stellar
-    index.tsx          # Tela inicial de boas-vindas
-    create-wallet.tsx  # Criação de nova carteira
-    connect-wallet.tsx # Conexão via WalletConnect / chave privada
-  (tabs)/              # Navegação por abas (bottom tabs)
-    index.tsx          # Home — portfólio e vaults ativos
-    vaults.tsx         # Listagem de todos os vaults disponíveis
-    history.tsx        # Histórico de transações
-    profile.tsx        # Perfil e configurações
+  _layout.tsx
+  (auth)/
+    index.tsx
+    create-wallet.tsx
+    connect-wallet.tsx
+  (tabs)/
+    index.tsx
+    vaults.tsx
+    history.tsx
+    profile.tsx
   vault/
-    [id].tsx           # Detalhes do vault + ações (depositar/sacar)
-```
+    [id].tsx
 
-**Fluxo de autenticação:** o root layout verifica `useAuthStore.isAuthenticated` após carregar as fontes e redireciona para `/(auth)` ou `/(tabs)`.
-
-### Camada de dados (`lib/`)
-
-```
-lib/
-  api/
-    client.ts          # Axios com baseURL e interceptor de userId
-    vaults.ts          # Endpoints de vaults (listagem, detalhes, APY, balance)
-    deposits.ts        # Endpoints de depósitos
-    withdrawals.ts     # Endpoints de saques
-  queries/             # TanStack Query hooks (useVaults, useDeposits…)
-  stores/
-    auth.store.ts      # contractId + isAuthenticated (Zustand + AsyncStorage)
-    wallet.store.ts    # walletAddress (Zustand + AsyncStorage)
-    ui.store.ts        # Estado de UI transiente
-  wallet-kit.ts        # Inicialização do StellarWalletsKit + WalletConnect
-```
-
-### Componentes (`components/`)
-
-```
 components/
   ui/
-    Button.tsx         # Variantes: primary, ghost, secondary, gold
-    Card.tsx           # LinearGradient card com borda; variante flat
-    Badge.tsx          # Pills: destaque, conquista, sucesso, erro, muted
-    GradientText.tsx   # Texto com gradiente (MaskedView + LinearGradient)
-    ConfirmModal.tsx   # Modal de confirmação reutilizável
-    icon-symbol.tsx    # MaterialIcons (Android/Web)
-    icon-symbol.ios.tsx# SF Symbols (iOS nativo)
   layout/
-    ScreenContainer.tsx# SafeAreaView + ScrollView + padding padrão
-  haptic-tab.tsx       # Tab button com feedback háptico (iOS)
+
+lib/
+  api/
+  queries/
+  stores/
+  wallet-kit.ts
+
+constants/
+  theme.ts
 ```
 
 ---
 
-## Design System
+## Design e marca
 
-Visual dark-only com neon pink como cor primária. Todos os tokens estão em `constants/theme.ts`.
+A PigFi segue uma direção visual **tech-afetiva**:
 
-| Export | Conteúdo |
-|---|---|
-| `Colors` | Superfícies: `background`, `card`, `surface2`, `muted`, `border`, `foreground` |
-| `Accent` | `primary` (neon pink), `secondary` (purple), `gold`, `success`, `destructive`… |
-| `Gradients` | `primary`, `hot`, `gold`, `card` — usar com `expo-linear-gradient` |
-| `Radius` | `sm`=12, `md`=14, `lg`=16, `full`=9999 |
-| `Spacing` | Escala base 4 px (tokens 1–16) |
-| `Font` | Nunito: `regular`, `semiBold`, `bold`, `extraBold`, `black` |
-| `FontSize` | `display`=35 → `label`=12 |
-| `Glow` | Sombras glow: `pink`, `gold`, `green`, `purple` |
+- interface escura;
+- neon rosa, roxo e azul;
+- linguagem simples;
+- mascote do porquinho;
+- experiência divertida, mas sem parecer infantil;
+- tecnologia invisível para o usuário final.
 
-Documentação completa: [`docs/design-system.pt-BR.md`](docs/design-system.pt-BR.md).
+A marca evita linguagem cripto na comunicação com o usuário. O foco está em simplicidade, confiança e acessibilidade.
 
 ---
 
-## Convenções
+## Segurança e limites da versão atual
 
-- Imports sempre via alias `@/` (mapeado para a raiz do repositório)
-- Sem `useMemo` / `useCallback` manual — **React Compiler** está ativo (`experiments.reactCompiler: true`)
-- Tema dark-only: não há lógica de tema claro nas telas
-- Arquivos de plataforma: `foo.ios.tsx` para iOS, `foo.tsx` como fallback (Android + Web)
-- Variáveis de ambiente públicas prefixadas com `EXPO_PUBLIC_`
+Esta versão é uma entrega de hackathon em testnet.
+
+Ela não deve ser interpretada como:
+
+- produto financeiro em produção;
+- recomendação de investimento;
+- promessa de rentabilidade;
+- serviço regulado disponível ao público;
+- app pronto para uso com dinheiro real.
+
+Antes de uma versão de produção, seriam necessários:
+
+- ambiente mainnet;
+- integração operacional completa de ramp;
+- validação jurídica e regulatória;
+- política de risco;
+- termos de uso;
+- política de privacidade;
+- monitoramento;
+- auditoria de segurança;
+- testes de carga e confiabilidade;
+- estratégia de suporte ao usuário.
+
+---
+
+## Repositórios relacionados
+
+App mobile:
+
+```txt
+https://github.com/ChatPay-Go-Labs-Oficial/SmartPig_Stellar-37o
+```
+
+Backend:
+
+```txt
+https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend
+```
+
+---
+
+## Licença
+
+Projeto desenvolvido para fins de demonstração em hackathon.
+
+O uso, distribuição e evolução do projeto devem seguir as decisões da organização responsável pelo repositório.
