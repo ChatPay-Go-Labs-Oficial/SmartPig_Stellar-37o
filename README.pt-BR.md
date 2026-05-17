@@ -356,3 +356,16 @@ https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend
 Projeto desenvolvido para fins de demonstração em hackathon.
 
 O uso, distribuição e evolução do projeto devem seguir as decisões da organização responsável pelo repositório.
+
+---
+## Estado atual do projeto
+
+Esta versão representa o estado atual do produto para apresentação no hackathon.
+
+> **Nota sobre a branch de avaliação**
+>
+> Para esta entrega do hackathon, estamos usando a branch `[feat/build-mvp]`, pois ela contém os mocks necessários para demonstrar o fluxo atual do produto em ambiente de testnet.
+>
+> Essa decisão foi tomada para não poluir a branch `main` com dados e comportamentos temporários de demonstração. A `main` permanece como base mais limpa do projeto, enquanto a branch de avaliação concentra os ajustes específicos para testes, apresentação e validação do MVP.
+
+...
