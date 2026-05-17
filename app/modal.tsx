@@ -1,29 +1,45 @@
-import { Link } from 'expo-router';
-import { StyleSheet } from 'react-native';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { View, Text, StyleSheet } from 'react-native';
+import { Colors, Font, FontSize, Gradients, Spacing } from '@/constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ModalScreen() {
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">This is a modal</ThemedText>
-      <Link href="/" dismissTo style={styles.link}>
-        <ThemedText type="link">Go to home screen</ThemedText>
-      </Link>
-    </ThemedView>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={Gradients.primary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerBanner}
+      >
+        <Text style={styles.title}>Modal</Text>
+      </LinearGradient>
+      <View style={styles.body}>
+        <Text style={styles.text}>Conteúdo do modal</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+  container: { flex: 1, backgroundColor: Colors.background },
+  headerBanner: {
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
+  title: {
+    fontSize: FontSize.displaySm,
+    fontFamily: Font.black,
+    color: '#fff',
+  },
+  body: {
+    padding: Spacing[6],
+  },
+  text: {
+    fontSize: FontSize.body,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
   },
 });

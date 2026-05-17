@@ -1,41 +1,31 @@
-import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients, Radius } from '@/constants/theme';
+import { StyleSheet, ViewStyle, StyleProp, View } from 'react-native';
+import { Colors, Radius } from '@/constants/theme';
 
 interface CardProps {
   children: React.ReactNode;
-  variant?: 'default' | 'flat';
+  variant?: 'default' | 'flat' | 'elevated';
   style?: StyleProp<ViewStyle>;
 }
 
 export function Card({ children, variant = 'default', style }: CardProps) {
-  if (variant === 'flat') {
-    return (
-      <LinearGradient
-        colors={Gradients.card}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.94, y: 1 }}
-        style={[styles.card, style]}
-      >
-        {children}
-      </LinearGradient>
-    );
-  }
+  const isElevated = variant === 'elevated';
 
   return (
-    <LinearGradient
-      colors={Gradients.card}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.94, y: 1 }}
-      style={[styles.card, styles.elevated, style]}
+    <View
+      style={[
+        styles.card,
+        isElevated && styles.elevated,
+        style,
+      ]}
     >
       {children}
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.border,

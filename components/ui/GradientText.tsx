@@ -1,6 +1,5 @@
-import { Text, TextStyle, StyleProp, Platform } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Gradients, Font, FontSize, Accent } from '@/constants/theme';
+import { Text, TextStyle, StyleProp } from 'react-native';
+import { Font, FontSize, Accent } from '@/constants/theme';
 
 type GradientVariant = 'primary' | 'hot' | 'gold';
 

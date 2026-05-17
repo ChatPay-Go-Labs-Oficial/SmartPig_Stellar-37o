@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/Button';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
-import { Colors, Font, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useWalletConnect } from '@/lib/hooks/use-wallet-connect';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useWalletStore } from '@/lib/stores/wallet.store';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -27,8 +28,15 @@ export default function ProfileScreen() {
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <Text style={styles.heading}>Perfil</Text>
-        <Text style={styles.sub}>Configurações e carteira</Text>
+        <LinearGradient
+          colors={Gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerBanner}
+        >
+          <Text style={styles.heading}>Perfil</Text>
+          <Text style={styles.sub}>Configurações e carteira</Text>
+        </LinearGradient>
 
         {(walletAddress || contractId) && (
           <View style={styles.card}>
@@ -74,31 +82,40 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: Spacing[6] },
+  content: { paddingBottom: Spacing[8] },
+  headerBanner: {
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 32,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: Spacing[6],
+  },
   heading: {
     fontSize: FontSize.displaySm,
-    fontFamily: Font.extraBold,
-    color: Colors.foreground,
-    marginTop: Spacing[6],
+    fontFamily: Font.black,
+    color: '#fff',
   },
   sub: {
     fontSize: FontSize.body,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
+    fontFamily: Font.semiBold,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: Spacing[1],
-    marginBottom: Spacing[6],
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
+    marginHorizontal: Spacing[6],
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
     padding: Spacing[4],
     borderWidth: 1,
     borderColor: Colors.border,
   },
   cardLabel: {
     fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
+    fontFamily: Font.bold,
     color: Colors.mutedForeground,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: Spacing[1],
   },
   cardValue: {

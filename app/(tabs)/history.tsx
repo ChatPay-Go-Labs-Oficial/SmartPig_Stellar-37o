@@ -1,8 +1,9 @@
 import { ScreenContainer } from '@/components/layout';
-import { Badge, GradientText } from '@/components/ui';
-import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
+import { Badge } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Gradients, Spacing } from '@/constants/theme';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useWithdrawals } from '@/lib/queries/withdrawals.queries';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 type TxType = 'deposit' | 'withdrawal';
@@ -85,10 +86,15 @@ export default function HistoryScreen() {
 
   return (
     <ScreenContainer scrollable={false} contentStyle={{ padding: 0 }}>
-      <View style={styles.header}>
-        <GradientText style={styles.title}>Histórico</GradientText>
+      <LinearGradient
+        colors={Gradients.primary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerBanner}
+      >
+        <Text style={styles.title}>Histórico</Text>
         <Text style={styles.subtitle}>Depósitos e saques</Text>
-      </View>
+      </LinearGradient>
 
       {isLoading && (
         <View style={styles.centered}>
@@ -117,16 +123,19 @@ export default function HistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: Spacing[6],
-    paddingTop: Spacing[12],
-    paddingBottom: Spacing[4],
+  headerBanner: {
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 32,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: Spacing[4],
   },
-  title: { fontSize: FontSize.displaySm, fontFamily: Font.extraBold },
+  title: { fontSize: FontSize.displaySm, fontFamily: Font.black, color: '#fff' },
   subtitle: {
     fontSize: FontSize.body,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
+    fontFamily: Font.semiBold,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: Spacing[1],
   },
   list: {

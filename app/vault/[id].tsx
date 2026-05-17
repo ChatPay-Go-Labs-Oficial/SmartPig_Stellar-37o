@@ -1,9 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from 'react-native';
-import { router } from 'expo-router';
-import { useLocalSearchParams } from 'expo-router';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '@/components/layout';
 import { Card, Badge, Button, GradientText } from '@/components/ui';
-import { Colors, Font, FontSize, Spacing, Accent, Glow } from '@/constants/theme';
+import { Colors, Font, FontSize, Spacing, Accent } from '@/constants/theme';
 import { useVault, useVaultApy, useVaultBalance } from '@/lib/queries/vaults.queries';
 import { useWalletStore } from '@/lib/stores/wallet.store';
 
@@ -155,7 +154,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
+    fontFamily: Font.bold,
     color: Colors.mutedForeground,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -176,7 +175,7 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
+    fontFamily: Font.bold,
     color: Colors.mutedForeground,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
