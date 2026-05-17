@@ -2,6 +2,8 @@
 
 **Pequenos investimentos, um universo de possibilidades.**
 
+DEMO: https://smartpigstellar.netlify.app/
+
 A **PigFi** é um aplicativo mobile de investimento em dólar criado para tornar o primeiro investimento simples, acessível e divertido. A proposta é permitir que pessoas que nunca investiram — ou que acham que investir é complicado, caro ou “coisa de rico” — consigam começar com valores baixos, usando uma experiência familiar, leve e gamificada.
 
 Este repositório contém o **aplicativo mobile** da PigFi, desenvolvido em **React Native / Expo** e integrado à infraestrutura da rede **Stellar**.
@@ -228,7 +230,7 @@ Como a PigFi é um aplicativo mobile em **React Native**, a forma mais direta de
 
 ### Como instalar o APK
 
-1. Acesse o link do APK entregue na submissão do hackathon.
+1. Acesse o link do APK https://expo.dev/accounts/matheusbrasilaguiar/projects/stellarpig-app/builds/90bb14e9-7484-4c57-8ba6-55d548f0acdd
 2. Baixe o arquivo `.apk` em um dispositivo Android.
 3. Caso o Android bloqueie a instalação, habilite a opção de instalar apps de fontes desconhecidas para o navegador ou gerenciador de arquivos usado.
 4. Abra o APK baixado.
