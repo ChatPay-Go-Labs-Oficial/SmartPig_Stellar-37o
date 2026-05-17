@@ -1,0 +1,434 @@
+import { ScreenContainer } from '@/components/layout';
+import { Button, Card } from '@/components/ui';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
+import { EtherfuseApi, DepositInstructions } from '@/lib/api/etherfuse.api';
+import { useAuthStore } from '@/lib/stores/auth.store';
+import { useUIStore } from '@/lib/stores/ui.store';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Clipboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+
+const IS_SANDBOX =
+  (process.env.EXPO_PUBLIC_API_URL ?? '').includes('localhost') ||
+  process.env.EXPO_PUBLIC_ETHERFUSE_SANDBOX === 'true' ||
+  process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true';
+
+function formatAmount(val: string | number, decimals = 2): string {
+  return parseFloat(String(val)).toLocaleString('pt-BR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <View style={infoStyles.row}>
+      <View style={infoStyles.iconWrap}>
+        <IconSymbol name={icon as any} size={14} color={Accent.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={infoStyles.label}>{label}</Text>
+        <Text style={infoStyles.value}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
+const infoStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing[3] },
+  iconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(244, 52, 180, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  label: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    marginBottom: 2,
+  },
+  value: {
+    fontSize: FontSize.body,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+});
+
+export default function DepositPaymentScreen() {
+  const addToast = useUIStore((s) => s.addToast);
+  const userId = useAuthStore((s) => s.userId);
+
+  const params = useLocalSearchParams<{
+    orderId: string;
+    etherfuseOrderId: string;
+    sourceAmount: string;
+    destinationAmount: string;
+    depositInstructions: string;
+  }>();
+
+  const instructions: DepositInstructions | null = params.depositInstructions
+    ? (() => {
+        try {
+          return JSON.parse(params.depositInstructions) as DepositInstructions;
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+  const [simulating, setSimulating] = useState(false);
+  const [simulated, setSimulated] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function handleCopyPix() {
+    if (!instructions?.pixKey) return;
+    Clipboard.setString(instructions.pixKey);
+    setCopied(true);
+    addToast('Chave PIX copiada!', 'success');
+    setTimeout(() => setCopied(false), 3000);
+  }
+
+  async function handleSimulate() {
+    if (!userId) return;
+    setSimulating(true);
+    try {
+      await EtherfuseApi.sandboxSimulatePayment(params.orderId, userId);
+      setSimulated(true);
+      addToast('Pagamento simulado! USDC será creditado em breve.', 'success');
+      setTimeout(() => {
+        router.dismissAll();
+        router.replace('/(tabs)');
+      }, 1500);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? e?.message ?? 'Erro ao simular pagamento';
+      addToast(typeof msg === 'string' ? msg : 'Erro ao simular pagamento', 'error');
+    } finally {
+      setSimulating(false);
+    }
+  }
+
+  return (
+    <ScreenContainer scrollable>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={{ width: 20 }} />
+        <Text style={styles.title}>Pedido Criado</Text>
+        <Pressable onPress={() => router.dismiss()} hitSlop={8}>
+          <IconSymbol name="xmark" size={20} color={Colors.mutedForeground} />
+        </Pressable>
+      </View>
+
+      {/* Success icon */}
+      <View style={styles.heroBlock}>
+        <View style={styles.successIcon}>
+          <IconSymbol name="checkmark.circle.fill" size={56} color={Accent.success} />
+        </View>
+        <Text style={styles.heroTitle}>Pedido confirmado!</Text>
+        <Text style={styles.heroSub}>
+          Pague via PIX o valor abaixo para receber{' '}
+          <Text style={styles.heroHighlight}>
+            {formatAmount(params.destinationAmount, 4)} USDC
+          </Text>{' '}
+          na sua carteira Stellar.
+        </Text>
+      </View>
+
+      {/* PIX Payment Instructions */}
+      {instructions ? (
+        <Card style={styles.pixCard}>
+          <View style={styles.pixHeader}>
+            <IconSymbol name="qrcode" size={18} color={Accent.primary} />
+            <Text style={styles.pixTitle}>Instrução de Pagamento PIX</Text>
+          </View>
+
+          <View style={styles.pixAmountRow}>
+            <Text style={styles.pixAmountLabel}>Valor a pagar</Text>
+            <Text style={styles.pixAmount}>
+              R$ {formatAmount(instructions.amount)}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.pixKeyBlock}>
+            <Text style={styles.pixKeyLabel}>Chave PIX ({instructions.pixKeyType?.toUpperCase()})</Text>
+            <View style={styles.pixKeyRow}>
+              <Text style={styles.pixKey} numberOfLines={1} ellipsizeMode="middle">
+                {instructions.pixKey}
+              </Text>
+              <Pressable
+                onPress={handleCopyPix}
+                style={[styles.copyBtn, copied && styles.copyBtnDone]}
+                hitSlop={8}
+              >
+                <IconSymbol
+                  name={copied ? 'checkmark' : 'doc.on.doc'}
+                  size={14}
+                  color={copied ? Accent.success : Accent.primary}
+                />
+                <Text style={[styles.copyLabel, copied && styles.copyLabelDone]}>
+                  {copied ? 'Copiado' : 'Copiar'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {instructions.beneficiaryName ? (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.pixBeneficiaryRow}>
+                <Text style={styles.pixKeyLabel}>Beneficiário</Text>
+                <Text style={styles.pixBeneficiary}>{instructions.beneficiaryName}</Text>
+              </View>
+            </>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {/* Order details */}
+      <Card style={styles.detailCard}>
+        <InfoRow
+          icon="doc.text.fill"
+          label="ID do Pedido"
+          value={params.orderId}
+        />
+        <View style={styles.divider} />
+        <InfoRow
+          icon="arrow.down"
+          label="Valor enviado"
+          value={`R$ ${formatAmount(params.sourceAmount)}`}
+        />
+        <View style={styles.divider} />
+        <InfoRow
+          icon="checkmark.circle.fill"
+          label="Você receberá"
+          value={`${formatAmount(params.destinationAmount, 4)} USDC`}
+        />
+      </Card>
+
+      <View style={styles.notice}>
+        <IconSymbol name="exclamationmark" size={13} color={Colors.mutedForeground} />
+        <Text style={styles.noticeText}>
+          O USDC será creditado automaticamente na sua carteira Stellar após a
+          confirmação do pagamento PIX.
+        </Text>
+      </View>
+
+      {/* Sandbox simulate */}
+      {IS_SANDBOX && (
+        <Card style={styles.sandboxCard}>
+          <Text style={styles.sandboxTitle}>
+            {process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true' ? 'MODO MOCK' : 'AMBIENTE SANDBOX'}
+          </Text>
+          <Text style={styles.sandboxSub}>
+            Simule o recebimento do pagamento para testar o fluxo completo.
+          </Text>
+          <Button
+            label={simulated ? 'Pagamento simulado!' : 'Simular pagamento PIX'}
+            rightIcon={
+              simulating
+                ? <ActivityIndicator size="small" color="#fff" />
+                : simulated
+                ? <IconSymbol name="checkmark" size={16} color="#fff" />
+                : <IconSymbol name="arrow.right" size={16} color="#fff" />
+            }
+            variant="primary"
+            size="md"
+            fullWidth
+            onPress={handleSimulate}
+            disabled={simulating || simulated}
+          />
+        </Card>
+      )}
+
+      <View style={styles.footer}>
+        <Button
+          label="Fechar"
+          variant="secondary"
+          size="lg"
+          fullWidth
+          onPress={() => router.dismiss()}
+        />
+      </View>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Spacing[4],
+    paddingBottom: Spacing[6],
+  },
+  title: {
+    fontSize: FontSize.subheading,
+    fontFamily: Font.extraBold,
+    color: Colors.foreground,
+  },
+
+  heroBlock: {
+    alignItems: 'center',
+    gap: Spacing[3],
+    paddingVertical: Spacing[4],
+  },
+  successIcon: {
+    marginBottom: Spacing[2],
+  },
+  heroTitle: {
+    fontSize: FontSize.heading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+    textAlign: 'center',
+  },
+  heroSub: {
+    fontSize: FontSize.body,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: Spacing[2],
+  },
+  heroHighlight: {
+    fontFamily: Font.bold,
+    color: Accent.success,
+  },
+
+  pixCard: {
+    gap: Spacing[3],
+    marginBottom: Spacing[4],
+    borderColor: Accent.primary,
+    borderWidth: 1,
+  },
+  pixHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[2],
+  },
+  pixTitle: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Accent.primary,
+    letterSpacing: 0.5,
+  },
+  pixAmountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pixAmountLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  pixAmount: {
+    fontSize: FontSize.subheading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  pixKeyBlock: {
+    gap: Spacing[2],
+  },
+  pixKeyLabel: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  pixKeyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+  },
+  pixKey: {
+    flex: 1,
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(244, 52, 180, 0.12)',
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[1],
+    borderRadius: 8,
+  },
+  copyBtnDone: {
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  },
+  copyLabel: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Accent.primary,
+  },
+  copyLabelDone: {
+    color: Accent.success,
+  },
+  pixBeneficiaryRow: {
+    gap: 2,
+  },
+  pixBeneficiary: {
+    fontSize: FontSize.body,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+
+  detailCard: {
+    gap: Spacing[3],
+    marginBottom: Spacing[4],
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing[2],
+    marginBottom: Spacing[4],
+    paddingHorizontal: Spacing[1],
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
+  },
+  sandboxCard: {
+    marginBottom: Spacing[4],
+    gap: Spacing[3],
+    borderColor: Accent.accent,
+    borderWidth: 1,
+  },
+  sandboxTitle: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Accent.accent,
+    letterSpacing: 1,
+  },
+  sandboxSub: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
+  },
+  footer: {
+    paddingTop: Spacing[2],
+    paddingBottom: Spacing[4],
+  },
+});

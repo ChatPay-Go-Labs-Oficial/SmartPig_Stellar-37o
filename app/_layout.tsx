@@ -67,6 +67,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(modals)" options={{ presentation: 'modal' }} />
           <Stack.Screen name="vault/[id]" options={{ headerShown: true, title: '' }} />
         </Stack>
         <ToastContainer />

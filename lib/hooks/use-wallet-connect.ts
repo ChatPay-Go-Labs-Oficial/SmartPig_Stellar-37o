@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { Linking } from 'react-native';
-import * as ExpoLinking from 'expo-linking';
 import { createWalletConnectPairing, disconnectWallet } from '@/lib/wallet-kit';
 import { useWalletStore } from '@/lib/stores/wallet.store';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -19,9 +18,11 @@ export function useWalletConnect() {
   const [error, setError] = useState<string | null>(null);
 
   const setWalletAddress = useWalletStore((s) => s.setWalletAddress);
+  const setWalletAccountId = useWalletStore((s) => s.setWalletAccountId);
   const clearWallet = useWalletStore((s) => s.clearWallet);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setUserId = useAuthStore((s) => s.setUserId);
+  const setOnboarded = useAuthStore((s) => s.setOnboarded);
   const clearAuth = useAuthStore((s) => s.clearAuth);
 
   const connect = useCallback(async (): Promise<string> => {
@@ -29,14 +30,17 @@ export function useWalletConnect() {
       setIsConnecting(true);
       setError(null);
 
+      // Disconnect any stale WC sessions before creating a new pairing.
+      // Stale sessions can leave pending signing requests on the relay that
+      // Lobstr shows as "Invalid transaction signature request" when opened.
+      try { await disconnectWallet(); } catch (_) { /* ignore */ }
+
       const { uri, approval } = await createWalletConnectPairing();
 
       // Try Lobstr-specific deep link first, then fall back to raw WC URI.
-      // redirectUrl brings the user back to this app after approving in Lobstr.
-      // ExpoLinking.createURL resolves to the correct scheme for the current environment
-      // (stellarpigapp:// in dev builds, exp://... in Expo Go).
-      const redirectUrl = encodeURIComponent(ExpoLinking.createURL(''));
-      const lobstrUri = `lobstr://wc?uri=${encodeURIComponent(uri)}&redirectUrl=${redirectUrl}`;
+      // redirectUrl uses the app scheme directly — ExpoLinking.createURL returns exp://...
+      // in Expo Go which Lobstr rejects as "Invalid request".
+      const lobstrUri = `lobstr://wc?uri=${encodeURIComponent(uri)}&redirectUrl=${encodeURIComponent('stellarpigapp://')}`;
       const canOpenLobstr = await Linking.canOpenURL(lobstrUri);
 
       if (canOpenLobstr) {
@@ -52,8 +56,10 @@ export function useWalletConnect() {
       setWalletAddress(address);
       setAuth(address);
 
-      const { user } = await AuthApi.walletLogin(address);
+      const { user, wallet, isOnboarded } = await AuthApi.walletLogin(address);
       setUserId(user.id);
+      setWalletAccountId(wallet.id);
+      if (isOnboarded) setOnboarded();
 
       return address;
     } catch (e) {
@@ -63,7 +69,7 @@ export function useWalletConnect() {
     } finally {
       setIsConnecting(false);
     }
-  }, [setWalletAddress, setAuth, setUserId]);
+  }, [setWalletAddress, setWalletAccountId, setAuth, setUserId]);
 
   const disconnect = useCallback(async (): Promise<void> => {
     try {

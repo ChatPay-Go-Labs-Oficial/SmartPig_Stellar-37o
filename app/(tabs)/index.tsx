@@ -1,13 +1,19 @@
 import { ScreenContainer } from '@/components/layout';
 import { Badge, Button, Card, GradientText } from '@/components/ui';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
+import { Accent, Colors, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useDeposits } from '@/lib/queries/deposits.queries';
+import { useWalletBalance } from '@/lib/queries/stellar.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useUIStore } from '@/lib/stores/ui.store';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+
+function formatBalance(value: number): string {
+  return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 function formatApy(apy: string | null): string {
   if (!apy) return '—';
@@ -28,9 +34,11 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 
 export default function HomeScreen() {
   const userName = useAuthStore((s) => s.userName);
+  const addToast = useUIStore((s) => s.addToast);
 
   const { data: vaults, isLoading: vaultsLoading } = useVaults();
   const { data: deposits } = useDeposits();
+  const { data: balance, isLoading: balanceLoading, isFetching: balanceFetching, refetch: refetchBalance } = useWalletBalance();
 
   const confirmedDeposits = deposits?.filter((d) => d.status === 'CONFIRMED') ?? [];
   const activeVaultIds = [...new Set(confirmedDeposits.map((d) => d.vaultId))];
@@ -38,10 +46,15 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer>
+      {/* Header row */}
       <View style={styles.header}>
         <GradientText variant="primary" style={styles.logo}>PigFi</GradientText>
+        <Pressable hitSlop={8}>
+          <IconSymbol name="questionmark.circle" size={20} color={Colors.mutedForeground} />
+        </Pressable>
       </View>
 
+      {/* Greeting */}
       <View style={styles.greetingBlock}>
         <Text style={styles.greetingLine}>
           Olá,{' '}
@@ -50,6 +63,50 @@ export default function HomeScreen() {
         <Text style={styles.greetingSub}>Aqui está o resumo dos seus investimentos.</Text>
       </View>
 
+      {/* Balance card */}
+      <View style={styles.balanceCard}>
+        <View style={styles.balanceLabelRow}>
+          <Text style={styles.balanceLabel}>SALDO DISPONÍVEL</Text>
+          <Pressable onPress={() => refetchBalance()} hitSlop={8} disabled={balanceFetching}>
+            {balanceFetching
+              ? <ActivityIndicator size={14} color={Colors.mutedForeground} />
+              : <IconSymbol name="arrow.clockwise" size={14} color={Colors.mutedForeground} />
+            }
+          </Pressable>
+        </View>
+        {balanceLoading ? (
+          <ActivityIndicator color={Accent.primary} style={{ marginVertical: Spacing[2] }} />
+        ) : (
+          <>
+            <Text style={styles.balanceAmount}>{formatBalance(balance?.usdc ?? 0)} USDC</Text>
+            <Text style={styles.balanceXlm}>{formatBalance(balance?.xlm ?? 0)} XLM</Text>
+          </>
+        )}
+        <View style={styles.balanceActions}>
+          <View style={styles.balanceBtn}>
+            <Button
+              label="Depositar"
+              rightIcon={<IconSymbol name="arrow.down" size={16} color="#fff" />}
+              variant="primary"
+              size="md"
+              fullWidth
+              onPress={() => router.push('/(modals)/deposit' as any)}
+            />
+          </View>
+          <View style={styles.balanceBtn}>
+            <Button
+              label="Sacar"
+              rightIcon={<IconSymbol name="arrow.up" size={16} color={Colors.foreground} />}
+              variant="secondary"
+              size="md"
+              fullWidth
+              onPress={() => router.push('/(modals)/offramp' as any)}
+            />
+          </View>
+        </View>
+      </View>
+
+      {/* Active investments summary */}
       <View style={styles.summaryRow}>
         <View style={styles.activeDot} />
         <Text style={styles.summaryText}>
@@ -58,6 +115,7 @@ export default function HomeScreen() {
         </Text>
       </View>
 
+      {/* Investments section */}
       <Text style={styles.sectionTitle}>Seus Investimentos</Text>
 
       {vaultsLoading && (
@@ -101,8 +159,11 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: Spacing[6],
-    marginBottom: Spacing[3],
+    marginBottom: Spacing[4],
   },
   logo: {
     fontSize: FontSize.displaySm,
@@ -150,6 +211,47 @@ const styles = StyleSheet.create({
     color: Accent.success,
   },
 
+  // Balance card
+  balanceCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    padding: Spacing[6],
+    marginBottom: Spacing[6],
+    gap: Spacing[3],
+  },
+  balanceLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  balanceLabel: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Colors.mutedForeground,
+    letterSpacing: 1,
+  },
+  balanceAmount: {
+    fontSize: FontSize.heading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  balanceXlm: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  balanceActions: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+    marginTop: Spacing[1],
+  },
+  balanceBtn: {
+    flex: 1,
+  },
+
+  // Section
   sectionTitle: {
     fontSize: FontSize.subheading,
     fontFamily: Font.extraBold,
@@ -157,6 +259,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[3],
   },
 
+  // Active vaults
   vaultsCard: { padding: 0, overflow: 'hidden' },
   vaultRow: {
     flexDirection: 'row',
@@ -181,6 +284,7 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing[4],
   },
 
+  // Empty state
   emptyCard: {
     alignItems: 'center',
     gap: Spacing[3],

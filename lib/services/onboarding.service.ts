@@ -12,6 +12,8 @@ export interface PresignedUrlResult {
   bankAccountId: string;
 }
 
+const IS_MOCK = process.env.EXPO_PUBLIC_MOCK_ETHERFUSE === 'true';
+
 function extractErrorMessage(e: unknown): string {
   if (axios.isAxiosError(e)) {
     const data = e.response?.data;
@@ -32,6 +34,17 @@ export const OnboardingService = {
     data: PersonalDataDto,
     userId: string,
   ): Promise<SubmitPersonalDataResult> => {
+    if (IS_MOCK) {
+      // Update name in our backend (best-effort) so the dashboard greeting works
+      try {
+        await UsersApi.updateUser(userId, {
+          name: `${data.firstName} ${data.lastName}`.trim(),
+          email: data.email,
+        });
+      } catch {}
+      return { etherfuseOrgId: 'mock-etherfuse-org-id' };
+    }
+
     let org;
 
     try {
@@ -42,7 +55,6 @@ export const OnboardingService = {
         lastName: data.lastName,
       });
     } catch (e) {
-      // Se o registro já existe, buscamos o existente e seguimos normalmente
       if (axios.isAxiosError(e) && e.response?.status === 400) {
         const serverMsg: string = e.response?.data?.message ?? '';
         if (serverMsg.toLowerCase().includes('already has')) {
@@ -81,6 +93,12 @@ export const OnboardingService = {
   },
 
   getPresignedUrl: async (userId: string, pubkey: string): Promise<PresignedUrlResult> => {
+    if (IS_MOCK) {
+      return {
+        presignedUrl: 'https://mock.etherfuse.com/onboarding',
+        bankAccountId: 'mock-bank-account-id',
+      };
+    }
     try {
       return await EtherfuseApi.getPresignedUrl(userId, pubkey);
     } catch (e) {

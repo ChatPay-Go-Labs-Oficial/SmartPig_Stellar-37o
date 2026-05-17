@@ -13,6 +13,7 @@ export interface WalletLoginResponse {
     label: string | null;
   };
   isNewUser: boolean;
+  isOnboarded: boolean;
 }
 
 export const AuthApi = {
