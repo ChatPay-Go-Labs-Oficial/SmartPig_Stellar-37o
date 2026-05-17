@@ -2,6 +2,8 @@
 
 **Small investments. A universe of possibilities.**
 
+DEMO: https://smartpigstellar.netlify.app/
+
 PigFi is a mobile investment app built for Brazilian first-time investors. It lets users start with small amounts, use a familiar Pix-based flow, and access dollar-denominated opportunities through an interface that feels simple, playful and safe instead of technical or intimidating.
 
 This repository contains the **mobile app** built with **Expo / React Native** and integrated with the PigFi backend, Stellar testnet infrastructure, wallet flows, and the current hackathon ramp architecture.
@@ -276,12 +278,12 @@ The hackathon submission should include:
 ```txt
 Mobile repository: https://github.com/ChatPay-Go-Labs-Oficial/SmartPig_Stellar-37o
 Backend repository: https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend
-APK: GitHub Release asset attached to this repository
+APK: https://expo.dev/accounts/matheusbrasilaguiar/projects/stellarpig-app/builds/90bb14e9-7484-4c57-8ba6-55d548f0acdd
 ```
 
 ### How to install the APK on Android
 
-1. Download the APK from the GitHub Release attached to this repository.
+1. Download the APK from https://expo.dev/accounts/matheusbrasilaguiar/projects/stellarpig-app/builds/90bb14e9-7484-4c57-8ba6-55d548f0acdd.
 2. Open the APK file on an Android device.
 3. If Android blocks the installation, enable installation from unknown apps for the browser or file manager being used.
 4. Confirm the installation.
