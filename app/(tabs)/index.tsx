@@ -1,12 +1,12 @@
-import { useRef, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Badge, Button, Card, PigSVG, StarryBackground, getPigLevel } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Gradients, Radius } from '@/constants/theme';
+import type { Vault } from '@/lib/api/vaults';
+import { useDeposits } from '@/lib/queries/deposits.queries';
+import { useVaults } from '@/lib/queries/vaults.queries';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Colors, Accent, Font, FontSize, Gradients, Radius } from '@/constants/theme';
-import { Badge, Button, Card, StarryBackground, ShootingStar, PigSVG, getPigLevel } from '@/components/ui';
-import { useVaults } from '@/lib/queries/vaults.queries';
-import { useDeposits } from '@/lib/queries/deposits.queries';
-import type { Vault } from '@/lib/api/vaults';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 function ActiveVaultRow({ vault }: { vault: Vault }) {
   return (
@@ -66,7 +66,6 @@ export default function HomeScreen() {
         style={styles.header}
       >
         <StarryBackground stars={18} nebulas={4} shootingStars={false} />
-        <ShootingStar />
 
         <View style={styles.headerContent}>
           {/* Top row */}
@@ -129,7 +128,7 @@ export default function HomeScreen() {
             />
           </View>
           <Pressable
-            onPress={() => {}}
+            onPress={() => { }}
             style={styles.educationBtn}
           >
             <LinearGradient

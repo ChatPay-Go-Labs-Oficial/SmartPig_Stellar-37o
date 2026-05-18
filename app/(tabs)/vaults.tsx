@@ -72,7 +72,7 @@ export default function VaultsScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.headerBanner}
       >
-        <Text style={styles.title}>Vaults</Text>
+        <Text style={styles.title}>Investimentos</Text>
         <Text style={styles.subtitle}>Escolha onde investir</Text>
       </LinearGradient>
 

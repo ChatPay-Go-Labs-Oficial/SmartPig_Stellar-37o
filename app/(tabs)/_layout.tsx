@@ -12,7 +12,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: Accent.gold,
         tabBarInactiveTintColor: Colors.mutedForeground,
         tabBarStyle: {
-          backgroundColor: 'rgba(26, 24, 35, 0.85)',
+          backgroundColor: 'rgba(26, 24, 35, 0.95)',
           borderTopColor: Colors.border,
           borderTopWidth: 1,
         },
