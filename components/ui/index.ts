@@ -8,5 +8,7 @@ export { GradientText } from './GradientText';
 export { IconSymbol } from './icon-symbol';
 export { Collapsible } from './collapsible';
 export { FlashcardSwiper } from './FlashcardSwiper';
+export { DepositModal } from './DepositModal';
+export { WithdrawModal } from './WithdrawModal';
 export { StarryBackground, ShootingStar } from './StarryBackground';
 export { PigSVG, getPigLevel, getProgress } from './EvolutionaryPig';

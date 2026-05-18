@@ -1,13 +1,13 @@
-import { Badge, Button, Card, PigSVG, StarryBackground, getPigLevel } from '@/components/ui';
+import { Badge, Button, Card, DepositModal, PigSVG, StarryBackground, WithdrawModal, getPigLevel } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Radius } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
-import { useUsdcBalance } from '@/lib/queries/balances.queries';
 import { useDeposits } from '@/lib/queries/deposits.queries';
+import { useUsdcBalance } from '@/lib/queries/balances.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
 import { useWalletStore } from '@/lib/stores/wallet.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 function ActiveVaultRow({ vault }: { vault: Vault }) {
@@ -36,6 +36,13 @@ export default function HomeScreen() {
   const level = getPigLevel(usdcBalance);
 
   const [displayBalance, setDisplayBalance] = useState(usdcBalance);
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const firstVaultId = activeVaults[0]?.id || '';
+
+  const handleDepositSuccess = useCallback(() => {
+    // refetch data
+  }, []);
   const isAnimating = useRef(false);
 
   useEffect(() => {
@@ -118,7 +125,7 @@ export default function HomeScreen() {
               variant="primary"
               size="lg"
               fullWidth
-              onPress={() => router.push(`/vault/${activeVaults[0]?.id || ''}/deposit`)}
+              onPress={() => setDepositOpen(true)}
             />
           </View>
           <View style={styles.actionBtnWrapper}>
@@ -127,7 +134,7 @@ export default function HomeScreen() {
               variant="secondary"
               size="lg"
               fullWidth
-              onPress={() => router.push(`/vault/${activeVaults[0]?.id || ''}/withdraw`)}
+              onPress={() => setWithdrawOpen(true)}
             />
           </View>
           <Pressable
@@ -193,6 +200,19 @@ export default function HomeScreen() {
           </>
         )}
       </View>
+
+      <DepositModal
+        visible={depositOpen}
+        vaultId={firstVaultId}
+        onClose={() => setDepositOpen(false)}
+        onSuccess={handleDepositSuccess}
+      />
+      <WithdrawModal
+        visible={withdrawOpen}
+        vaultId={firstVaultId}
+        balance={String(usdcBalance)}
+        onClose={() => setWithdrawOpen(false)}
+      />
     </View>
   );
 }
