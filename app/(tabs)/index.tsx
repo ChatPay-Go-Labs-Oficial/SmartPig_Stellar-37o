@@ -2,9 +2,9 @@ import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, get
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useWalletBalances } from '@/lib/queries/balances.queries';
+import { useUser } from '@/lib/queries/users.queries';
 import { useAllVaultBalances, useVaults } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useUser } from '@/lib/queries/users.queries';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -217,7 +217,7 @@ export default function HomeScreen() {
         {/* Active vaults */}
         {vaultsWithBalance.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Seus Vaults</Text>
+            <Text style={styles.sectionTitle}>Meus Cofrinhos</Text>
             <Card style={styles.vaultsCard}>
               {vaultsWithBalance.map(({ vault }, i) => (
                 <View key={vault.id}>

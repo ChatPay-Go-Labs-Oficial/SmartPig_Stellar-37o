@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '@/components/layout';
 import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, WithdrawModal } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import { useVault, useVaultApy, useVaultBalance } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatVaultName(name: string): string {
   if (/^[A-Z0-9]{56}$/.test(name)) {
@@ -113,14 +113,14 @@ export default function VaultDetailScreen() {
       {/* CTAs */}
       <View style={styles.actions}>
         <Button
-          label="Depositar"
+          label="Poupar"
           variant="primary"
           size="lg"
           fullWidth
           onPress={() => setDepositOpen(true)}
         />
         <Button
-          label="Sacar"
+          label="Quebrar cofrinho"
           variant="secondary"
           size="lg"
           fullWidth
