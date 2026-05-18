@@ -12,6 +12,7 @@
  */
 
 import SignClient from '@walletconnect/sign-client';
+import { Linking } from 'react-native';
 
 const PROJECT_ID = process.env.EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '';
 const STELLAR_NAMESPACE = 'stellar';
@@ -22,41 +23,44 @@ function getStellarChain(): string {
   return passphrase.includes('Test') ? 'stellar:testnet' : 'stellar:pubnet';
 }
 
-let _client: Awaited<ReturnType<typeof SignClient.init>> | null = null;
-let _initPromise: Promise<void> | null = null;
+// Store on `global` so the singleton survives hot-module-reloading in dev.
+const _g = global as any;
+
+function _client(): Awaited<ReturnType<typeof SignClient.init>> | null {
+  return _g.__wc_client ?? null;
+}
 
 export async function initWalletConnect(): Promise<void> {
-  if (_client) return;
-  // Reuse in-flight promise so concurrent calls don't create multiple clients
-  if (_initPromise) return _initPromise;
+  if (_g.__wc_client) return;
+  if (_g.__wc_initPromise) return _g.__wc_initPromise;
   if (!PROJECT_ID) {
     console.warn('[WalletConnect] EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID not set — WalletConnect will not work.');
     return;
   }
-  _initPromise = SignClient.init({
+  _g.__wc_initPromise = SignClient.init({
     projectId: PROJECT_ID,
     metadata: {
-      name: 'StellarPig',
+      name: 'PigFi',
       description: 'Seu portfólio DeFi na rede Stellar',
-      url: 'https://stellarpig.com',
-      icons: ['https://stellarpig.com/icon.png'],
+      url: 'https://pigfi.app',
+      icons: ['https://pigfi.app/icon.png'],
       redirect: {
         native: 'stellarpigapp://',
-        universal: 'https://stellarpig.com',
+        universal: 'https://pigfi.app',
       },
     },
-  }).then((client) => {
-    _client = client;
-    _initPromise = null;
+  }).then((c) => {
+    _g.__wc_client = c;
+    _g.__wc_initPromise = null;
   }).catch((e) => {
-    _initPromise = null;
+    _g.__wc_initPromise = null;
     throw e;
   });
-  return _initPromise;
+  return _g.__wc_initPromise;
 }
 
 export function getWalletConnectClient() {
-  return _client;
+  return _client();
 }
 
 /**
@@ -68,13 +72,13 @@ export async function createWalletConnectPairing(): Promise<{
   uri: string;
   approval: () => Promise<string>;
 }> {
-  // Auto-initialize if not done yet (handles race condition on startup)
   await initWalletConnect();
-  if (!_client) throw new Error('WalletConnect não pôde ser inicializado. Verifique EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID.');
+  const c = _client();
+  if (!c) throw new Error('WalletConnect não pôde ser inicializado. Verifique EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID.');
 
   const chain = getStellarChain();
-  const { uri, approval: rawApproval } = await _client.connect({
-    requiredNamespaces: {
+  const { uri, approval: rawApproval } = await c.connect({
+    optionalNamespaces: {
       [STELLAR_NAMESPACE]: {
         methods: STELLAR_METHODS,
         chains: [chain],
@@ -99,15 +103,56 @@ export async function createWalletConnectPairing(): Promise<{
 }
 
 export async function signTransaction(xdr: string): Promise<string> {
-  if (!_client) throw new Error('WalletConnect não inicializado.');
+  const c = _client();
+  if (!c) throw new Error('WalletConnect não inicializado.');
 
-  const sessions = _client.session.values;
+  const sessions = c.session.values;
   if (sessions.length === 0) throw new Error('Nenhuma sessão WalletConnect ativa.');
 
   const session = sessions[sessions.length - 1];
   const chain = getStellarChain();
 
-  const { signedXDR } = await _client.request<{ signedXDR: string }>({
+  // ── Diagnóstico: logar o que a sessão WC reporta ──────────────────────
+  const sessionAccounts = session.namespaces?.[STELLAR_NAMESPACE]?.accounts ?? [];
+  console.log('[WalletKit] signTransaction ─────────────────────────');
+  console.log('[WalletKit] chain esperado (app):', chain);
+  console.log('[WalletKit] session topic:', session.topic);
+  console.log('[WalletKit] session accounts:', JSON.stringify(sessionAccounts));
+  console.log('[WalletKit] session chains:', JSON.stringify(session.namespaces?.[STELLAR_NAMESPACE]?.chains ?? []));
+  console.log('[WalletKit] XDR (primeiros 80 chars):', xdr.slice(0, 80));
+
+  // Detectar mismatch de rede: app é testnet mas Lobstr retornou conta pubnet (mainnet)
+  // Isso causa tx_bad_auth porque o passphrase de assinatura seria diferente.
+  const sessionChains: string[] = session.namespaces?.[STELLAR_NAMESPACE]?.chains ?? [];
+  const sessionAcctChains = sessionAccounts.map((a) => a.split(':').slice(0, 2).join(':'));
+  const allChains = [...new Set([...sessionChains, ...sessionAcctChains])];
+  const hasTestnet = allChains.some((c) => c.includes('testnet'));
+  const hasMainnet = allChains.some((c) => c.includes('pubnet'));
+  const isAppTestnet = chain === 'stellar:testnet';
+
+  console.log('[WalletKit] rede do Lobstr:', hasTestnet ? 'TESTNET' : hasMainnet ? 'MAINNET (pubnet)' : 'desconhecida');
+  console.log('[WalletKit] rede do app:', isAppTestnet ? 'TESTNET' : 'MAINNET');
+
+  if (isAppTestnet && hasMainnet && !hasTestnet) {
+    const err = new Error(
+      'Lobstr está em modo MAINNET mas o app está em TESTNET. ' +
+      'Abra o Lobstr → Configurações → Rede → mude para Testnet e reconecte a carteira.',
+    );
+    console.error('[WalletKit] NETWORK MISMATCH:', err.message);
+    throw err;
+  }
+  if (!isAppTestnet && hasTestnet && !hasMainnet) {
+    const err = new Error(
+      'Lobstr está em modo TESTNET mas o app está em MAINNET. Reconecte a carteira.',
+    );
+    console.error('[WalletKit] NETWORK MISMATCH:', err.message);
+    throw err;
+  }
+
+  // Fire the WC request first (don't await yet), then open Lobstr so the user
+  // sees the signing prompt immediately — push notifications are unreliable in
+  // dev builds and Lobstr needs to be in the foreground to respond.
+  const requestPromise = c.request<{ signedXDR: string }>({
     topic: session.topic,
     chainId: chain,
     request: {
@@ -116,14 +161,26 @@ export async function signTransaction(xdr: string): Promise<string> {
     },
   });
 
-  return signedXDR;
+  // Open Lobstr with a redirectUrl so it brings the user back after signing.
+  // lobstr://wc?redirectUrl=<app_url> — without uri=, shows the pending signing request.
+  const lobstrSignUri = `lobstr://wc?redirectUrl=${encodeURIComponent('stellarpigapp://')}`;
+  Linking.openURL(lobstrSignUri).catch(() =>
+    Linking.openURL('lobstr://').catch(() => {}),
+  );
+
+  const response = await requestPromise;
+  console.log('[WalletKit] resposta WC raw:', JSON.stringify(response));
+  const signedXDR = (response as any)?.signedXDR ?? (response as any)?.signed_xdr ?? response;
+  console.log('[WalletKit] signedXDR (primeiros 60):', String(signedXDR).slice(0, 60));
+  return String(signedXDR);
 }
 
 export async function disconnectWallet(): Promise<void> {
-  if (!_client) return;
-  const sessions = _client.session.values;
+  const c = _client();
+  if (!c) return;
+  const sessions = c.session.values;
   for (const session of sessions) {
-    await _client.disconnect({
+    await c.disconnect({
       topic: session.topic,
       reason: { code: 6000, message: 'User disconnected' },
     });
@@ -131,9 +188,9 @@ export async function disconnectWallet(): Promise<void> {
 }
 
 export function getActiveSessions() {
-  return _client?.session.values ?? [];
+  return _client()?.session.values ?? [];
 }
 
 export function hasActiveSession(): boolean {
-  return (_client?.session.values.length ?? 0) > 0;
+  return (_client()?.session.values.length ?? 0) > 0;
 }

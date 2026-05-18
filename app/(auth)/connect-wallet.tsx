@@ -10,7 +10,7 @@ export default function ConnectWalletScreen() {
   async function handleConnect() {
     try {
       await connect();
-      router.replace('/(tabs)');
+      // _layout.tsx lida com o roteamento baseado em isAuthenticated + isOnboarded
     } catch {
       // error already set in hook state
     }
@@ -40,6 +40,12 @@ export default function ConnectWalletScreen() {
             )}
           </LinearGradient>
         </Pressable>
+
+        {isConnecting && (
+          <Text style={styles.hintText}>
+            Approve a conexão no Lobstr e retorne a este app.
+          </Text>
+        )}
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -92,6 +98,13 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontWeight: '700',
     fontFamily: Font.bold,
+  },
+  hintText: {
+    fontSize: FontSize.bodySmall,
+    color: Colors.mutedForeground,
+    fontFamily: Font.regular,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   errorText: {
     fontSize: FontSize.bodySmall,

@@ -1,4 +1,4 @@
-# Design System — Smart Piggy
+# Design System — PigFi
 
 > 🇺🇸 [Read in English](design-system.md)
 

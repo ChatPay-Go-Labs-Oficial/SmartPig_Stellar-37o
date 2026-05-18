@@ -1,4 +1,5 @@
 import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
+import { ReactNode } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Gradients, Radius, Font, FontSize, Glow } from '@/constants/theme';
 
@@ -14,6 +15,7 @@ interface ButtonProps {
   disabled?: boolean;
   fullWidth?: boolean;
   style?: ViewStyle;
+  rightIcon?: ReactNode;
 }
 
 const sizeStyles: Record<Size, { paddingVertical: number; paddingHorizontal: number; fontSize: number }> = {
@@ -31,6 +33,7 @@ export function Button({
   disabled = false,
   fullWidth = false,
   style,
+  rightIcon,
 }: ButtonProps) {
   const sz = sizeStyles[size];
   const isDisabled = disabled || loading;
@@ -64,7 +67,7 @@ export function Button({
         >
           {loading
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={[textStyle, { color: '#fff' }]}>{label}</Text>
+            : <><Text style={[textStyle, { color: '#fff' }]}>{label}</Text>{rightIcon}</>
           }
         </LinearGradient>
       </Pressable>
@@ -82,7 +85,7 @@ export function Button({
         >
           {loading
             ? <ActivityIndicator color="#1a0a00" size="small" />
-            : <Text style={[textStyle, { color: 'hsl(42, 100%, 10%)' }]}>{label}</Text>
+            : <><Text style={[textStyle, { color: 'hsl(42, 100%, 10%)' }]}>{label}</Text>{rightIcon}</>
           }
         </LinearGradient>
       </Pressable>
@@ -105,7 +108,7 @@ export function Button({
     <Pressable onPress={onPress} disabled={isDisabled} style={[baseStyle, variantStyle, style]}>
       {loading
         ? <ActivityIndicator color={variantTextColor} size="small" />
-        : <Text style={[textStyle, { color: variantTextColor }]}>{label}</Text>
+        : <><Text style={[textStyle, { color: variantTextColor }]}>{label}</Text>{rightIcon}</>
       }
     </Pressable>
   );

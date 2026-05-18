@@ -18,9 +18,43 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
   'chart.bar.fill': 'bar-chart',
   'clock.fill': 'history',
   'person.fill': 'person',
+  'xmark': 'close',
+  'questionmark.circle': 'help-outline',
+  'doc.text.fill': 'description',
+  'person.text.rectangle.fill': 'badge',
+  'wallet.pass.fill': 'account-balance-wallet',
+  'lock.fill': 'lock',
+  'shield.fill': 'security',
+  'camera.fill': 'camera-alt',
+  'envelope.fill': 'mail',
+  'checkmark.circle.fill': 'check-circle',
+  'checkmark': 'check',
+  'arrow.up.right.square': 'open-in-new',
+  'pencil': 'edit',
+  'plus': 'add',
+  // Wallet / dashboard
+  'eye': 'visibility',
+  'eye.slash': 'visibility-off',
+  'doc.on.doc': 'content-copy',
+  'arrow.right': 'arrow-forward',
+  'exclamationmark': 'priority-high',
+  // Onboarding
+  'person.badge.plus': 'person-add',
+  'globe': 'public',
+  'checkmark.shield.fill': 'verified-user',
+  'arrow.uturn.left': 'undo',
+  // Profile
+  'bell.fill': 'notifications',
+  'headphones': 'headset',
+  'rectangle.portrait.and.arrow.right': 'logout',
+  // Balance
+  'arrow.down': 'arrow-downward',
+  'arrow.up': 'arrow-upward',
+  'arrow.clockwise': 'refresh',
 } as IconMapping;
 
 /**

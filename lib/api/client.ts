@@ -7,13 +7,10 @@ export const apiClient = axios.create({
   timeout: 15_000,
 });
 
-// Attach contractId as userId until backend implements JWT
 apiClient.interceptors.request.use((config) => {
-  const contractId = useAuthStore.getState().contractId;
-  if (contractId && config.params === undefined) {
-    config.params = { userId: contractId };
-  } else if (contractId) {
-    config.params = { ...config.params, userId: contractId };
+  const { userId } = useAuthStore.getState();
+  if (userId) {
+    config.params = { ...config.params, userId };
   }
   return config;
 });
