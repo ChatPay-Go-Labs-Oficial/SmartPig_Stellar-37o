@@ -73,7 +73,7 @@ export default function HistoryScreen() {
     ...(withdrawals ?? []).map((w) => ({
       id: w.id,
       type: 'withdrawal' as TxType,
-      amount: String(w.shares),
+      amount: w.shareAmount,
       status: w.status,
       createdAt: w.createdAt,
     })),

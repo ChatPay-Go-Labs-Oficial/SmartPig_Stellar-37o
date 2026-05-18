@@ -1,8 +1,11 @@
-import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing } from '@/constants/theme';
-import { useCreateDeposit } from '@/lib/queries/deposits.queries';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { randomUUID } from 'expo-crypto';
+import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing, Glow } from '@/constants/theme';
+import { useCreateDeposit, useSubmitDeposit } from '@/lib/queries/deposits.queries';
+import { useAuthStore } from '@/lib/stores/auth.store';
+import { signTransaction } from '@/lib/wallet-kit';
 import { PigSVG, getPigLevel } from './EvolutionaryPig';
 
 const QUICK_VALUES = [10, 50, 100, 500];
@@ -10,24 +13,51 @@ const QUICK_VALUES = [10, 50, 100, 500];
 interface DepositModalProps {
   visible: boolean;
   vaultId: string;
+  assetSymbol: string;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-type Step = 'input' | 'processing' | 'success';
+type Step = 'input' | 'processing' | 'signing' | 'submitting' | 'success';
 
-export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositModalProps) {
+export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess }: DepositModalProps) {
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('input');
+  const [errorMsg, setError] = useState('');
+  const { userId, walletAccountId } = useAuthStore();
   const createDeposit = useCreateDeposit();
+  const submitDeposit = useSubmitDeposit();
+
   const [showConfetti, setShowConfetti] = useState(false);
 
   const handleConfirm = async () => {
     const value = parseFloat(amount);
-    if (!value || value <= 0 || !vaultId) return;
+    if (!value || value <= 0 || !vaultId || !userId || !walletAccountId) return;
+    setError('');
     setStep('processing');
     try {
-      await createDeposit.mutateAsync({ vaultId, amount: value });
+      const idempotencyKey = randomUUID();
+      const result = await createDeposit.mutateAsync({
+        idempotencyKey,
+        userId,
+        walletAccountId,
+        vaultId,
+        amount: String(value),
+        assetSymbol,
+      });
+
+      if (!result.unsignedXdr) {
+        setError('Falha ao gerar transação. Tente novamente.');
+        setStep('input');
+        return;
+      }
+
+      setStep('signing');
+      const signedXdr = await signTransaction(result.unsignedXdr);
+
+      setStep('submitting');
+      await submitDeposit.mutateAsync({ depositId: result.id, signedXdr });
+
       setStep('success');
       setShowConfetti(true);
       setTimeout(() => {
@@ -35,9 +65,10 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
         setStep('input');
         setAmount('');
         onClose();
-        setTimeout(() => onSuccess?.(), 300);
+        onSuccess?.();
       }, 2500);
-    } catch {
+    } catch (e: any) {
+      setError(e?.message || 'Erro ao processar depósito');
       setStep('input');
     }
   };
@@ -46,9 +77,8 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={step !== 'processing' ? onClose : undefined}>
-        <Pressable style={styles.sheet} onPress={() => { }}>
-          {/* Confetti */}
+      <Pressable style={styles.backdrop} onPress={step !== 'processing' && step !== 'signing' && step !== 'submitting' ? onClose : undefined}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
           {showConfetti && (
             <View style={styles.confettiLayer} pointerEvents="none">
               {['🎉', '✨', '⭐', '💫', '🌟'].map((e, i) => (
@@ -59,18 +89,17 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
             </View>
           )}
 
-          {/* Header */}
           <View style={styles.handle} />
           <View style={styles.headerRow}>
             <View style={[styles.headerIcon, { backgroundColor: 'hsla(320, 90%, 58%, 0.15)' }]}>
-              <Text style={styles.headerIconText}>↑</Text>
+              <Text style={styles.headerIconText}>↓</Text>
             </View>
             <Text style={styles.headerTitle}>Depositar via Stellar</Text>
           </View>
 
           {step === 'input' && (
             <View style={styles.body}>
-              <Text style={styles.label}>Valor em BRL</Text>
+              <Text style={styles.label}>Valor em {assetSymbol}</Text>
               <TextInput
                 style={styles.amountInput}
                 placeholder="0,00"
@@ -86,21 +115,10 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
                 {QUICK_VALUES.map((v) => {
                   const isActive = amount === String(v);
                   return (
-                    <Pressable
-                      key={v}
-                      onPress={() => setAmount(String(v))}
-                      style={{ flex: 1 }}
-                    >
+                    <Pressable key={v} onPress={() => setAmount(String(v))} style={{ flex: 1 }}>
                       {isActive ? (
-                        <LinearGradient
-                          colors={Gradients.hot}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={[styles.quickBtn, styles.quickBtnActive]}
-                        >
-                          <Text style={[styles.quickText, styles.quickTextActive]}>
-                            ${v}
-                          </Text>
+                        <LinearGradient colors={Gradients.hot} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.quickBtn, styles.quickBtnActive]}>
+                          <Text style={[styles.quickText, styles.quickTextActive]}>${v}</Text>
                         </LinearGradient>
                       ) : (
                         <View style={styles.quickBtn}>
@@ -111,6 +129,8 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
                   );
                 })}
               </View>
+
+              {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
 
               <Pressable
                 onPress={handleConfirm}
@@ -129,11 +149,19 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
             </View>
           )}
 
-          {step === 'processing' && (
+          {(step === 'processing' || step === 'signing' || step === 'submitting') && (
             <View style={styles.centerBody}>
               <ActivityIndicator color={Accent.primary} size="large" />
-              <Text style={styles.statusTitle}>Confirmando na Stellar...</Text>
-              <Text style={styles.statusSub}>Transação em menos de 1s ⚡</Text>
+              <Text style={styles.statusTitle}>
+                {step === 'processing' && 'Gerando transação...'}
+                {step === 'signing' && 'Assine no seu Lobstr...'}
+                {step === 'submitting' && 'Confirmando na Stellar...'}
+              </Text>
+              <Text style={styles.statusSub}>
+                {step === 'processing' && 'Preparando depósito no vault'}
+                {step === 'signing' && 'Abra seu Lobstr e aprove a transação'}
+                {step === 'submitting' && 'Transação em menos de 1s ⚡'}
+              </Text>
             </View>
           )}
 
@@ -143,7 +171,7 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
                 <Text style={styles.checkMark}>✓</Text>
               </View>
               <Text style={styles.statusTitle}>Confirmado na Stellar ⚡</Text>
-              <Text style={styles.statusSub}>${amount} adicionados ao seu porquinho</Text>
+              <Text style={styles.statusSub}>${amount} adicionados ao vault</Text>
               <PigSVG level={level} />
             </View>
           )}
@@ -184,6 +212,7 @@ const styles = StyleSheet.create({
   },
   confetti: {
     position: 'absolute',
+    fontSize: 16,
   },
   headerRow: {
     flexDirection: 'row',
@@ -234,7 +263,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickBtn: {
-    flex: 1,
     height: 40,
     borderRadius: Radius.md,
     backgroundColor: Colors.muted,
@@ -269,6 +297,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontFamily: Font.black,
     fontWeight: '900',
+  },
+  errorText: {
+    fontSize: FontSize.bodySmall,
+    color: Accent.destructive,
+    fontFamily: Font.regular,
+    textAlign: 'center',
   },
   centerBody: {
     alignItems: 'center',

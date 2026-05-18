@@ -7,20 +7,18 @@ import { Button, Card, Input } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useWalletConnect } from '@/lib/hooks/use-wallet-connect';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useWalletStore } from '@/lib/stores/wallet.store';
 import { usePixStore } from '@/lib/stores/pix.store';
 
 export default function ProfileScreen() {
-  const contractId = useAuthStore((s) => s.contractId);
-  const walletAddress = useWalletStore((s) => s.walletAddress);
+  const stellarAddress = useAuthStore((s) => s.stellarAddress);
   const { pixKey, setPixKey } = usePixStore();
   const { disconnect } = useWalletConnect();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [pixInput, setPixInput] = useState(pixKey);
   const [saved, setSaved] = useState(false);
 
-  const shortAddress = walletAddress
-    ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-6)}`
+  const shortAddress = stellarAddress
+    ? `${stellarAddress.slice(0, 6)}…${stellarAddress.slice(-6)}`
     : null;
 
   const initials = shortAddress ? shortAddress.slice(0, 2).toUpperCase() : '??';
@@ -53,7 +51,7 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>Investidor</Text>
           <Text style={styles.userEmail}>
-            {walletAddress ? `${shortAddress}` : 'Carteira não conectada'}
+            {stellarAddress ? `${shortAddress}` : 'Carteira não conectada'}
           </Text>
         </LinearGradient>
 
@@ -65,7 +63,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.walletBox}>
             <Text style={styles.walletText} selectable>
-              {walletAddress ?? contractId ?? 'Nenhuma carteira'}
+                {stellarAddress ?? 'Nenhuma carteira'}
             </Text>
           </View>
         </Card>

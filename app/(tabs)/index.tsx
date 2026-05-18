@@ -4,7 +4,7 @@ import type { Vault } from '@/lib/api/vaults';
 import { useUsdcBalance } from '@/lib/queries/balances.queries';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
-import { useWalletStore } from '@/lib/stores/wallet.store';
+import { useAuthStore } from '@/lib/stores/auth.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,10 +23,10 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 }
 
 export default function HomeScreen() {
-  const walletAddress = useWalletStore((s) => s.walletAddress);
+  const stellarAddress = useAuthStore((s) => s.stellarAddress);
   const { data: vaults } = useVaults();
   const { data: deposits } = useDeposits();
-  const { data: usdcBalance = 0 } = useUsdcBalance(walletAddress);
+  const { data: usdcBalance = 0 } = useUsdcBalance(stellarAddress);
 
   const confirmedDeposits = deposits?.filter((d) => d.status === 'CONFIRMED') ?? [];
   const activeVaultIds = [...new Set(confirmedDeposits.map((d) => d.vaultId))];
@@ -39,10 +39,9 @@ export default function HomeScreen() {
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const firstVaultId = activeVaults[0]?.id || '';
+  const firstVaultSymbol = activeVaults[0]?.assetSymbol || 'USDC';
 
-  const handleDepositSuccess = useCallback(() => {
-    // refetch data
-  }, []);
+  const handleDepositSuccess = useCallback(() => {}, []);
   const isAnimating = useRef(false);
 
   useEffect(() => {
@@ -204,6 +203,7 @@ export default function HomeScreen() {
       <DepositModal
         visible={depositOpen}
         vaultId={firstVaultId}
+        assetSymbol={firstVaultSymbol}
         onClose={() => setDepositOpen(false)}
         onSuccess={handleDepositSuccess}
       />
