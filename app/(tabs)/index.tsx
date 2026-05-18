@@ -4,6 +4,7 @@ import type { Vault } from '@/lib/api/vaults';
 import { useWalletBalances } from '@/lib/queries/balances.queries';
 import { useAllVaultBalances, useVaults } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useUser } from '@/lib/queries/users.queries';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,6 +24,8 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 
 export default function HomeScreen() {
   const stellarAddress = useAuthStore((s) => s.stellarAddress);
+  const userId = useAuthStore((s) => s.userId);
+  const { data: user } = useUser(userId);
   const { data: vaults } = useVaults();
   const { data: walletBalances } = useWalletBalances(stellarAddress);
   const walletBalance = walletBalances?.total ?? 0;
@@ -105,7 +108,7 @@ export default function HomeScreen() {
           <View style={styles.topRow}>
             <View>
               <Text style={styles.greetingLabel}>Olá,</Text>
-              <Text style={styles.greetingName}>Investidor 👋</Text>
+              <Text style={styles.greetingName}>{user?.name || 'Investidor'} 👋</Text>
             </View>
             <View style={styles.topRight}>
               <View style={styles.streakBadge}>
