@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing, Glow } from '@/constants/theme';
+import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useCreateWithdrawal } from '@/lib/queries/withdrawals.queries';
 import { usePixStore } from '@/lib/stores/pix.store';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 interface WithdrawModalProps {
   visible: boolean;
@@ -65,11 +65,11 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={handleClose}>
       <Pressable style={styles.backdrop} onPress={handleClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable style={styles.sheet} onPress={() => { }}>
           <View style={styles.handle} />
           <View style={styles.headerRow}>
             <View style={[styles.headerIcon, { backgroundColor: 'hsla(270, 80%, 60%, 0.15)' }]}>
-              <Text style={[styles.headerIconText, { color: Accent.secondary }]}>↑</Text>
+              <Text style={[styles.headerIconText, { color: Accent.secondary }]}>↓</Text>
             </View>
             <Text style={styles.headerTitle}>Sacar via PIX</Text>
           </View>
@@ -87,6 +87,7 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
                 onChangeText={setAmount}
                 keyboardType="decimal-pad"
                 autoFocus
+                cursorColor="transparent"
               />
               <View style={styles.withdrawActionRow}>
                 <Pressable

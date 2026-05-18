@@ -63,7 +63,7 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
           <View style={styles.handle} />
           <View style={styles.headerRow}>
             <View style={[styles.headerIcon, { backgroundColor: 'hsla(320, 90%, 58%, 0.15)' }]}>
-              <Text style={styles.headerIconText}>↓</Text>
+              <Text style={styles.headerIconText}>↑</Text>
             </View>
             <Text style={styles.headerTitle}>Depositar via Stellar</Text>
           </View>
@@ -79,6 +79,7 @@ export function DepositModal({ visible, vaultId, onClose, onSuccess }: DepositMo
                 onChangeText={setAmount}
                 keyboardType="decimal-pad"
                 autoFocus
+                cursorColor="transparent"
               />
 
               <View style={styles.quickRow}>
