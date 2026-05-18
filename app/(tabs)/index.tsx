@@ -210,7 +210,9 @@ export default function HomeScreen() {
       <WithdrawModal
         visible={withdrawOpen}
         vaultId={firstVaultId}
-        balance={String(usdcBalance)}
+        dfTokens="0"
+        underlyingBalance={String(usdcBalance)}
+        assetSymbol={firstVaultSymbol}
         onClose={() => setWithdrawOpen(false)}
       />
     </View>

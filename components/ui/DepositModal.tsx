@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { randomUUID } from 'expo-crypto';
+import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing, Glow } from '@/constants/theme';
 import { useCreateDeposit, useSubmitDeposit } from '@/lib/queries/deposits.queries';
+import { vaultKeys } from '@/lib/queries/vaults.queries';
+import { balanceKeys } from '@/lib/queries/balances.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { signTransaction } from '@/lib/wallet-kit';
 import { PigSVG, getPigLevel } from './EvolutionaryPig';
@@ -24,9 +27,10 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setError] = useState('');
-  const { userId, walletAccountId } = useAuthStore();
+  const { userId, walletAccountId, stellarAddress } = useAuthStore();
   const createDeposit = useCreateDeposit();
   const submitDeposit = useSubmitDeposit();
+  const qc = useQueryClient();
 
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -60,6 +64,9 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
 
       setStep('success');
       setShowConfetti(true);
+      qc.invalidateQueries({ queryKey: vaultKeys.all });
+      qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, stellarAddress ?? '') });
+      qc.invalidateQueries({ queryKey: balanceKeys.wallet(stellarAddress ?? '') });
       setTimeout(() => {
         setShowConfetti(false);
         setStep('input');

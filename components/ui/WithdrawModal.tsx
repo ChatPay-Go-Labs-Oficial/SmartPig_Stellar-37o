@@ -1,52 +1,53 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { randomUUID } from 'expo-crypto';
+import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Accent, Font, FontSize, Radius, Spacing, Glow } from '@/constants/theme';
 import { useCreateWithdrawal, useSubmitWithdrawal } from '@/lib/queries/withdrawals.queries';
+import { vaultKeys } from '@/lib/queries/vaults.queries';
+import { balanceKeys } from '@/lib/queries/balances.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { usePixStore } from '@/lib/stores/pix.store';
 import { signTransaction } from '@/lib/wallet-kit';
-import { router } from 'expo-router';
 
 interface WithdrawModalProps {
   visible: boolean;
   vaultId: string;
-  balance: string;
+  dfTokens: string;
+  underlyingBalance: string;
+  assetSymbol: string;
   onClose: () => void;
 }
 
-type Step = 'input' | 'nopix' | 'confirm' | 'processing' | 'signing' | 'submitting' | 'success';
+type Step = 'input' | 'confirm' | 'processing' | 'signing' | 'submitting' | 'success';
 
-export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawModalProps) {
+export function WithdrawModal({
+  visible, vaultId, dfTokens, underlyingBalance, assetSymbol, onClose,
+}: WithdrawModalProps) {
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setError] = useState('');
-  const { userId, walletAccountId } = useAuthStore();
-  const pixKey = usePixStore((s) => s.pixKey);
+  const { userId, walletAccountId, stellarAddress } = useAuthStore();
   const createWithdrawal = useCreateWithdrawal();
   const submitWithdrawal = useSubmitWithdrawal();
+  const qc = useQueryClient();
 
-  const parsedBalance = parseFloat(balance || '0');
+  const parsedUnderlying = parseFloat(underlyingBalance || '0');
+  const parsedDfTokens = parseFloat(dfTokens || '0');
   const parsedAmount = parseFloat(amount || '0');
 
-  const maskedPix = pixKey
-    ? pixKey.length > 6
-      ? pixKey.slice(0, 3) + '***' + pixKey.slice(-3)
-      : '***'
-    : '';
+  const shareAmount = useMemo(() => {
+    if (!parsedAmount || parsedUnderlying <= 0) return '0';
+    return Math.floor((parsedAmount / parsedUnderlying) * parsedDfTokens).toString();
+  }, [parsedAmount, parsedUnderlying, parsedDfTokens]);
 
   const handleContinue = () => {
-    if (!parsedAmount || parsedAmount <= 0 || parsedAmount > parsedBalance) return;
-    if (!pixKey) {
-      setStep('nopix');
-      return;
-    }
+    if (!parsedAmount || parsedAmount <= 0 || parsedAmount > parsedUnderlying) return;
     setStep('confirm');
   };
 
   const handleWithdraw = async () => {
-    if (!userId || !walletAccountId) return;
+    if (!userId || !walletAccountId || shareAmount === '0') return;
     setError('');
     setStep('processing');
     try {
@@ -56,14 +57,10 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
         userId,
         walletAccountId,
         vaultId,
-        shareAmount: String(parsedAmount),
+        shareAmount,
       });
 
-      if (!result.unsignedXdr) {
-        setError('Falha ao gerar transação. Tente novamente.');
-        setStep('input');
-        return;
-      }
+      if (!result.unsignedXdr) throw new Error('XDR não gerado');
 
       setStep('signing');
       const signedXdr = await signTransaction(result.unsignedXdr);
@@ -72,6 +69,9 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
       await submitWithdrawal.mutateAsync({ withdrawalId: result.id, signedXdr });
 
       setStep('success');
+      qc.invalidateQueries({ queryKey: vaultKeys.all });
+      qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, stellarAddress ?? '') });
+      qc.invalidateQueries({ queryKey: balanceKeys.wallet(stellarAddress ?? '') });
       setTimeout(() => {
         setStep('input');
         setAmount('');
@@ -100,14 +100,21 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
             <View style={[styles.headerIcon, { backgroundColor: 'hsla(270, 80%, 60%, 0.15)' }]}>
               <Text style={[styles.headerIconText, { color: Accent.secondary }]}>↑</Text>
             </View>
-            <Text style={styles.headerTitle}>Sacar via Stellar</Text>
+            <Text style={styles.headerTitle}>Sacar do Vault</Text>
           </View>
 
           {step === 'input' && (
             <View style={styles.body}>
-              <Text style={styles.balanceHint}>
-                Saldo disponível: <Text style={styles.balanceHighlight}>${parsedBalance.toFixed(2)}</Text>
-              </Text>
+              <View style={styles.balanceCard}>
+                <Text style={styles.balanceCardLabel}>Saldo no vault</Text>
+                <Text style={styles.balanceCardValue}>
+                  {parsedUnderlying.toFixed(2)} {assetSymbol}
+                </Text>
+                <Text style={styles.balanceCardShares}>
+                  {parsedDfTokens} dfTokens
+                </Text>
+              </View>
+
               <TextInput
                 style={styles.amountInput}
                 placeholder="0,00"
@@ -118,24 +125,32 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
                 autoFocus
                 cursorColor="transparent"
               />
+
+              {parsedAmount > 0 && parsedAmount <= parsedUnderlying && (
+                <Text style={styles.conversionHint}>
+                  ≈ {shareAmount} dfTokens serão resgatados
+                </Text>
+              )}
+
               {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+
               <View style={styles.withdrawActionRow}>
                 <Pressable
-                  onPress={() => setAmount(parsedBalance.toFixed(2))}
+                  onPress={() => setAmount(parsedUnderlying.toFixed(2))}
                   style={styles.sacarTudoBtn}
                 >
                   <Text style={styles.sacarTudoText}>Sacar Tudo</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleContinue}
-                  disabled={!amount || parsedAmount <= 0 || parsedAmount > parsedBalance}
+                  disabled={!parsedAmount || parsedAmount <= 0 || parsedAmount > parsedUnderlying}
                   style={{ flex: 1 }}
                 >
                   <LinearGradient
                     colors={[Accent.secondary, Accent.secondary]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[styles.continueBtn, (!amount || parsedAmount <= 0 || parsedAmount > parsedBalance) && styles.btnDisabled]}
+                    style={[styles.continueBtn, (!parsedAmount || parsedAmount <= 0 || parsedAmount > parsedUnderlying) && styles.btnDisabled]}
                   >
                     <Text style={styles.continueBtnText}>Continuar</Text>
                   </LinearGradient>
@@ -144,37 +159,25 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
             </View>
           )}
 
-          {step === 'nopix' && (
-            <View style={styles.centerBody}>
-              <Text style={styles.warningIcon}>⚠️</Text>
-              <Text style={styles.statusTitle}>Chave PIX não cadastrada</Text>
-              <Text style={styles.statusSub}>Para sua segurança, cadastre sua chave PIX no Perfil antes de sacar.</Text>
-              <Pressable onPress={() => { handleClose(); router.push('/(tabs)/profile'); }} style={{ alignSelf: 'stretch' }}>
-                <LinearGradient
-                  colors={[Accent.primary, Accent.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.confirmBtn}
-                >
-                  <Text style={styles.confirmBtnText}>Ir para o Perfil</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          )}
-
           {step === 'confirm' && (
             <View style={styles.body}>
               <View style={styles.confirmCard}>
                 <View style={styles.confirmRow}>
                   <Text style={styles.confirmLabel}>Valor</Text>
-                  <Text style={styles.confirmValue}>${parsedAmount.toFixed(2)}</Text>
+                  <Text style={styles.confirmValue}>{parsedAmount.toFixed(2)} {assetSymbol}</Text>
                 </View>
                 <View style={styles.confirmRow}>
-                  <Text style={styles.confirmLabel}>Chave PIX</Text>
-                  <Text style={styles.confirmValue}>{maskedPix}</Text>
+                  <Text style={styles.confirmLabel}>dfTokens</Text>
+                  <Text style={styles.confirmValue}>{shareAmount}</Text>
+                </View>
+                <View style={styles.confirmRow}>
+                  <Text style={styles.confirmLabel}>Destino</Text>
+                  <Text style={styles.confirmValue}>Sua carteira Stellar</Text>
                 </View>
               </View>
-              <Text style={styles.pixHint}>⚡ Processado via Stellar {'→'} PIX</Text>
+              <Text style={styles.pixHint}>
+                ⚡ Os {assetSymbol} voltam direto pra sua wallet
+              </Text>
               <Pressable onPress={handleWithdraw} style={{ alignSelf: 'stretch' }}>
                 <LinearGradient
                   colors={[Accent.secondary, Accent.secondary]}
@@ -194,12 +197,12 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
               <Text style={styles.statusTitle}>
                 {step === 'processing' && 'Gerando transação...'}
                 {step === 'signing' && 'Assine no seu Lobstr...'}
-                {step === 'submitting' && 'Processando saque na Stellar...'}
+                {step === 'submitting' && 'Processando na Stellar...'}
               </Text>
               <Text style={styles.statusSub}>
                 {step === 'processing' && 'Preparando saque do vault'}
-                {step === 'signing' && 'Abra seu Lobstr e aprove a transação'}
-                {step === 'submitting' && 'Convertendo e enviando'}
+                {step === 'signing' && 'Abra seu Lobstr e aprove'}
+                {step === 'submitting' && 'Enviando para sua carteira ⚡'}
               </Text>
             </View>
           )}
@@ -209,9 +212,10 @@ export function WithdrawModal({ visible, vaultId, balance, onClose }: WithdrawMo
               <View style={[styles.checkCircle, Glow.green]}>
                 <Text style={styles.checkMark}>✓</Text>
               </View>
-              <Text style={styles.statusTitle}>Saque Processado! ⚡</Text>
-              <Text style={styles.statusSub}>${amount} via Stellar {'→'} PIX</Text>
-              <Text style={styles.arrivalText}>Chegará em 1-2 dias úteis</Text>
+              <Text style={styles.statusTitle}>Saque Confirmado! ⚡</Text>
+              <Text style={styles.statusSub}>
+                {parsedAmount.toFixed(2)} {assetSymbol} enviados para sua carteira
+              </Text>
             </View>
           )}
         </Pressable>
@@ -271,14 +275,29 @@ const styles = StyleSheet.create({
   body: {
     gap: Spacing[4],
   },
-  balanceHint: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
+  balanceCard: {
+    backgroundColor: Colors.muted,
+    borderRadius: Radius.lg,
+    padding: Spacing[4],
+    alignItems: 'center',
+    gap: 2,
   },
-  balanceHighlight: {
+  balanceCardLabel: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Colors.mutedForeground,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  balanceCardValue: {
+    fontSize: FontSize.heading,
     fontFamily: Font.black,
     color: Colors.foreground,
+  },
+  balanceCardShares: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
   },
   amountInput: {
     height: 56,
@@ -291,6 +310,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
     textAlign: 'center',
     paddingHorizontal: 16,
+  },
+  conversionHint: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    textAlign: 'center',
   },
   withdrawActionRow: {
     flexDirection: 'row',
@@ -373,9 +398,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: Spacing[8],
   },
-  warningIcon: {
-    fontSize: 40,
-  },
   statusTitle: {
     fontSize: FontSize.subheading,
     fontFamily: Font.black,
@@ -400,10 +422,5 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: '#fff',
     fontFamily: Font.black,
-  },
-  arrivalText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
   },
 });

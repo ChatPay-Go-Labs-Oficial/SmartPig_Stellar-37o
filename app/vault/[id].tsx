@@ -137,7 +137,9 @@ export default function VaultDetailScreen() {
       <WithdrawModal
         visible={withdrawOpen}
         vaultId={vault.id}
-        balance={vaultBalance}
+        dfTokens={balanceData?.dfTokens ?? '0'}
+        underlyingBalance={vaultBalance}
+        assetSymbol={vault.assetSymbol}
         onClose={() => setWithdrawOpen(false)}
       />
     </ScreenContainer>
