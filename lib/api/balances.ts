@@ -19,8 +19,15 @@ export async function getAccountBalances(walletAddress: string): Promise<Account
 }
 
 export function findUsdcBalance(balances: AccountBalance[]): number {
-  const usdc = balances.find(
-    (b) => b.asset_code === 'USDC',
-  );
+  const usdc = balances.find((b) => b.asset_code === 'USDC');
   return usdc ? parseFloat(usdc.balance) : 0;
+}
+
+export function findNativeBalance(balances: AccountBalance[]): number {
+  const native = balances.find((b) => b.asset_type === 'native');
+  return native ? parseFloat(native.balance) : 0;
+}
+
+export function findTotalBalance(balances: AccountBalance[]): number {
+  return balances.reduce((sum, b) => sum + parseFloat(b.balance), 0);
 }

@@ -1,9 +1,8 @@
 import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, getPigLevel } from '@/components/ui';
-import { Accent, Colors, Font, FontSize, Gradients, Radius } from '@/constants/theme';
+import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
-import { useUsdcBalance } from '@/lib/queries/balances.queries';
-import { useDeposits } from '@/lib/queries/deposits.queries';
-import { useVaults } from '@/lib/queries/vaults.queries';
+import { useWalletBalances } from '@/lib/queries/balances.queries';
+import { useAllVaultBalances, useVaults } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -25,27 +24,51 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 export default function HomeScreen() {
   const stellarAddress = useAuthStore((s) => s.stellarAddress);
   const { data: vaults } = useVaults();
-  const { data: deposits } = useDeposits();
-  const { data: usdcBalance = 0 } = useUsdcBalance(stellarAddress);
+  const { data: walletBalances } = useWalletBalances(stellarAddress);
+  const usdcBalance = walletBalances?.usdc ?? 0;
+  const walletBalance = walletBalances?.total ?? 0;
 
-  const confirmedDeposits = deposits?.filter((d) => d.status === 'CONFIRMED') ?? [];
-  const activeVaultIds = [...new Set(confirmedDeposits.map((d) => d.vaultId))];
-  const activeVaults = vaults?.filter((v) => activeVaultIds.includes(v.id)) ?? [];
+  // Vault balances from on-chain (real investment data)
+  const vaultBalances = useAllVaultBalances(stellarAddress);
+  const vaultsWithBalance = vaults
+    ?.filter((_, i) => {
+      const bal = vaultBalances[i]?.data;
+      const underlying = parseFloat(bal?.underlyingBalance?.[0] || '0');
+      return underlying > 0;
+    })
+    .map((v, i) => {
+      const realIdx = vaults.indexOf(v);
+      const bal = vaultBalances[realIdx]?.data;
+      return {
+        vault: v,
+        underlying: parseFloat(bal?.underlyingBalance?.[0] || '0'),
+        dfTokens: bal?.dfTokens || '0',
+      };
+    }) ?? [];
 
-  const dailyYield = usdcBalance * 0.0587 / 365;
-  const level = getPigLevel(usdcBalance);
+  const totalInvested = vaultsWithBalance.reduce((sum, v) => sum + v.underlying, 0);
+  const weightedApy = vaultsWithBalance.reduce((sum, v) => {
+    return totalInvested > 0
+      ? sum + (v.underlying / totalInvested) * parseFloat(v.vault.apy || '0')
+      : sum;
+  }, 0);
 
-  const [displayBalance, setDisplayBalance] = useState(usdcBalance);
+  const dailyYield = totalInvested * (weightedApy / 100) / 365;
+  const monthlyYield = dailyYield * 30;
+  const displayApy = weightedApy || 0;
+  const level = getPigLevel(totalInvested);
+
+  const [displayBalance, setDisplayBalance] = useState(totalInvested);
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const firstVaultId = activeVaults[0]?.id || '';
-  const firstVaultSymbol = activeVaults[0]?.assetSymbol || 'USDC';
+  const firstVault = vaults?.[0];
+  const firstVaultId = firstVault?.id || '';
+  const firstVaultSymbol = firstVault?.assetSymbol || 'USDC';
 
-  const handleDepositSuccess = useCallback(() => {}, []);
   const isAnimating = useRef(false);
 
   useEffect(() => {
-    const target = usdcBalance;
+    const target = totalInvested;
     if (Math.abs(target - displayBalance) < 0.001 || isAnimating.current) return;
     isAnimating.current = true;
     const steps = 20;
@@ -63,7 +86,9 @@ export default function HomeScreen() {
     }, 30);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [usdcBalance]);
+  }, [totalInvested]);
+
+  const handleDepositSuccess = useCallback(() => { }, []);
 
   return (
     <View style={styles.screen}>
@@ -99,14 +124,17 @@ export default function HomeScreen() {
 
           {/* Balance */}
           <View style={styles.balanceSection}>
-            <Text style={styles.balanceLabel}>Saldo Total</Text>
+            <Text style={styles.balanceLabel}>Total Investido</Text>
             <Text style={styles.balanceValue}>
               $ {displayBalance.toFixed(2)}
+            </Text>
+            <Text style={styles.walletSubText}>
+              $ {walletBalance.toFixed(2)} disponível na wallet
             </Text>
             <View style={styles.yieldRow}>
               <Text style={styles.yieldIcon}>📈</Text>
               <Text style={styles.yieldText}>
-                +5.87% ao ano • +R$ {dailyYield.toFixed(4)}/dia
+                +{displayApy.toFixed(2)}% ao ano • +$ {dailyYield.toFixed(4)}/dia
               </Text>
             </View>
             <Text style={styles.stellarTag}>Rendendo via Stellar ⚡</Text>
@@ -158,9 +186,9 @@ export default function HomeScreen() {
           </Text>
           <View style={styles.yieldStats}>
             {[
-              { label: 'Rendimento hoje', value: `+R$ ${dailyYield.toFixed(4)}`, color: Accent.success },
-              { label: 'Rendimento/mês', value: `+R$ ${(dailyYield * 30).toFixed(2)}`, color: Accent.success },
-              { label: 'Rendimento anual', value: '5.87%', color: Accent.primary },
+              { label: 'Rendimento hoje', value: `+$ ${dailyYield.toFixed(4)}`, color: Accent.success },
+              { label: 'Rendimento/mês', value: `+$ ${monthlyYield.toFixed(2)}`, color: Accent.success },
+              { label: 'APY médio', value: `${displayApy.toFixed(2)}%`, color: Accent.primary },
               { label: 'Protocolo', value: 'Stellar/DeFindex', color: Accent.primary },
             ].map((item) => (
               <View key={item.label} style={styles.yieldStatRow}>
@@ -178,25 +206,33 @@ export default function HomeScreen() {
         </Card>
 
         {/* Tip banner */}
-        <View style={styles.tipBanner}>
+        {/* <View style={styles.tipBanner}>
           <Text style={styles.tipText}>
             🔥 <Text style={styles.tipHighlight}>Dica:</Text> Ative o Pix Automático e poupe sem esforço!
           </Text>
-        </View>
+        </View> */}
 
         {/* Active vaults */}
-        {activeVaults.length > 0 && (
+        {vaultsWithBalance.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Seus Vaults</Text>
             <Card style={styles.vaultsCard}>
-              {activeVaults.map((v, i) => (
-                <View key={v.id}>
-                  <ActiveVaultRow vault={v} />
-                  {i < activeVaults.length - 1 && <View style={styles.divider} />}
+              {vaultsWithBalance.map(({ vault }, i) => (
+                <View key={vault.id}>
+                  <ActiveVaultRow vault={vault} />
+                  {i < vaultsWithBalance.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
             </Card>
           </>
+        )}
+        {vaultsWithBalance.length === 0 && vaults && vaults.length > 0 && (
+          <Card style={styles.emptyCard}>
+            <Text style={styles.emptyText}>Escolha um vault para começar a investir.</Text>
+            <Pressable onPress={() => router.push('/(tabs)/vaults')}>
+              <Text style={styles.emptyLink}>Explorar vaults →</Text>
+            </Pressable>
+          </Card>
         )}
       </View>
 
@@ -211,7 +247,7 @@ export default function HomeScreen() {
         visible={withdrawOpen}
         vaultId={firstVaultId}
         dfTokens="0"
-        underlyingBalance={String(usdcBalance)}
+        underlyingBalance={String(walletBalance)}
         assetSymbol={firstVaultSymbol}
         onClose={() => setWithdrawOpen(false)}
       />
@@ -278,7 +314,8 @@ const styles = StyleSheet.create({
     fontSize: FontSize.label,
   },
   pigArea: {
-    alignItems: 'center'
+    alignItems: 'center',
+    marginTop: -30,
   },
   pigLabel: {
     textAlign: 'center',
@@ -322,6 +359,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.label,
     color: Accent.success,
     fontFamily: Font.black,
+  },
+  walletSubText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: Font.semiBold,
+    marginBottom: 2,
   },
   stellarTag: {
     fontSize: 10,
@@ -447,5 +490,16 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Colors.border,
     marginHorizontal: 16,
+  },
+  emptyCard: { gap: Spacing[2], alignItems: 'flex-start' as const },
+  emptyText: {
+    fontSize: FontSize.body,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  emptyLink: {
+    fontSize: FontSize.body,
+    fontFamily: Font.bold,
+    color: Accent.primary,
   },
 });
