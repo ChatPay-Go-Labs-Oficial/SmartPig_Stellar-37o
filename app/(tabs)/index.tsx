@@ -25,7 +25,6 @@ export default function HomeScreen() {
   const stellarAddress = useAuthStore((s) => s.stellarAddress);
   const { data: vaults } = useVaults();
   const { data: walletBalances } = useWalletBalances(stellarAddress);
-  const usdcBalance = walletBalances?.usdc ?? 0;
   const walletBalance = walletBalances?.total ?? 0;
 
   // Vault balances from on-chain (real investment data)
@@ -315,7 +314,7 @@ const styles = StyleSheet.create({
   },
   pigArea: {
     alignItems: 'center',
-    marginTop: -30,
+    marginTop: -30
   },
   pigLabel: {
     textAlign: 'center',
