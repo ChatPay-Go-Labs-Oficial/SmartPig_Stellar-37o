@@ -24,14 +24,15 @@ export function FlashcardSwiper() {
     },
     onPanResponderRelease: (_, gesture) => {
       if (Math.abs(gesture.dx) > 80) {
-        const dir = gesture.dx > 0 ? 1 : -1;
-        const targetX = dir * 400;
+        const swipeDir = gesture.dx > 0 ? 1 : -1;
+        const indexDir = -swipeDir;
+        const targetX = swipeDir * 400;
         Animated.timing(pan, {
           toValue: { x: targetX, y: 0 },
           duration: 200,
           useNativeDriver: true,
         }).start(() => {
-          const next = (index + dir + total) % total;
+          const next = (index + indexDir + total) % total;
           setIndex(next);
           pan.setValue({ x: -targetX, y: 0 });
           Animated.spring(pan, {
