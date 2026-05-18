@@ -1,10 +1,10 @@
 import { ScreenContainer } from '@/components/layout';
-import { Badge, Button, Card, GradientText } from '@/components/ui';
+import { Badge, Button, Card, GradientText, IconSymbol } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import { useVault, useVaultApy, useVaultBalance } from '@/lib/queries/vaults.queries';
 import { useWalletStore } from '@/lib/stores/wallet.store';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatVaultName(name: string): string {
   if (/^[A-Z0-9]{56}$/.test(name)) {
@@ -57,13 +57,9 @@ export default function VaultDetailScreen() {
     <ScreenContainer style={styles.container}>
       {/* Header */}
       <View style={styles.headerRow}>
-        <Button
-          label="Voltar"
-          variant="secondary"
-          size="sm"
-          fullWidth
-          onPress={() => router.back()}
-        />
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <IconSymbol name="chevron.right" size={24} color={Colors.foreground} style={{ transform: [{ rotate: '180deg' }] }} />
+        </Pressable>
         <View style={styles.headerLeft}>
           <GradientText style={styles.vaultName}>{formatVaultName(vault.name)}</GradientText>
           <Text style={styles.assetSymbol}>{vault.assetSymbol}</Text>
@@ -129,6 +125,15 @@ const styles = StyleSheet.create({
   errorText: { fontSize: FontSize.body, fontFamily: Font.semiBold, color: Colors.mutedForeground },
   container: {
     paddingVertical: Spacing[6],
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surface2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
   },
   headerRow: {
     flexDirection: 'row',
