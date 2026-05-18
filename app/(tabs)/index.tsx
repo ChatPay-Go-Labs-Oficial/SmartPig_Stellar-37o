@@ -1,14 +1,14 @@
-import { Badge, Button, Card, DepositModal, PigSVG, StarryBackground, WithdrawModal, getPigLevel } from '@/components/ui';
+import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, getPigLevel } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Radius } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
-import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useUsdcBalance } from '@/lib/queries/balances.queries';
+import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
 import { useWalletStore } from '@/lib/stores/wallet.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function ActiveVaultRow({ vault }: { vault: Vault }) {
   return (
@@ -94,7 +94,7 @@ export default function HomeScreen() {
 
           {/* Pig illustration */}
           <View style={styles.pigArea}>
-            <PigSVG level={level} />
+            <Image source={require('@/assets/images/pig_babe.png')} style={styles.pigImage} />
           </View>
           <Text style={styles.pigLabel}>{level.label}</Text>
 
@@ -229,6 +229,11 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 32,
     overflow: 'hidden',
   },
+  pigImage: {
+    width: 150,
+    height: 150,
+    resizeMode: 'contain',
+  },
   headerContent: {
     paddingHorizontal: 20,
   },
@@ -271,14 +276,13 @@ const styles = StyleSheet.create({
     fontSize: FontSize.label,
   },
   pigArea: {
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'center'
   },
   pigLabel: {
     textAlign: 'center',
     color: '#fff',
     fontFamily: Font.black,
-    fontSize: FontSize.bodySmall,
+    fontSize: FontSize.body,
     marginBottom: 8,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 0, height: 2 },
