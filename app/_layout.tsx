@@ -61,7 +61,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="vault/[id]" options={{ headerShown: true, title: '' }} />
+        <Stack.Screen name="vault/[id]" />
       </Stack>
       <StatusBar style="light" />
     </QueryClientProvider>

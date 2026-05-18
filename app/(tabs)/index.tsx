@@ -1,8 +1,10 @@
 import { Badge, Button, Card, PigSVG, StarryBackground, getPigLevel } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Radius } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
+import { useUsdcBalance } from '@/lib/queries/balances.queries';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
+import { useWalletStore } from '@/lib/stores/wallet.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -21,22 +23,23 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 }
 
 export default function HomeScreen() {
+  const walletAddress = useWalletStore((s) => s.walletAddress);
   const { data: vaults } = useVaults();
   const { data: deposits } = useDeposits();
+  const { data: usdcBalance = 0 } = useUsdcBalance(walletAddress);
 
   const confirmedDeposits = deposits?.filter((d) => d.status === 'CONFIRMED') ?? [];
   const activeVaultIds = [...new Set(confirmedDeposits.map((d) => d.vaultId))];
   const activeVaults = vaults?.filter((v) => activeVaultIds.includes(v.id)) ?? [];
 
-  const simulatedBalance = 128.47;
-  const dailyYield = simulatedBalance * 0.0587 / 365;
-  const level = getPigLevel(simulatedBalance);
+  const dailyYield = usdcBalance * 0.0587 / 365;
+  const level = getPigLevel(usdcBalance);
 
-  const [displayBalance, setDisplayBalance] = useState(simulatedBalance);
+  const [displayBalance, setDisplayBalance] = useState(usdcBalance);
   const isAnimating = useRef(false);
 
   useEffect(() => {
-    const target = simulatedBalance;
+    const target = usdcBalance;
     if (Math.abs(target - displayBalance) < 0.001 || isAnimating.current) return;
     isAnimating.current = true;
     const steps = 20;
@@ -54,7 +57,7 @@ export default function HomeScreen() {
     }, 30);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simulatedBalance]);
+  }, [usdcBalance]);
 
   return (
     <View style={styles.screen}>
@@ -92,7 +95,7 @@ export default function HomeScreen() {
           <View style={styles.balanceSection}>
             <Text style={styles.balanceLabel}>Saldo Total</Text>
             <Text style={styles.balanceValue}>
-              R$ {displayBalance.toFixed(2)}
+              $ {displayBalance.toFixed(2)}
             </Text>
             <View style={styles.yieldRow}>
               <Text style={styles.yieldIcon}>📈</Text>
@@ -163,7 +166,7 @@ export default function HomeScreen() {
           <View style={styles.yieldFooter}>
             <Text style={styles.yieldFooterIcon}>⚡</Text>
             <Text style={styles.yieldFooterText}>
-              Rede Stellar — transações em &lt;1s, sem taxas
+              Rede Stellar — transações em &lt; 1s
             </Text>
           </View>
         </Card>

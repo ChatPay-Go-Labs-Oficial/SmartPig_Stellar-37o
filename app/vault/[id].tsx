@@ -1,10 +1,10 @@
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '@/components/layout';
-import { Card, Badge, Button, GradientText } from '@/components/ui';
-import { Colors, Font, FontSize, Spacing, Accent } from '@/constants/theme';
+import { Badge, Button, Card, GradientText } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import { useVault, useVaultApy, useVaultBalance } from '@/lib/queries/vaults.queries';
 import { useWalletStore } from '@/lib/stores/wallet.store';
+import { router, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 function formatVaultName(name: string): string {
   if (/^[A-Z0-9]{56}$/.test(name)) {
@@ -54,9 +54,16 @@ export default function VaultDetailScreen() {
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer style={styles.container}>
       {/* Header */}
       <View style={styles.headerRow}>
+        <Button
+          label="Voltar"
+          variant="secondary"
+          size="sm"
+          fullWidth
+          onPress={() => router.back()}
+        />
         <View style={styles.headerLeft}>
           <GradientText style={styles.vaultName}>{formatVaultName(vault.name)}</GradientText>
           <Text style={styles.assetSymbol}>{vault.assetSymbol}</Text>
@@ -120,6 +127,9 @@ export default function VaultDetailScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: FontSize.body, fontFamily: Font.semiBold, color: Colors.mutedForeground },
+  container: {
+    paddingVertical: Spacing[6],
+  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
