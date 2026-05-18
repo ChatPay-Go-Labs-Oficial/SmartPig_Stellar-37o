@@ -7,5 +7,6 @@ export { ConfirmModal } from './ConfirmModal';
 export { GradientText } from './GradientText';
 export { IconSymbol } from './icon-symbol';
 export { Collapsible } from './collapsible';
+export { FlashcardSwiper } from './FlashcardSwiper';
 export { StarryBackground, ShootingStar } from './StarryBackground';
 export { PigSVG, getPigLevel, getProgress } from './EvolutionaryPig';

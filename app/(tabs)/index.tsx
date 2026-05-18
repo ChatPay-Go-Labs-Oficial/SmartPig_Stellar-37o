@@ -131,7 +131,7 @@ export default function HomeScreen() {
             />
           </View>
           <Pressable
-            onPress={() => { }}
+            onPress={() => router.push('/education')}
             style={styles.educationBtn}
           >
             <LinearGradient
