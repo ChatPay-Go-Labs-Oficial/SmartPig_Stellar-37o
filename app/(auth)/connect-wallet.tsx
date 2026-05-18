@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients, Spacing, Radius, Font, FontSize, Accent } from '@/constants/theme';
-import { StarryBackground, PressableScale } from '@/components/ui';
+import { PressableScale, StarryBackground } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useWalletConnect } from '@/lib/hooks/use-wallet-connect';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
 
 export default function ConnectWalletScreen() {
   const { connect, isConnecting, error } = useWalletConnect();
@@ -33,6 +33,10 @@ export default function ConnectWalletScreen() {
         <Text style={styles.subtitle}>
           Abra sua carteira Lobstr e aprove a conexão para continuar.
         </Text>
+      </View>
+
+      <View style={styles.hero}>
+        <Image source={require('@/assets/images/pig3.png')} style={styles.pigImage} />
       </View>
 
       <View style={styles.actions}>
@@ -69,6 +73,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 80,
     paddingBottom: 60,
+  },
+  hero: {
+    alignItems: 'center',
+    gap: Spacing[4],
+    zIndex: 10,
+  },
+  pigImage: {
+    width: 250,
+    height: 250,
+    resizeMode: 'contain',
   },
   header: { gap: Spacing[4], zIndex: 10 },
   title: {

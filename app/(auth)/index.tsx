@@ -1,8 +1,8 @@
+import { PressableScale, StarryBackground } from '@/components/ui';
 import { Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { StarryBackground, PressableScale } from '@/components/ui';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 export default function OnboardingScreen() {
   return (
@@ -22,7 +22,9 @@ export default function OnboardingScreen() {
         <Text style={styles.subtitle}>
           Sua poupança inteligente na{'\n'}rede Stellar
         </Text>
+        <Image source={require('@/assets/images/pig1.png')} style={styles.pigImage} />
       </View>
+
 
       <View style={styles.actions}>
         <PressableScale style={{ alignSelf: 'stretch' }}>
@@ -56,13 +58,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing[6],
     justifyContent: 'space-between',
-    paddingTop: 120,
+    paddingTop: Spacing[16],
     paddingBottom: 60,
   },
   hero: {
     alignItems: 'center',
     gap: Spacing[4],
     zIndex: 10,
+  },
+  pigImage: {
+    width: 600,
+    height: 600,
+    resizeMode: 'contain',
+    position: 'absolute',
+    top: 50,
+    zIndex: 5,
   },
   title: {
     fontSize: 48,
