@@ -1,6 +1,7 @@
-import { Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
+import { Text, ActivityIndicator, View, ViewStyle, TextStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Gradients, Radius, Font, FontSize, Glow } from '@/constants/theme';
+import { PressableScale } from './PressableScale';
 
 type Variant = 'primary' | 'gold' | 'ghost' | 'secondary' | 'destructive';
 type Size = 'sm' | 'md' | 'lg';
@@ -49,15 +50,15 @@ export function Button({
 
   const textStyle: TextStyle = {
     fontSize: sz.fontSize,
-    fontFamily: Font.bold,
-    fontWeight: '700',
+    fontFamily: Font.black,
+    fontWeight: '900',
   };
 
   if (variant === 'primary') {
     return (
-      <Pressable onPress={onPress} disabled={isDisabled} style={[{ alignSelf: fullWidth ? 'stretch' : 'flex-start' }, style]}>
+      <PressableScale onPress={onPress} disabled={isDisabled} style={[{ alignSelf: fullWidth ? 'stretch' : 'flex-start' }, style]}>
         <LinearGradient
-          colors={Gradients.primary}
+          colors={Gradients.hot}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[baseStyle, Glow.pink]}
@@ -67,13 +68,13 @@ export function Button({
             : <Text style={[textStyle, { color: '#fff' }]}>{label}</Text>
           }
         </LinearGradient>
-      </Pressable>
+      </PressableScale>
     );
   }
 
   if (variant === 'gold') {
     return (
-      <Pressable onPress={onPress} disabled={isDisabled} style={[{ alignSelf: fullWidth ? 'stretch' : 'flex-start' }, style]}>
+      <PressableScale onPress={onPress} disabled={isDisabled} style={[{ alignSelf: fullWidth ? 'stretch' : 'flex-start' }, style]}>
         <LinearGradient
           colors={Gradients.gold}
           start={{ x: 0, y: 0 }}
@@ -85,7 +86,7 @@ export function Button({
             : <Text style={[textStyle, { color: 'hsl(42, 100%, 10%)' }]}>{label}</Text>
           }
         </LinearGradient>
-      </Pressable>
+      </PressableScale>
     );
   }
 
@@ -94,7 +95,7 @@ export function Button({
       ? { backgroundColor: 'transparent', borderWidth: 1, borderColor: Accent.primary }
       : variant === 'destructive'
       ? { backgroundColor: 'rgba(239, 68, 68, 0.15)', borderWidth: 1, borderColor: Accent.destructive }
-      : { backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border }; // secondary
+      : { backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.border };
 
   const variantTextColor =
     variant === 'ghost' ? Accent.primary
@@ -102,11 +103,13 @@ export function Button({
     : Colors.foreground;
 
   return (
-    <Pressable onPress={onPress} disabled={isDisabled} style={[baseStyle, variantStyle, style]}>
-      {loading
-        ? <ActivityIndicator color={variantTextColor} size="small" />
-        : <Text style={[textStyle, { color: variantTextColor }]}>{label}</Text>
-      }
-    </Pressable>
+    <PressableScale onPress={onPress} disabled={isDisabled} style={[{ alignSelf: fullWidth ? 'stretch' : 'flex-start' }, style]}>
+      <View style={[baseStyle, variantStyle]}>
+        {loading
+          ? <ActivityIndicator color={variantTextColor} size="small" />
+          : <Text style={[textStyle, { color: variantTextColor }]}>{label}</Text>
+        }
+      </View>
+    </PressableScale>
   );
 }

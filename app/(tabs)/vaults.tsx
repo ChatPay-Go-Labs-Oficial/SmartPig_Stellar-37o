@@ -1,9 +1,9 @@
 import { ScreenContainer } from '@/components/layout';
-import { Badge, Card, GradientText } from '@/components/ui';
-import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
+import { Badge, Card } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Gradients, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useVaults } from '@/lib/queries/vaults.queries';
-import { useWalletStore } from '@/lib/stores/wallet.store';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -63,14 +63,18 @@ function VaultCard({ vault }: { vault: Vault }) {
 
 export default function VaultsScreen() {
   const { data: vaults, isLoading, isError, refetch } = useVaults();
-  const walletAddress = useWalletStore((s) => s.walletAddress);
 
   return (
     <ScreenContainer scrollable={false} contentStyle={{ padding: 0 }}>
-      <View style={styles.header}>
-        <GradientText style={styles.title}>Vaults</GradientText>
+      <LinearGradient
+        colors={Gradients.primary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerBanner}
+      >
+        <Text style={styles.title}>Investimentos</Text>
         <Text style={styles.subtitle}>Escolha onde investir</Text>
-      </View>
+      </LinearGradient>
 
       {isLoading && (
         <View style={styles.centered}>
@@ -101,19 +105,23 @@ export default function VaultsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: Spacing[6],
-    paddingTop: Spacing[12],
-    paddingBottom: Spacing[4],
+  headerBanner: {
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 32,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: Spacing[4],
   },
   title: {
     fontSize: FontSize.displaySm,
-    fontFamily: Font.extraBold,
+    fontFamily: Font.black,
+    color: '#fff',
   },
   subtitle: {
     fontSize: FontSize.body,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
+    fontFamily: Font.semiBold,
+    color: 'rgba(255,255,255,0.7)',
     marginTop: Spacing[1],
   },
   list: {
@@ -151,7 +159,7 @@ const styles = StyleSheet.create({
   stat: { gap: 2 },
   statLabel: {
     fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
+    fontFamily: Font.bold,
     color: Colors.mutedForeground,
     textTransform: 'uppercase',
     letterSpacing: 0.5,

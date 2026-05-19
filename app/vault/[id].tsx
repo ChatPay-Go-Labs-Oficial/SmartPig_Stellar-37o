@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from 'react-native';
-import { router } from 'expo-router';
-import { useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '@/components/layout';
-import { Card, Badge, Button, GradientText } from '@/components/ui';
-import { Colors, Font, FontSize, Spacing, Accent, Glow } from '@/constants/theme';
+import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, WithdrawModal } from '@/components/ui';
+import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import { useVault, useVaultApy, useVaultBalance } from '@/lib/queries/vaults.queries';
-import { useWalletStore } from '@/lib/stores/wallet.store';
+import { useAuthStore } from '@/lib/stores/auth.store';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatVaultName(name: string): string {
   if (/^[A-Z0-9]{56}$/.test(name)) {
@@ -29,11 +29,14 @@ function formatAmount(amount: string | null | undefined): string {
 
 export default function VaultDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const walletAddress = useWalletStore((s) => s.walletAddress);
+  const stellarAddress = useAuthStore((s) => s.stellarAddress);
 
   const { data: vault, isLoading } = useVault(id);
   const { data: apyData } = useVaultApy(id);
-  const { data: balanceData } = useVaultBalance(id, walletAddress);
+  const { data: balanceData } = useVaultBalance(id, stellarAddress);
+
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const liveApy = apyData?.apy ?? (vault?.apy ? parseFloat(vault.apy) : null);
   const apyBadge = liveApy && liveApy >= 10 ? 'destaque' : liveApy && liveApy >= 5 ? 'conquista' : 'muted';
@@ -54,10 +57,15 @@ export default function VaultDetailScreen() {
     );
   }
 
+  const vaultBalance = balanceData?.underlyingBalance?.[0] ?? balanceData?.dfTokens ?? '0';
+
   return (
-    <ScreenContainer>
+    <ScreenContainer style={styles.container}>
       {/* Header */}
       <View style={styles.headerRow}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <IconSymbol name="chevron.right" size={24} color={Colors.foreground} style={{ transform: [{ rotate: '180deg' }] }} />
+        </Pressable>
         <View style={styles.headerLeft}>
           <GradientText style={styles.vaultName}>{formatVaultName(vault.name)}</GradientText>
           <Text style={styles.assetSymbol}>{vault.assetSymbol}</Text>
@@ -83,10 +91,15 @@ export default function VaultDetailScreen() {
       {/* My balance */}
       <Card style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Meu saldo</Text>
-        {walletAddress ? (
-          <Text style={styles.balanceValue}>
-            {balanceData ? `${formatAmount(balanceData.balance)} ${vault.assetSymbol}` : '…'}
-          </Text>
+        {stellarAddress ? (
+          <>
+            <Text style={styles.balanceValue}>
+              {balanceData ? `${formatAmount(vaultBalance)} ${vault.assetSymbol}` : '…'}
+            </Text>
+            {balanceData?.dfTokens && (
+              <Text style={styles.sharesHint}>{balanceData.dfTokens} dfTokens</Text>
+            )}
+          </>
         ) : (
           <Text style={styles.mutedText}>Conecte uma carteira</Text>
         )}
@@ -100,20 +113,35 @@ export default function VaultDetailScreen() {
       {/* CTAs */}
       <View style={styles.actions}>
         <Button
-          label="Depositar"
+          label="Poupar"
           variant="primary"
           size="lg"
           fullWidth
-          onPress={() => router.push(`/vault/${id}/deposit`)}
+          onPress={() => setDepositOpen(true)}
         />
         <Button
-          label="Sacar"
+          label="Quebrar cofrinho"
           variant="secondary"
           size="lg"
           fullWidth
-          onPress={() => router.push(`/vault/${id}/withdraw`)}
+          onPress={() => setWithdrawOpen(true)}
         />
       </View>
+
+      <DepositModal
+        visible={depositOpen}
+        vaultId={vault.id}
+        assetSymbol={vault.assetSymbol}
+        onClose={() => setDepositOpen(false)}
+      />
+      <WithdrawModal
+        visible={withdrawOpen}
+        vaultId={vault.id}
+        dfTokens={balanceData?.dfTokens ?? '0'}
+        underlyingBalance={vaultBalance}
+        assetSymbol={vault.assetSymbol}
+        onClose={() => setWithdrawOpen(false)}
+      />
     </ScreenContainer>
   );
 }
@@ -121,6 +149,18 @@ export default function VaultDetailScreen() {
 const styles = StyleSheet.create({
   centered: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
   errorText: { fontSize: FontSize.body, fontFamily: Font.semiBold, color: Colors.mutedForeground },
+  container: {
+    paddingVertical: Spacing[6],
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surface2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -155,7 +195,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
+    fontFamily: Font.bold,
     color: Colors.mutedForeground,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -176,7 +216,7 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
+    fontFamily: Font.bold,
     color: Colors.mutedForeground,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -185,6 +225,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.displaySm,
     fontFamily: Font.extraBold,
     color: Colors.foreground,
+  },
+  sharesHint: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    marginTop: 2,
   },
   mutedText: {
     fontSize: FontSize.body,

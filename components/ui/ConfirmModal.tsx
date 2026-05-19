@@ -1,5 +1,5 @@
 import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
-import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Colors, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import { Button } from './Button';
 
 interface ConfirmModalProps {

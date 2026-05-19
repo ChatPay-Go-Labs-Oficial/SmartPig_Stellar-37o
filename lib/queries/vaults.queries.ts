@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { getVaults, getVault, getVaultApy, getVaultBalance, getVaultManagerVaults } from '@/lib/api/vaults';
 
 export const vaultKeys = {
@@ -20,7 +20,7 @@ export const useVaultApy = (id: string) =>
     queryKey: vaultKeys.apy(id),
     queryFn: () => getVaultApy(id),
     enabled: !!id,
-    staleTime: 1000 * 60 * 5,   // matches backend TTL of 5 min
+    staleTime: 1000 * 60 * 5,
     refetchInterval: 1000 * 60 * 5,
   });
 
@@ -34,3 +34,15 @@ export const useVaultBalance = (id: string, walletAddress: string | null) =>
 
 export const useManagerVaults = () =>
   useQuery({ queryKey: vaultKeys.manager, queryFn: getVaultManagerVaults });
+
+export const useAllVaultBalances = (walletAddress: string | null) => {
+  const { data: vaults } = useVaults();
+  return useQueries({
+    queries: (vaults ?? []).map((v) => ({
+      queryKey: vaultKeys.balance(v.id, walletAddress ?? ''),
+      queryFn: () => getVaultBalance(v.id, walletAddress!),
+      enabled: !!walletAddress,
+      refetchInterval: 1000 * 30,
+    })),
+  });
+};

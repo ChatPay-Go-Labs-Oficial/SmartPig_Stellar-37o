@@ -12,7 +12,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: Accent.gold,
         tabBarInactiveTintColor: Colors.mutedForeground,
         tabBarStyle: {
-          backgroundColor: Colors.surface,
+          backgroundColor: 'rgba(26, 24, 35, 0.95)',
           borderTopColor: Colors.border,
           borderTopWidth: 1,
         },
@@ -27,7 +27,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="vaults"
         options={{
-          title: 'Vaults',
+          title: 'Investir',
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="chart.bar.fill" color={color} />,
         }}
       />

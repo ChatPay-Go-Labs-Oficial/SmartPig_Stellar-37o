@@ -26,8 +26,10 @@ export interface VaultApy {
 }
 
 export interface VaultBalance {
-  balance: string;
+  vaultId: string;
   walletAddress: string;
+  dfTokens: string;
+  underlyingBalance: string[];
 }
 
 export const getVaults = async (): Promise<Vault[]> => {
