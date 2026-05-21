@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "stellarpig-app",
-    "slug": "stellarpig-app",
+    "name": "PigFi",
+    "slug": "pigfi-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "stellarpigapp",
+    "scheme": "pigfiapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stellarpig.app",
+      "bundleIdentifier": "com.pigfi.app",
       "associatedDomains": [
-        "webcredentials:stellarpig.app"
+        "webcredentials:pigfi.app"
       ]
     },
     "android": {
-      "package": "com.stellarpig.app",
+      "package": "com.pigfi.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -52,8 +52,8 @@
             "deploymentTarget": "15.1"
           },
           "android": {
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
             "minSdkVersion": 28
           }
         }
@@ -66,8 +66,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "fd0ed8a4-0753-49b5-8d64-1b5816b2d1a5"
+        "projectId": "b9f47e4e-671b-4a08-87fb-db41fb666c10"
       }
-    }
+    },
+    "owner": "matheusbrasilaguiar"
   }
 }
