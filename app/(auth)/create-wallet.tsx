@@ -22,7 +22,7 @@ export default function CreateWalletScreen() {
     if (!name.trim()) return;
     try {
       await createWallet(name.trim());
-      router.replace('/(tabs)');
+      // Navigation handled by _layout.tsx useEffect watching isAuthenticated
     } catch {
       // error is already set in the hook
     }

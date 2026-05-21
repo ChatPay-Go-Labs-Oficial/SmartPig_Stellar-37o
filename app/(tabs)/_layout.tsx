@@ -1,9 +1,15 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors, Accent } from '@/constants/theme';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function TabLayout() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/create-wallet" />;
+  }
+
   return (
     <Tabs
       screenOptions={{

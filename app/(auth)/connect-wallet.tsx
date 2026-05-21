@@ -16,7 +16,7 @@ export default function ConnectWalletScreen() {
   async function handleConnect() {
     try {
       await connect();
-      router.replace('/(tabs)');
+      // Navigation handled by _layout.tsx useEffect watching isAuthenticated
     } catch {
       // error is already set in the hook
     }
