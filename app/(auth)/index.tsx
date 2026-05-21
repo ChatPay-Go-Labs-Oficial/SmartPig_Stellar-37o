@@ -245,6 +245,10 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
     alignSelf: 'center',
   },
+  actions: {
+    gap: Spacing[3],
+    zIndex: 10,
+  },
   title: {
     fontSize: 48,
     fontWeight: '900',
@@ -257,10 +261,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     fontFamily: Font.regular,
-  },
-  actions: {
-    gap: Spacing[3],
-    zIndex: 10,
   },
   btn: {
     paddingVertical: 14,
