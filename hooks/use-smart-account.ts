@@ -53,6 +53,9 @@ export function useSmartAccount() {
           autoFund: true,
           nativeTokenContract: NATIVE_TOKEN_CONTRACT,
         });
+        if (result.submitResult && !result.submitResult.success) {
+          throw new Error(result.submitResult.error ?? 'Contract deployment failed');
+        }
         setAuth(result.contractId);
       } catch (err: unknown) {
         setError(getErrorMessage(err));
@@ -85,8 +88,14 @@ function getErrorMessage(err: unknown): string {
     if (msg.includes('not supported') || msg.includes('not available'))
       return 'Passkeys não disponível neste dispositivo.';
     if (msg.includes('network') || msg.includes('fetch'))
-      return 'Erro de conexão. Verifique sua internet.';
+      return `Erro de rede: ${err.message}`;
     return err.message;
   }
-  return 'Ocorreu um erro inesperado.';
+  if (err && typeof err === 'object') {
+    const obj = err as Record<string, unknown>;
+    if (obj.error) return `Stellar: ${JSON.stringify(obj.error).slice(0, 300)}`;
+    if (obj.message) return String(obj.message);
+    return JSON.stringify(err).slice(0, 300);
+  }
+  return `Erro: ${String(err)}`;
 }
