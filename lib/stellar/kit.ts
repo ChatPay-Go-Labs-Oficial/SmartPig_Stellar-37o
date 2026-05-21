@@ -11,7 +11,7 @@ export function getKit(): SmartAccountKit {
       networkPassphrase: process.env.EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE!,
       accountWasmHash: process.env.EXPO_PUBLIC_ACCOUNT_WASM_HASH!,
       webauthnVerifierAddress: process.env.EXPO_PUBLIC_WEBAUTHN_VERIFIER_ADDRESS!,
-      rpId: process.env.EXPO_PUBLIC_STELLAR_RP_ID || undefined,
+      rpId: process.env.EXPO_PUBLIC_WEBAUTHN_RP_ID || undefined,
       storage: new ExpoStorageAdapter(),
       webAuthn: rnPasskeysShim,
     });
