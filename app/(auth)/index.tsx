@@ -4,6 +4,9 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -127,95 +130,104 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <StarryBackground />
-      <View style={styles.hero}>
-        <Text style={styles.title}>PigFi</Text>
-        <Text style={styles.subtitle}>
-          Sua poupança inteligente na{'\n'}rede Stellar
-        </Text>
-      </View>
-
-      <Image source={require('@/assets/images/pig1.png')} style={styles.image} />
-
-      <View style={styles.actions}>
-        <LinearGradient
-          colors={Gradients.primary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.btn, styles.btnPrimary, loading === 'passkey' && styles.btnDisabled]}
-        >
-          <Text
-            style={styles.btnPrimaryText}
-            onPress={handleConnectPrivy}
-            disabled={!isReady || loading !== null}
-          >
-            {loading === 'passkey' ? 'Conectando...' : 'Conectar com Passkey'}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+      >
+        <StarryBackground />
+        <View style={styles.hero}>
+          <Text style={styles.title}>PigFi</Text>
+          <Text style={styles.subtitle}>
+            Sua poupança inteligente na{'\n'}rede Stellar
           </Text>
-        </LinearGradient>
-
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou</Text>
-          <View style={styles.dividerLine} />
         </View>
 
-        {!codeSent ? (
-          <View style={styles.emailForm}>
-            <TextInput
-              style={styles.input}
-              placeholder="seu@email.com"
-              placeholderTextColor={Colors.mutedForeground}
-              value={email}
-              onChangeText={setEmail}
-              inputMode="email"
-              autoCapitalize="none"
-              editable={loading === null}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <View style={[styles.btnOutline, loading === 'email' && styles.btnDisabled]}>
-              <Text
-                style={styles.btnOutlineText}
-                onPress={handleSendCode}
-                disabled={loading !== null || !email.trim()}
-              >
-                {loading === 'email' ? 'Enviando...' : 'Entrar com email'}
-              </Text>
-            </View>
+        <Image source={require('@/assets/images/pig1.png')} style={styles.image} />
+
+        <View style={styles.actions}>
+          <LinearGradient
+            colors={Gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.btn, styles.btnPrimary, loading === 'passkey' && styles.btnDisabled]}
+          >
+            <Text
+              style={styles.btnPrimaryText}
+              onPress={handleConnectPrivy}
+              disabled={!isReady || loading !== null}
+            >
+              {loading === 'passkey' ? 'Conectando...' : 'Conectar com Passkey'}
+            </Text>
+          </LinearGradient>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>ou</Text>
+            <View style={styles.dividerLine} />
           </View>
-        ) : (
-          <View style={styles.emailForm}>
-            <Text style={styles.codeSentText}>Código enviado para {email}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Código de 6 dígitos"
-              placeholderTextColor={Colors.mutedForeground}
-              value={code}
-              onChangeText={setCode}
-              inputMode="numeric"
-              maxLength={6}
-              editable={loading === null}
-            />
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            <View style={[styles.btnOutline, loading === 'email' && styles.btnDisabled]}>
-              <Text
-                style={styles.btnOutlineText}
-                onPress={handleLoginWithCode}
-                disabled={loading !== null || !code.trim()}
-              >
-                {loading === 'email' ? 'Verificando...' : 'Verificar código'}
-              </Text>
+
+          {!codeSent ? (
+            <View style={styles.emailForm}>
+              <TextInput
+                style={styles.input}
+                placeholder="seu@email.com"
+                placeholderTextColor={Colors.mutedForeground}
+                value={email}
+                onChangeText={setEmail}
+                inputMode="email"
+                autoCapitalize="none"
+                editable={loading === null}
+              />
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              <View style={[styles.btnOutline, loading === 'email' && styles.btnDisabled]}>
+                <Text
+                  style={styles.btnOutlineText}
+                  onPress={handleSendCode}
+                  disabled={loading !== null || !email.trim()}
+                >
+                  {loading === 'email' ? 'Enviando...' : 'Entrar com email'}
+                </Text>
+              </View>
             </View>
-          </View>
-        )}
-      </View>
-    </View>
+          ) : (
+            <View style={styles.emailForm}>
+              <Text style={styles.codeSentText}>Código enviado para {email}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Código de 6 dígitos"
+                placeholderTextColor={Colors.mutedForeground}
+                value={code}
+                onChangeText={setCode}
+                inputMode="numeric"
+                maxLength={6}
+                editable={loading === null}
+              />
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              <View style={[styles.btnOutline, loading === 'email' && styles.btnDisabled]}>
+                <Text
+                  style={styles.btnOutlineText}
+                  onPress={handleLoginWithCode}
+                  disabled={loading !== null || !code.trim()}
+                >
+                  {loading === 'email' ? 'Verificando...' : 'Verificar código'}
+                </Text>
+              </View>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing[8],
     justifyContent: 'space-between',
