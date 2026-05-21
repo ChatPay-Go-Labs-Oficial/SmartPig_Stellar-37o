@@ -3,20 +3,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 
+import { StarryBackground } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
 import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passkey';
-import { StarryBackground } from '@/components/ui';
 
-const RELYING_PARTY = 'https://pigfi.app';
+const RELYING_PARTY = process.env.EXPO_PUBLIC_RELYING_PARTY;
+
+if (!RELYING_PARTY) {
+  throw new Error('EXPO_PUBLIC_RELYING_PARTY not defined in environment variables');
+}
 
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState<'create' | 'passkey' | 'email' | null>(null);
@@ -55,9 +58,9 @@ export default function OnboardingScreen() {
     try {
       if (!user) {
         try {
-          await loginWithPasskey({ relyingParty: RELYING_PARTY });
+          await loginWithPasskey({ relyingParty: RELYING_PARTY! });
         } catch {
-          await signupWithPasskey({ relyingParty: RELYING_PARTY });
+          await signupWithPasskey({ relyingParty: RELYING_PARTY! });
         }
       }
       await createAndAuth();
@@ -121,35 +124,23 @@ export default function OnboardingScreen() {
         </Text>
       </View>
 
+      {/* <Image source={require('@assets/images/pig1.png')} style={styles.image} /> */}
+
       <View style={styles.actions}>
         <LinearGradient
           colors={Gradients.primary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.btn, styles.btnPrimary, loading === 'create' && styles.btnDisabled]}
+          style={[styles.btn, styles.btnPrimary, loading === 'passkey' && styles.btnDisabled]}
         >
           <Text
             style={styles.btnPrimaryText}
-            onPress={handleCreateWallet}
-            disabled={loading !== null}
-          >
-            {loading === 'create' ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              'Criar carteira'
-            )}
-          </Text>
-        </LinearGradient>
-
-        <View style={[styles.btnOutline, (!isReady || loading === 'passkey') && styles.btnDisabled]}>
-          <Text
-            style={styles.btnOutlineText}
             onPress={handleConnectPrivy}
             disabled={!isReady || loading !== null}
           >
             {loading === 'passkey' ? 'Conectando...' : 'Conectar com Passkey'}
           </Text>
-        </View>
+        </LinearGradient>
 
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
@@ -205,12 +196,6 @@ export default function OnboardingScreen() {
             </View>
           </View>
         )}
-
-        <View style={styles.btnSecondary}>
-          <Text style={styles.btnSecondaryText} onPress={() => router.push('/(auth)/connect-wallet')}>
-            Já tenho uma carteira
-          </Text>
-        </View>
       </View>
     </View>
   );
@@ -229,6 +214,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing[4],
     zIndex: 10,
+  },
+  image: {
+    width: 200,
+    height: 200,
+    resizeMode: 'contain',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 48,
