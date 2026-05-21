@@ -3,10 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
+  Image,
   StyleSheet,
   Text,
   TextInput,
-  View
+  View,
 } from 'react-native';
 
 import { StarryBackground } from '@/components/ui';
@@ -120,11 +121,11 @@ export default function OnboardingScreen() {
       <View style={styles.hero}>
         <Text style={styles.title}>PigFi</Text>
         <Text style={styles.subtitle}>
-          Faça seu dinheiro crescer com{'\n'}vaults DeFi na rede Stellar
+          Sua poupança inteligente na{'\n'}rede Stellar
         </Text>
       </View>
 
-      {/* <Image source={require('@assets/images/pig1.png')} style={styles.image} /> */}
+      <Image source={require('@/assets/images/pig1.png')} style={styles.image} />
 
       <View style={styles.actions}>
         <LinearGradient
@@ -216,8 +217,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   image: {
-    width: 200,
-    height: 200,
+    width: 400,
+    height: 400,
     resizeMode: 'contain',
     alignSelf: 'center',
   },
