@@ -1,14 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { randomUUID } from 'expo-crypto';
 import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Accent, Font, FontSize, Radius, Spacing, Glow } from '@/constants/theme';
 import { useCreateWithdrawal, useSubmitWithdrawal } from '@/lib/queries/withdrawals.queries';
 import { vaultKeys } from '@/lib/queries/vaults.queries';
-import { balanceKeys } from '@/lib/queries/balances.queries';
-import { useAuthStore } from '@/lib/stores/auth.store';
-import { signTransaction } from '@/lib/wallet-kit';
+import { signXdr } from '@/lib/stellar/kit';
+import { useWalletStore } from '@/lib/stores/wallet.store';
 
 interface WithdrawModalProps {
   visible: boolean;
@@ -27,7 +25,7 @@ export function WithdrawModal({
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setError] = useState('');
-  const { userId, walletAccountId, stellarAddress } = useAuthStore();
+  const walletAddress = useWalletStore((s) => s.walletAddress);
   const createWithdrawal = useCreateWithdrawal();
   const submitWithdrawal = useSubmitWithdrawal();
   const qc = useQueryClient();
@@ -37,8 +35,8 @@ export function WithdrawModal({
   const parsedAmount = parseFloat(amount || '0');
 
   const shareAmount = useMemo(() => {
-    if (!parsedAmount || parsedUnderlying <= 0) return '0';
-    return Math.floor((parsedAmount / parsedUnderlying) * parsedDfTokens).toString();
+    if (!parsedAmount || parsedUnderlying <= 0) return 0;
+    return Math.floor((parsedAmount / parsedUnderlying) * parsedDfTokens);
   }, [parsedAmount, parsedUnderlying, parsedDfTokens]);
 
   const handleContinue = () => {
@@ -47,31 +45,28 @@ export function WithdrawModal({
   };
 
   const handleWithdraw = async () => {
-    if (!userId || !walletAccountId || shareAmount === '0') return;
+    if (shareAmount <= 0) return;
     setError('');
     setStep('processing');
     try {
-      const idempotencyKey = randomUUID();
       const result = await createWithdrawal.mutateAsync({
-        idempotencyKey,
-        userId,
-        walletAccountId,
         vaultId,
-        shareAmount,
+        shares: shareAmount,
       });
 
       if (!result.unsignedXdr) throw new Error('XDR não gerado');
 
       setStep('signing');
-      const signedXdr = await signTransaction(result.unsignedXdr);
+      const signedXdr = await signXdr(result.unsignedXdr);
 
       setStep('submitting');
       await submitWithdrawal.mutateAsync({ withdrawalId: result.id, signedXdr });
 
       setStep('success');
       qc.invalidateQueries({ queryKey: vaultKeys.all });
-      qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, stellarAddress ?? '') });
-      qc.invalidateQueries({ queryKey: balanceKeys.wallet(stellarAddress ?? '') });
+      if (walletAddress) {
+        qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, walletAddress) });
+      }
       setTimeout(() => {
         setStep('input');
         setAmount('');
@@ -196,12 +191,12 @@ export function WithdrawModal({
               <ActivityIndicator color={Accent.secondary} size="large" />
               <Text style={styles.statusTitle}>
                 {step === 'processing' && 'Gerando transação...'}
-                {step === 'signing' && 'Assine no seu Lobstr...'}
+                {step === 'signing' && 'Assine com biometria...'}
                 {step === 'submitting' && 'Processando na Stellar...'}
               </Text>
               <Text style={styles.statusSub}>
                 {step === 'processing' && 'Preparando saque do vault'}
-                {step === 'signing' && 'Abra seu Lobstr e aprove'}
+                {step === 'signing' && 'Use Face ID / Touch ID para autorizar'}
                 {step === 'submitting' && 'Enviando para sua carteira ⚡'}
               </Text>
             </View>

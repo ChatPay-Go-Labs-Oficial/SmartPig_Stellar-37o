@@ -4,7 +4,6 @@ import {
   submitSignedWithdrawal,
   getWithdrawal,
   listWithdrawals,
-  type CreateWithdrawalParams,
 } from '@/lib/api/withdrawals';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
@@ -14,11 +13,11 @@ export const withdrawalKeys = {
 };
 
 export const useWithdrawals = () => {
-  const userId = useAuthStore((s) => s.userId);
+  const contractId = useAuthStore((s) => s.contractId);
   return useQuery({
-    queryKey: withdrawalKeys.all(userId ?? ''),
-    queryFn: () => listWithdrawals(userId!),
-    enabled: !!userId,
+    queryKey: withdrawalKeys.all(contractId ?? ''),
+    queryFn: () => listWithdrawals(contractId!),
+    enabled: !!contractId,
   });
 };
 
@@ -28,15 +27,16 @@ export const useWithdrawal = (id: string) =>
     queryFn: () => getWithdrawal(id),
     enabled: !!id,
     refetchInterval: (query) =>
-      query.state.data?.status === 'XDR_GENERATED' ? 5_000 : false,
+      query.state.data?.status === 'PENDING' ? 5_000 : false,
   });
 
 export const useCreateWithdrawal = () => {
   const qc = useQueryClient();
-  const userId = useAuthStore((s) => s.userId);
+  const contractId = useAuthStore((s) => s.contractId);
   return useMutation({
-    mutationFn: (params: CreateWithdrawalParams) => createWithdrawal(params),
-    onSuccess: () => qc.invalidateQueries({ queryKey: withdrawalKeys.all(userId ?? '') }),
+    mutationFn: ({ vaultId, shares }: { vaultId: string; shares: number }) =>
+      createWithdrawal(vaultId, shares),
+    onSuccess: () => qc.invalidateQueries({ queryKey: withdrawalKeys.all(contractId ?? '') }),
   });
 };
 

@@ -1,46 +1,87 @@
-import { View, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients, Spacing, Radius, Font, FontSize } from '@/constants/theme';
-import { StarryBackground, PressableScale } from '@/components/ui';
+import { useState } from 'react';
+import { Colors, Gradients, Spacing, Radius, Font, FontSize, Accent } from '@/constants/theme';
+import { useSmartAccount } from '@/hooks/use-smart-account';
 
 export default function CreateWalletScreen() {
-  return (
-    <View style={styles.container}>
-      <StarryBackground />
-      <LinearGradient
-        colors={['hsla(320, 90%, 58%, 0.2)', 'hsla(270, 80%, 60%, 0.2)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
+  const [name, setName] = useState('');
+  const { isConnecting, error, createWallet } = useSmartAccount();
 
+  async function handleCreate() {
+    if (!name.trim()) return;
+    try {
+      await createWallet(name.trim());
+      router.replace('/(tabs)');
+    } catch {
+      // error is already set in the hook
+    }
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <View style={styles.header}>
-        <Text style={styles.title}>Criar conta</Text>
+        <Text style={styles.title}>Criar carteira</Text>
         <Text style={styles.subtitle}>
           Sua carteira será protegida com biometria.{'\n'}
           Nenhuma senha ou chave privada necessária.
         </Text>
       </View>
 
-      <View style={styles.actions}>
-        <PressableScale style={{ alignSelf: 'stretch' }}>
+      <View style={styles.form}>
+        <Text style={styles.label}>Seu nome</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ex: João"
+          placeholderTextColor={Colors.mutedForeground}
+          value={name}
+          onChangeText={setName}
+          autoCapitalize="words"
+          autoCorrect={false}
+          editable={!isConnecting}
+        />
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </View>
+
+      <View style={styles.footer}>
+        <TouchableOpacity onPress={handleCreate} disabled={isConnecting || !name.trim()}>
           <LinearGradient
-            colors={Gradients.hot}
+            colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.btn}
+            style={[styles.btn, (isConnecting || !name.trim()) && styles.btnDisabled]}
           >
-            <Text style={styles.btnText}>Criar com Face ID / Touch ID</Text>
+            {isConnecting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Criar com Face ID / Touch ID</Text>
+            )}
           </LinearGradient>
-        </PressableScale>
+        </TouchableOpacity>
 
-        <PressableScale onPress={() => router.push('/(auth)/connect-wallet')} style={{ alignSelf: 'center' }}>
-          <Text style={styles.linkText}>Já tenho uma conta {'→'} Conectar</Text>
-        </PressableScale>
+        <TouchableOpacity
+          style={styles.linkBtn}
+          onPress={() => router.push('/(auth)/connect-wallet')}
+          disabled={isConnecting}
+        >
+          <Text style={styles.linkText}>Já tenho uma carteira</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -53,7 +94,7 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     paddingBottom: 60,
   },
-  header: { gap: Spacing[4], zIndex: 10 },
+  header: { gap: Spacing[4] },
   title: {
     fontSize: FontSize.heading,
     fontWeight: '800',
@@ -66,26 +107,48 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontFamily: Font.regular,
   },
-  actions: {
-    gap: Spacing[3],
-    zIndex: 10,
+  form: { gap: Spacing[2] },
+  label: {
+    fontSize: FontSize.bodySmall,
+    color: Colors.mutedForeground,
+    fontFamily: Font.semiBold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
+  input: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing[4],
+    paddingVertical: 14,
+    color: Colors.foreground,
+    fontSize: FontSize.body,
+    fontFamily: Font.regular,
+  },
+  errorText: {
+    fontSize: FontSize.bodySmall,
+    color: Accent.destructive,
+    fontFamily: Font.regular,
+    marginTop: Spacing[1],
+  },
+  footer: { gap: Spacing[4] },
   btn: {
     paddingVertical: 14,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.sm,
     alignItems: 'center',
-    minHeight: 56,
-    justifyContent: 'center',
   },
+  btnDisabled: { opacity: 0.5 },
   btnText: {
     color: '#fff',
     fontSize: FontSize.body,
-    fontWeight: '900',
-    fontFamily: Font.black,
+    fontWeight: '700',
+    fontFamily: Font.bold,
   },
+  linkBtn: { alignItems: 'center', paddingVertical: Spacing[2] },
   linkText: {
-    fontSize: FontSize.bodySmall,
     color: Colors.mutedForeground,
+    fontSize: FontSize.bodySmall,
     fontFamily: Font.semiBold,
   },
 });

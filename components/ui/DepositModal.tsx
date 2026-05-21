@@ -1,15 +1,13 @@
 import { useState } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, TextInput, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { randomUUID } from 'expo-crypto';
 import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing, Glow } from '@/constants/theme';
 import { useCreateDeposit, useSubmitDeposit } from '@/lib/queries/deposits.queries';
 import { vaultKeys } from '@/lib/queries/vaults.queries';
-import { balanceKeys } from '@/lib/queries/balances.queries';
-import { useAuthStore } from '@/lib/stores/auth.store';
-import { signTransaction } from '@/lib/wallet-kit';
+import { signXdr } from '@/lib/stellar/kit';
 import { PigSVG, getPigLevel } from './EvolutionaryPig';
+import { useWalletStore } from '@/lib/stores/wallet.store';
 
 const QUICK_VALUES = [10, 50, 100, 500];
 
@@ -27,7 +25,7 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setError] = useState('');
-  const { userId, walletAccountId, stellarAddress } = useAuthStore();
+  const walletAddress = useWalletStore((s) => s.walletAddress);
   const createDeposit = useCreateDeposit();
   const submitDeposit = useSubmitDeposit();
   const qc = useQueryClient();
@@ -36,18 +34,13 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
 
   const handleConfirm = async () => {
     const value = parseFloat(amount);
-    if (!value || value <= 0 || !vaultId || !userId || !walletAccountId) return;
+    if (!value || value <= 0 || !vaultId) return;
     setError('');
     setStep('processing');
     try {
-      const idempotencyKey = randomUUID();
       const result = await createDeposit.mutateAsync({
-        idempotencyKey,
-        userId,
-        walletAccountId,
         vaultId,
-        amount: String(value),
-        assetSymbol,
+        amount: value,
       });
 
       if (!result.unsignedXdr) {
@@ -57,7 +50,7 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
       }
 
       setStep('signing');
-      const signedXdr = await signTransaction(result.unsignedXdr);
+      const signedXdr = await signXdr(result.unsignedXdr);
 
       setStep('submitting');
       await submitDeposit.mutateAsync({ depositId: result.id, signedXdr });
@@ -65,8 +58,9 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
       setStep('success');
       setShowConfetti(true);
       qc.invalidateQueries({ queryKey: vaultKeys.all });
-      qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, stellarAddress ?? '') });
-      qc.invalidateQueries({ queryKey: balanceKeys.wallet(stellarAddress ?? '') });
+      if (walletAddress) {
+        qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, walletAddress) });
+      }
       setTimeout(() => {
         setShowConfetti(false);
         setStep('input');
@@ -161,12 +155,12 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
               <ActivityIndicator color={Accent.primary} size="large" />
               <Text style={styles.statusTitle}>
                 {step === 'processing' && 'Gerando transação...'}
-                {step === 'signing' && 'Assine no seu Lobstr...'}
+                {step === 'signing' && 'Assine com sua biometria...'}
                 {step === 'submitting' && 'Confirmando na Stellar...'}
               </Text>
               <Text style={styles.statusSub}>
                 {step === 'processing' && 'Preparando depósito no vault'}
-                {step === 'signing' && 'Abra seu Lobstr e aprove a transação'}
+                {step === 'signing' && 'Use Face ID / Touch ID para autorizar'}
                 {step === 'submitting' && 'Transação em menos de 1s ⚡'}
               </Text>
             </View>

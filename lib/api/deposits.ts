@@ -2,29 +2,15 @@ import { apiClient } from './client';
 
 export interface Deposit {
   id: string;
-  idempotencyKey: string;
-  userId: string;
-  walletAccountId: string;
   vaultId: string;
-  amount: string;
-  assetSymbol: string;
-  status: 'CREATED' | 'XDR_GENERATED' | 'SIGNED_XDR_RECEIVED' | 'SUBMITTED' | 'CONFIRMED' | 'FAILED';
+  amount: number;
+  status: 'PENDING' | 'CONFIRMED' | 'FAILED';
   unsignedXdr?: string;
-  signedXdr?: string;
   createdAt: string;
 }
 
-export interface CreateDepositParams {
-  idempotencyKey: string;
-  userId: string;
-  walletAccountId: string;
-  vaultId: string;
-  amount: string;
-  assetSymbol: string;
-}
-
-export const createDeposit = async (params: CreateDepositParams): Promise<Deposit> => {
-  const { data } = await apiClient.post('/deposits', params);
+export const createDeposit = async (vaultId: string, amount: number): Promise<Deposit> => {
+  const { data } = await apiClient.post('/deposits', { vaultId, amount });
   return data;
 };
 

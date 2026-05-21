@@ -1,17 +1,22 @@
 {
   "expo": {
-    "name": "stellarpig-app",
+    "name": "pigfi",
     "slug": "stellarpig-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "stellarpigapp",
+    "scheme": "pigfi",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pigfi.app",
+      "associatedDomains": [
+        "webcredentials:pigfi.app"
+      ]
     },
     "android": {
+      "package": "com.pigfi.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -39,11 +44,31 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.4"
+          },
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 28
+          }
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fd0ed8a4-0753-49b5-8d64-1b5816b2d1a5"
+      }
     }
   }
 }

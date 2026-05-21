@@ -73,7 +73,7 @@ export default function HistoryScreen() {
     ...(withdrawals ?? []).map((w) => ({
       id: w.id,
       type: 'withdrawal' as TxType,
-      amount: w.shareAmount,
+      amount: String(w.shares),
       status: w.status,
       createdAt: w.createdAt,
     })),
@@ -81,7 +81,6 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
       <LinearGradient
         colors={['hsla(320, 90%, 58%, 0.2)', 'hsla(270, 80%, 60%, 0.2)']}
         start={{ x: 0, y: 0 }}
@@ -95,7 +94,6 @@ export default function HistoryScreen() {
         <Text style={styles.headerSub}>Suas transações recentes</Text>
       </LinearGradient>
 
-      {/* Content */}
       <View style={styles.body}>
         {isLoading && (
           <View style={styles.centered}>

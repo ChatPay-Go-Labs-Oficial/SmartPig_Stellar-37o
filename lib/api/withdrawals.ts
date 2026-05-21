@@ -2,27 +2,15 @@ import { apiClient } from './client';
 
 export interface Withdrawal {
   id: string;
-  idempotencyKey: string;
-  userId: string;
-  walletAccountId: string;
   vaultId: string;
-  shareAmount: string;
-  status: 'CREATED' | 'XDR_GENERATED' | 'SIGNED_XDR_RECEIVED' | 'SUBMITTED' | 'CONFIRMED' | 'FAILED';
+  shares: number;
+  status: 'PENDING' | 'CONFIRMED' | 'FAILED';
   unsignedXdr?: string;
-  signedXdr?: string;
   createdAt: string;
 }
 
-export interface CreateWithdrawalParams {
-  idempotencyKey: string;
-  userId: string;
-  walletAccountId: string;
-  vaultId: string;
-  shareAmount: string;
-}
-
-export const createWithdrawal = async (params: CreateWithdrawalParams): Promise<Withdrawal> => {
-  const { data } = await apiClient.post('/withdrawals', params);
+export const createWithdrawal = async (vaultId: string, shares: number): Promise<Withdrawal> => {
+  const { data } = await apiClient.post('/withdrawals', { vaultId, shares });
   return data;
 };
 

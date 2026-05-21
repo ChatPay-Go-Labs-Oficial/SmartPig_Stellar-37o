@@ -4,7 +4,6 @@ import {
   submitSignedDeposit,
   getDeposit,
   listDeposits,
-  type CreateDepositParams,
 } from '@/lib/api/deposits';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
@@ -14,11 +13,11 @@ export const depositKeys = {
 };
 
 export const useDeposits = () => {
-  const userId = useAuthStore((s) => s.userId);
+  const contractId = useAuthStore((s) => s.contractId);
   return useQuery({
-    queryKey: depositKeys.all(userId ?? ''),
-    queryFn: () => listDeposits(userId!),
-    enabled: !!userId,
+    queryKey: depositKeys.all(contractId ?? ''),
+    queryFn: () => listDeposits(contractId!),
+    enabled: !!contractId,
   });
 };
 
@@ -28,15 +27,16 @@ export const useDeposit = (id: string) =>
     queryFn: () => getDeposit(id),
     enabled: !!id,
     refetchInterval: (query) =>
-      query.state.data?.status === 'XDR_GENERATED' ? 5_000 : false,
+      query.state.data?.status === 'PENDING' ? 5_000 : false,
   });
 
 export const useCreateDeposit = () => {
   const qc = useQueryClient();
-  const userId = useAuthStore((s) => s.userId);
+  const contractId = useAuthStore((s) => s.contractId);
   return useMutation({
-    mutationFn: (params: CreateDepositParams) => createDeposit(params),
-    onSuccess: () => qc.invalidateQueries({ queryKey: depositKeys.all(userId ?? '') }),
+    mutationFn: ({ vaultId, amount }: { vaultId: string; amount: number }) =>
+      createDeposit(vaultId, amount),
+    onSuccess: () => qc.invalidateQueries({ queryKey: depositKeys.all(contractId ?? '') }),
   });
 };
 

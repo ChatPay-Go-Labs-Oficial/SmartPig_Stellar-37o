@@ -1,10 +1,8 @@
 import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, getPigLevel } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
-import { useWalletBalances } from '@/lib/queries/balances.queries';
-import { useUser } from '@/lib/queries/users.queries';
-import { useAllVaultBalances, useVaults } from '@/lib/queries/vaults.queries';
-import { useAuthStore } from '@/lib/stores/auth.store';
+import { useVaults } from '@/lib/queries/vaults.queries';
+import { useWalletStore } from '@/lib/stores/wallet.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,42 +21,16 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 }
 
 export default function HomeScreen() {
-  const stellarAddress = useAuthStore((s) => s.stellarAddress);
-  const userId = useAuthStore((s) => s.userId);
-  const { data: user } = useUser(userId);
+  const walletAddress = useWalletStore((s) => s.walletAddress);
   const { data: vaults } = useVaults();
-  const { data: walletBalances } = useWalletBalances(stellarAddress);
-  const walletBalance = walletBalances?.total ?? 0;
 
-  // Vault balances from on-chain (real investment data)
-  const vaultBalances = useAllVaultBalances(stellarAddress);
-  const vaultsWithBalance = vaults
-    ?.filter((_, i) => {
-      const bal = vaultBalances[i]?.data;
-      const underlying = parseFloat(bal?.underlyingBalance?.[0] || '0');
-      return underlying > 0;
-    })
-    .map((v, i) => {
-      const realIdx = vaults.indexOf(v);
-      const bal = vaultBalances[realIdx]?.data;
-      return {
-        vault: v,
-        underlying: parseFloat(bal?.underlyingBalance?.[0] || '0'),
-        dfTokens: bal?.dfTokens || '0',
-      };
-    }) ?? [];
+  const totalInvested = 0;
+  const displayApy = 0;
+  const dailyYield = 0;
+  const walletBalance = 0;
+  const level = getPigLevel(0);
 
-  const totalInvested = vaultsWithBalance.reduce((sum, v) => sum + v.underlying, 0);
-  const weightedApy = vaultsWithBalance.reduce((sum, v) => {
-    return totalInvested > 0
-      ? sum + (v.underlying / totalInvested) * parseFloat(v.vault.apy || '0')
-      : sum;
-  }, 0);
-
-  const dailyYield = totalInvested * (weightedApy / 100) / 365;
-  const monthlyYield = dailyYield * 30;
-  const displayApy = weightedApy || 0;
-  const level = getPigLevel(totalInvested);
+  const vaultsWithBalance: { vault: Vault; underlying: number; dfTokens: string }[] = [];
 
   const [displayBalance, setDisplayBalance] = useState(totalInvested);
   const [depositOpen, setDepositOpen] = useState(false);
@@ -94,7 +66,6 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Gradient header */}
       <LinearGradient
         colors={Gradients.primary}
         start={{ x: 0, y: 0 }}
@@ -104,11 +75,10 @@ export default function HomeScreen() {
         <StarryBackground stars={18} nebulas={4} shootingStars={false} />
 
         <View style={styles.headerContent}>
-          {/* Top row */}
           <View style={styles.topRow}>
             <View>
               <Text style={styles.greetingLabel}>Olá,</Text>
-              <Text style={styles.greetingName}>{user?.name || 'Investidor'} 👋</Text>
+              <Text style={styles.greetingName}>Investidor 👋</Text>
             </View>
             <View style={styles.topRight}>
               <View style={styles.streakBadge}>
@@ -118,20 +88,20 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Pig illustration */}
           <View style={styles.pigArea}>
             <Image source={require('@/assets/images/pig_babe.png')} style={styles.pigImage} />
           </View>
           <Text style={styles.pigLabel}>{level.label}</Text>
 
-          {/* Balance */}
           <View style={styles.balanceSection}>
             <Text style={styles.balanceLabel}>Total Investido</Text>
             <Text style={styles.balanceValue}>
               $ {displayBalance.toFixed(2)}
             </Text>
             <Text style={styles.walletSubText}>
-              $ {walletBalance.toFixed(2)} disponível na wallet
+              {walletAddress
+                ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
+                : 'Carteira não conectada'}
             </Text>
             <View style={styles.yieldRow}>
               <Text style={styles.yieldIcon}>📈</Text>
@@ -144,9 +114,7 @@ export default function HomeScreen() {
         </View>
       </LinearGradient>
 
-      {/* Content */}
       <View style={styles.content}>
-        {/* Action buttons */}
         <View style={styles.actionRow}>
           <View style={styles.actionBtnWrapper}>
             <Button
@@ -181,7 +149,6 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Yield card */}
         <Card style={styles.yieldCard}>
           <Text style={styles.yieldCardTitle}>
             📊 Como seu dinheiro rende
@@ -189,7 +156,7 @@ export default function HomeScreen() {
           <View style={styles.yieldStats}>
             {[
               { label: 'Rendimento hoje', value: `+$ ${dailyYield.toFixed(4)}`, color: Accent.success },
-              { label: 'Rendimento/mês', value: `+$ ${monthlyYield.toFixed(2)}`, color: Accent.success },
+              { label: 'Rendimento/mês', value: `+$ 0.00`, color: Accent.success },
               { label: 'APY médio', value: `${displayApy.toFixed(2)}%`, color: Accent.primary },
               { label: 'Protocolo', value: 'Stellar/DeFindex', color: Accent.primary },
             ].map((item) => (
@@ -207,14 +174,6 @@ export default function HomeScreen() {
           </View>
         </Card>
 
-        {/* Tip banner */}
-        {/* <View style={styles.tipBanner}>
-          <Text style={styles.tipText}>
-            🔥 <Text style={styles.tipHighlight}>Dica:</Text> Ative o Pix Automático e poupe sem esforço!
-          </Text>
-        </View> */}
-
-        {/* Active vaults */}
         {vaultsWithBalance.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Meus Cofrinhos</Text>
@@ -442,22 +401,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.label,
     color: Colors.mutedForeground,
     fontFamily: Font.semiBold,
-  },
-  tipBanner: {
-    backgroundColor: 'hsla(320, 90%, 58%, 0.1)',
-    borderWidth: 1,
-    borderColor: 'hsla(320, 90%, 58%, 0.2)',
-    borderRadius: Radius.lg,
-    padding: 12,
-    marginBottom: 20,
-  },
-  tipText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Colors.foreground,
-  },
-  tipHighlight: {
-    fontFamily: Font.black,
   },
   sectionTitle: {
     fontSize: FontSize.subheading,
