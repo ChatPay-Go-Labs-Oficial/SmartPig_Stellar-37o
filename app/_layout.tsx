@@ -1,5 +1,6 @@
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
+import '@/lib/stellar/buffer-polyfill';
 import { Buffer } from 'buffer';
 if (typeof global.Buffer === 'undefined') {
   global.Buffer = Buffer;
@@ -48,11 +49,14 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!fontsLoaded) return;
-    if (isAuthenticated) {
-      router.replace('/(tabs)');
-    } else {
-      router.replace('/(auth)/create-wallet');
-    }
+    const id = requestAnimationFrame(() => {
+      if (isAuthenticated) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace('/(auth)/create-wallet');
+      }
+    });
+    return () => cancelAnimationFrame(id);
   }, [fontsLoaded, isAuthenticated]);
 
   if (!fontsLoaded) {
