@@ -36,6 +36,17 @@ export default function OnboardingScreen() {
   const { isReady, user } = usePrivy();
 
   async function createAndAuth() {
+    if (user) {
+      const existingWallet = (user.linked_accounts as any[]).find(
+        (account) =>
+          account.chain_type === 'stellar' && account.address,
+      );
+      if (existingWallet?.address) {
+        setAuth(existingWallet.address);
+        router.replace('/(tabs)');
+        return;
+      }
+    }
     const { wallet } = await createWallet({ chainType: 'stellar' });
     setAuth(wallet.address);
     router.replace('/(tabs)');
