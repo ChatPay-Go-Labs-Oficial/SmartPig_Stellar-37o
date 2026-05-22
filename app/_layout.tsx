@@ -2,10 +2,11 @@ import { Buffer } from 'buffer';
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 
-import { PrivyProvider } from '@privy-io/expo';
+import { PrivyProvider, usePrivy } from '@privy-io/expo';
 
 import { Colors } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { setTokenProvider } from '@/lib/api/token';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -67,6 +68,7 @@ export default function RootLayout() {
       appId={process.env.EXPO_PUBLIC_PRIVY_APP_ID!}
       clientId={process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID!}
     >
+      <AuthSetup />
       <QueryClientProvider client={queryClient}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
@@ -78,6 +80,18 @@ export default function RootLayout() {
       </QueryClientProvider>
     </PrivyProvider>
   );
+}
+
+function AuthSetup() {
+  const { getAccessToken, isReady } = usePrivy();
+
+  useEffect(() => {
+    if (isReady) {
+      setTokenProvider(getAccessToken);
+    }
+  }, [isReady, getAccessToken]);
+
+  return null;
 }
 
 const styles = StyleSheet.create({

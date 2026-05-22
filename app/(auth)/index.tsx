@@ -15,6 +15,7 @@ import {
 
 import { StarryBackground } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { walletLogin } from '@/lib/api/auth';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
 import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passkey';
@@ -40,21 +41,27 @@ export default function OnboardingScreen() {
   const { isReady, user } = usePrivy();
 
   async function createAndAuth() {
+    let address: string;
+
     if (user) {
       const existingWallet = (user.linked_accounts as any[]).find(
         (account) =>
           account.chain_type === 'stellar' && account.address,
       );
       if (existingWallet?.address) {
-        setAuth(existingWallet.address);
-        setWalletAddress(existingWallet.address);
-        router.replace('/(tabs)');
-        return;
+        address = existingWallet.address;
+      } else {
+        const { wallet } = await createWallet({ chainType: 'stellar' });
+        address = wallet.address;
       }
+    } else {
+      const { wallet } = await createWallet({ chainType: 'stellar' });
+      address = wallet.address;
     }
-    const { wallet } = await createWallet({ chainType: 'stellar' });
-    setAuth(wallet.address);
-    setWalletAddress(wallet.address);
+
+    const { user: backendUser } = await walletLogin(address);
+    setWalletAddress(address);
+    setAuth(backendUser.id);
     router.replace('/(tabs)');
   }
 
