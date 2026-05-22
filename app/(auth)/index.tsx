@@ -32,6 +32,7 @@ export default function OnboardingScreen() {
   const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const setWalletAddress = useAuthStore((s) => s.setWalletAddress);
   const { createWallet } = useCreateWallet();
   const { loginWithPasskey } = useLoginWithPasskey();
   const { signupWithPasskey } = useSignupWithPasskey();
@@ -46,12 +47,14 @@ export default function OnboardingScreen() {
       );
       if (existingWallet?.address) {
         setAuth(existingWallet.address);
+        setWalletAddress(existingWallet.address);
         router.replace('/(tabs)');
         return;
       }
     }
     const { wallet } = await createWallet({ chainType: 'stellar' });
     setAuth(wallet.address);
+    setWalletAddress(wallet.address);
     router.replace('/(tabs)');
   }
 

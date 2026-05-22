@@ -7,13 +7,10 @@ import { Button, Card, Input } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useSmartAccount } from '@/hooks/use-smart-account';
 import { usePixStore } from '@/lib/stores/pix.store';
-import { usePrivy } from '@privy-io/expo';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function ProfileScreen() {
-  const { user } = usePrivy();
-  const walletAddress = (user?.linked_accounts as any[])?.find(
-    (account) => account.chain_type === 'stellar' && account.address,
-  )?.address ?? null;
+  const walletAddress = useAuthStore((s) => s.walletAddress);
   const { pixKey, setPixKey } = usePixStore();
   const { disconnect } = useSmartAccount();
   const [showLogoutModal, setShowLogoutModal] = useState(false);

@@ -7,7 +7,7 @@ import { useCreateDeposit, useSubmitDeposit } from '@/lib/queries/deposits.queri
 import { vaultKeys } from '@/lib/queries/vaults.queries';
 import { signXdr } from '@/lib/stellar/kit';
 import { PigSVG, getPigLevel } from './EvolutionaryPig';
-import { useWalletStore } from '@/lib/stores/wallet.store';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 const QUICK_VALUES = [10, 50, 100, 500];
 
@@ -25,7 +25,7 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setError] = useState('');
-  const walletAddress = useWalletStore((s) => s.walletAddress);
+  const walletAddress = useAuthStore((s) => s.walletAddress);
   const createDeposit = useCreateDeposit();
   const submitDeposit = useSubmitDeposit();
   const qc = useQueryClient();

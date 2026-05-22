@@ -2,7 +2,7 @@ import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, get
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useVaults } from '@/lib/queries/vaults.queries';
-import { usePrivy } from '@privy-io/expo';
+import { useAuthStore } from '@/lib/stores/auth.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -22,10 +22,7 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 
 export default function HomeScreen() {
   const { data: vaults } = useVaults();
-  const { user } = usePrivy();
-  const walletAddress = (user?.linked_accounts as any[])?.find(
-    (account) => account.chain_type === 'stellar' && account.address,
-  )?.address ?? null;
+  const walletAddress = useAuthStore((s) => s.walletAddress);
 
   const totalInvested = 0;
   const displayApy = 0;

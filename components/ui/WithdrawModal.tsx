@@ -6,7 +6,7 @@ import { Colors, Accent, Font, FontSize, Radius, Spacing, Glow } from '@/constan
 import { useCreateWithdrawal, useSubmitWithdrawal } from '@/lib/queries/withdrawals.queries';
 import { vaultKeys } from '@/lib/queries/vaults.queries';
 import { signXdr } from '@/lib/stellar/kit';
-import { useWalletStore } from '@/lib/stores/wallet.store';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 interface WithdrawModalProps {
   visible: boolean;
@@ -25,7 +25,7 @@ export function WithdrawModal({
   const [amount, setAmount] = useState('');
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setError] = useState('');
-  const walletAddress = useWalletStore((s) => s.walletAddress);
+  const walletAddress = useAuthStore((s) => s.walletAddress);
   const createWithdrawal = useCreateWithdrawal();
   const submitWithdrawal = useSubmitWithdrawal();
   const qc = useQueryClient();
