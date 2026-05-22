@@ -6,11 +6,14 @@ import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/the
 import { Button, Card, Input } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useSmartAccount } from '@/hooks/use-smart-account';
-import { useWalletStore } from '@/lib/stores/wallet.store';
 import { usePixStore } from '@/lib/stores/pix.store';
+import { usePrivy } from '@privy-io/expo';
 
 export default function ProfileScreen() {
-  const walletAddress = useWalletStore((s) => s.walletAddress);
+  const { user } = usePrivy();
+  const walletAddress = (user?.linked_accounts as any[])?.find(
+    (account) => account.chain_type === 'stellar' && account.address,
+  )?.address ?? null;
   const { pixKey, setPixKey } = usePixStore();
   const { disconnect } = useSmartAccount();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
