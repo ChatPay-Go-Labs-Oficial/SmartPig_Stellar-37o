@@ -6,6 +6,7 @@ import {
   listWithdrawals,
 } from '@/lib/api/withdrawals';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { randomUUID } from 'expo-crypto';
 
 export const withdrawalKeys = {
   all: (userId: string) => ['withdrawals', userId] as const,
@@ -32,11 +33,21 @@ export const useWithdrawal = (id: string) =>
 
 export const useCreateWithdrawal = () => {
   const qc = useQueryClient();
-  const contractId = useAuthStore((s) => s.contractId);
   return useMutation({
-    mutationFn: ({ vaultId, shares }: { vaultId: string; shares: number }) =>
-      createWithdrawal(vaultId, shares),
-    onSuccess: () => qc.invalidateQueries({ queryKey: withdrawalKeys.all(contractId ?? '') }),
+    mutationFn: async ({ vaultId, shares }: { vaultId: string; shares: number }) => {
+      const { contractId, walletAccountId } = useAuthStore.getState();
+      return createWithdrawal({
+        idempotencyKey: randomUUID(),
+        userId: contractId!,
+        walletAccountId: walletAccountId!,
+        vaultId,
+        shareAmount: String(shares),
+      });
+    },
+    onSuccess: () => {
+      const { contractId } = useAuthStore.getState();
+      qc.invalidateQueries({ queryKey: withdrawalKeys.all(contractId ?? '') });
+    },
   });
 };
 

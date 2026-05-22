@@ -34,6 +34,7 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setWalletAddress = useAuthStore((s) => s.setWalletAddress);
+  const setWalletAccountId = useAuthStore((s) => s.setWalletAccountId);
   const { createWallet } = useCreateWallet();
   const { loginWithPasskey } = useLoginWithPasskey();
   const { signupWithPasskey } = useSignupWithPasskey();
@@ -59,8 +60,9 @@ export default function OnboardingScreen() {
       address = wallet.address;
     }
 
-    const { user: backendUser } = await walletLogin(address);
+    const { user: backendUser, wallet } = await walletLogin(address);
     setWalletAddress(address);
+    setWalletAccountId(wallet.id);
     setAuth(backendUser.id);
     router.replace('/(tabs)');
   }

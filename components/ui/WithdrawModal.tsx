@@ -73,7 +73,7 @@ export function WithdrawModal({
         onClose();
       }, 2500);
     } catch (e: any) {
-      setError(e?.message || 'Erro ao processar saque');
+      setError(e?.response?.data?.message || e?.message || 'Erro ao processar saque');
       setStep('input');
     }
   };

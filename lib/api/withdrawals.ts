@@ -9,8 +9,16 @@ export interface Withdrawal {
   createdAt: string;
 }
 
-export const createWithdrawal = async (vaultId: string, shares: number): Promise<Withdrawal> => {
-  const { data } = await apiClient.post('/withdrawals', { vaultId, shares });
+export interface CreateWithdrawalParams {
+  idempotencyKey: string;
+  userId: string;
+  walletAccountId: string;
+  vaultId: string;
+  shareAmount: string;
+}
+
+export const createWithdrawal = async (params: CreateWithdrawalParams): Promise<Withdrawal> => {
+  const { data } = await apiClient.post('/withdrawals', params);
   return data;
 };
 

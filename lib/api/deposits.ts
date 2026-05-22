@@ -9,8 +9,17 @@ export interface Deposit {
   createdAt: string;
 }
 
-export const createDeposit = async (vaultId: string, amount: number): Promise<Deposit> => {
-  const { data } = await apiClient.post('/deposits', { vaultId, amount });
+export interface CreateDepositParams {
+  idempotencyKey: string;
+  userId: string;
+  walletAccountId: string;
+  vaultId: string;
+  amount: string;
+  assetSymbol: string;
+}
+
+export const createDeposit = async (params: CreateDepositParams): Promise<Deposit> => {
+  const { data } = await apiClient.post('/deposits', params);
   return data;
 };
 

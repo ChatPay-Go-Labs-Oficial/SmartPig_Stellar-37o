@@ -41,6 +41,7 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
       const result = await createDeposit.mutateAsync({
         vaultId,
         amount: value,
+        assetSymbol,
       });
 
       if (!result.unsignedXdr) {
@@ -69,7 +70,7 @@ export function DepositModal({ visible, vaultId, assetSymbol, onClose, onSuccess
         onSuccess?.();
       }, 2500);
     } catch (e: any) {
-      setError(e?.message || 'Erro ao processar depósito');
+      setError(e?.response?.data?.message || e?.message || 'Erro ao processar depósito');
       setStep('input');
     }
   };

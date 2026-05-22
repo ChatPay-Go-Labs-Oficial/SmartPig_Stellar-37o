@@ -3,10 +3,12 @@ import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 
 import { PrivyProvider, usePrivy } from '@privy-io/expo';
+import { useSignRawHash } from '@privy-io/expo/extended-chains';
 
 import { Colors } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { setTokenProvider } from '@/lib/api/token';
+import { setSignRawHashProvider } from '@/lib/stellar/signer';
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -84,12 +86,14 @@ export default function RootLayout() {
 
 function AuthSetup() {
   const { getAccessToken, isReady } = usePrivy();
+  const { signRawHash } = useSignRawHash();
 
   useEffect(() => {
     if (isReady) {
       setTokenProvider(getAccessToken);
+      setSignRawHashProvider(signRawHash);
     }
-  }, [isReady, getAccessToken]);
+  }, [isReady, getAccessToken, signRawHash]);
 
   return null;
 }

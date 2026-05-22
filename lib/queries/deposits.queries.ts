@@ -6,6 +6,7 @@ import {
   listDeposits,
 } from '@/lib/api/deposits';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { randomUUID } from 'expo-crypto';
 
 export const depositKeys = {
   all: (userId: string) => ['deposits', userId] as const,
@@ -32,11 +33,25 @@ export const useDeposit = (id: string) =>
 
 export const useCreateDeposit = () => {
   const qc = useQueryClient();
-  const contractId = useAuthStore((s) => s.contractId);
   return useMutation({
-    mutationFn: ({ vaultId, amount }: { vaultId: string; amount: number }) =>
-      createDeposit(vaultId, amount),
-    onSuccess: () => qc.invalidateQueries({ queryKey: depositKeys.all(contractId ?? '') }),
+    mutationFn: async ({ vaultId, amount, assetSymbol }: { vaultId: string; amount: number; assetSymbol: string }) => {
+      const { contractId, walletAccountId } = useAuthStore.getState();
+      if (!contractId || !walletAccountId) {
+        throw new Error('Usuário não autenticado. Faça login novamente.');
+      }
+      return createDeposit({
+        idempotencyKey: randomUUID(),
+        userId: contractId,
+        walletAccountId,
+        vaultId,
+        amount: String(amount),
+        assetSymbol,
+      });
+    },
+    onSuccess: () => {
+      const { contractId } = useAuthStore.getState();
+      qc.invalidateQueries({ queryKey: depositKeys.all(contractId ?? '') });
+    },
   });
 };
 
