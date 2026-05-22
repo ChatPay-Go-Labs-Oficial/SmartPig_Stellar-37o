@@ -63,7 +63,10 @@ export default function RootLayout() {
   }
 
   return (
-    <PrivyProvider appId='cmpeh94xl005m0cjjcm2k8c2v' clientId='client-WY6ZY28AcLSLSHR5ma6XpHWY231BBMrENYFZjPovgHskR'>
+    <PrivyProvider
+      appId={process.env.EXPO_PUBLIC_PRIVY_APP_ID!}
+      clientId={process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID!}
+    >
       <QueryClientProvider client={queryClient}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
