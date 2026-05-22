@@ -1,10 +1,11 @@
 import { ScreenContainer } from '@/components/layout';
 import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, WithdrawModal } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
-import { useVault, useVaultApy, useVaultBalance } from '@/lib/queries/vaults.queries';
+import { useVault, useVaultApy, useVaultBalance, vaultKeys } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatVaultName(name: string): string {
@@ -30,6 +31,7 @@ function formatAmount(amount: string | null | undefined): string {
 export default function VaultDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const walletAddress = useAuthStore((s) => s.walletAddress);
+  const qc = useQueryClient();
 
   const { data: vault, isLoading } = useVault(id);
   const { data: apyData } = useVaultApy(id);
@@ -40,6 +42,12 @@ export default function VaultDetailScreen() {
 
   const liveApy = apyData?.apy ?? (vault?.apy ? parseFloat(vault.apy) : null);
   const apyBadge = liveApy && liveApy >= 10 ? 'destaque' : liveApy && liveApy >= 5 ? 'conquista' : 'muted';
+
+  const handleDepositSuccess = useCallback(() => {
+    if (walletAddress) {
+      qc.invalidateQueries({ queryKey: vaultKeys.balance(id, walletAddress) });
+    }
+  }, [id, walletAddress, qc]);
 
   if (isLoading) {
     return (
@@ -93,7 +101,7 @@ export default function VaultDetailScreen() {
             <Text style={styles.balanceValue}>
               {balanceData ? `${formatAmount(vaultBalance)} ${vault.assetSymbol}` : '…'}
             </Text>
-            {balanceData?.dfTokens && (
+            {balanceData?.dfTokens != null && (
               <Text style={styles.sharesHint}>{balanceData.dfTokens} dfTokens</Text>
             )}
           </>
@@ -128,6 +136,7 @@ export default function VaultDetailScreen() {
         vaultId={vault.id}
         assetSymbol={vault.assetSymbol}
         onClose={() => setDepositOpen(false)}
+        onSuccess={handleDepositSuccess}
       />
       <WithdrawModal
         visible={withdrawOpen}
