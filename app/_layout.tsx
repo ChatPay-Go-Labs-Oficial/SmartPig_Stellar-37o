@@ -20,7 +20,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -50,17 +50,6 @@ export default function RootLayout() {
     Nunito_900Black,
   });
 
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  useEffect(() => {
-    if (!fontsLoaded) return;
-    if (isAuthenticated) {
-      router.replace('/(tabs)');
-    } else {
-      router.replace('/(auth)');
-    }
-  }, [fontsLoaded, isAuthenticated]);
-
   if (!fontsLoaded) {
     return <View style={styles.splash} />;
   }
@@ -70,7 +59,7 @@ export default function RootLayout() {
       appId={process.env.EXPO_PUBLIC_PRIVY_APP_ID!}
       clientId={process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID!}
     >
-      <AuthSetup />
+      <AppNavigator />
       <QueryClientProvider client={queryClient}>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
@@ -84,16 +73,29 @@ export default function RootLayout() {
   );
 }
 
-function AuthSetup() {
-  const { getAccessToken, isReady } = usePrivy();
+function AppNavigator() {
+  const { getAccessToken, isReady, user } = usePrivy();
   const { signRawHash } = useSignRawHash();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
-    if (isReady) {
-      setTokenProvider(getAccessToken);
-      setSignRawHashProvider(signRawHash);
+    if (!isReady || hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    setTokenProvider(getAccessToken);
+    setSignRawHashProvider(signRawHash);
+
+    if (isAuthenticated && user) {
+      router.replace('/(tabs)');
+    } else {
+      if (isAuthenticated && !user) {
+        clearAuth();
+      }
+      router.replace('/(auth)');
     }
-  }, [isReady, getAccessToken, signRawHash]);
+  }, [isReady]);
 
   return null;
 }
