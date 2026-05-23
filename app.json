@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "pigfi",
-    "slug": "stellarpig-app",
+    "name": "PigFi",
+    "slug": "pigfi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -53,7 +53,8 @@
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 35,
-            "minSdkVersion": 28
+            "minSdkVersion": 28,
+            "softwareKeyboardLayoutMode": "adjustResize"
           }
         }
       ],
@@ -66,7 +67,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "fd0ed8a4-0753-49b5-8d64-1b5816b2d1a5"
+        "projectId": "7d89858e-72fb-4da7-a855-141d7f46957b"
       }
     }
   }
