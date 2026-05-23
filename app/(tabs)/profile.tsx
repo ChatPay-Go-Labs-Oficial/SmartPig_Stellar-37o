@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Pressable, View, Text, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
@@ -8,6 +8,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useSmartAccount } from '@/hooks/use-smart-account';
 import { usePixStore } from '@/lib/stores/pix.store';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import * as Clipboard from 'expo-clipboard';
 
 export default function ProfileScreen() {
   const walletAddress = useAuthStore((s) => s.walletAddress);
@@ -22,6 +23,15 @@ export default function ProfileScreen() {
     : null;
 
   const initials = shortAddress ? shortAddress.slice(0, 2).toUpperCase() : '??';
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    if (!walletAddress) return;
+    await Clipboard.setStringAsync(walletAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [walletAddress]);
 
   function handleSavePix() {
     if (!pixInput.trim()) return;
@@ -59,11 +69,12 @@ export default function ProfileScreen() {
             <Text style={styles.cardIcon}>💳</Text>
             <Text style={styles.cardLabel}>Carteira Digital</Text>
           </View>
-          <View style={styles.walletBox}>
+          <Pressable onPress={handleCopy} style={styles.walletBox}>
             <Text style={styles.walletText} selectable>
                 {walletAddress ?? 'Nenhuma carteira'}
             </Text>
-          </View>
+            {copied && <Text style={styles.copiedBadge}>Copiado!</Text>}
+          </Pressable>
         </Card>
 
         <Card style={styles.card}>
@@ -182,6 +193,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     fontFamily: 'monospace',
     color: Colors.foreground,
+  },
+  copiedBadge: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Accent.success,
+    marginTop: 4,
   },
   pixHint: {
     fontSize: FontSize.label,
