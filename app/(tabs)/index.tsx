@@ -1,11 +1,11 @@
 import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, getPigLevel } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
-import { useVaults } from '@/lib/queries/vaults.queries';
+import { useVaults, useAllVaultBalances } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function ActiveVaultRow({ vault }: { vault: Vault }) {
@@ -23,21 +23,49 @@ function ActiveVaultRow({ vault }: { vault: Vault }) {
 export default function HomeScreen() {
   const { data: vaults } = useVaults();
   const walletAddress = useAuthStore((s) => s.walletAddress);
+  const balances = useAllVaultBalances(walletAddress);
 
-  const totalInvested = 0;
-  const displayApy = 0;
-  const dailyYield = 0;
-  const walletBalance = 0;
-  const level = getPigLevel(0);
+  const totalInvested = useMemo(() => {
+    let total = 0;
+    for (const b of balances) {
+      const val = parseFloat(b.data?.underlyingBalance?.[0] ?? '0');
+      total += val;
+    }
+    return total;
+  }, [balances]);
 
-  const vaultsWithBalance: { vault: Vault; underlying: number; dfTokens: string }[] = [];
-
-  const [displayBalance, setDisplayBalance] = useState(totalInvested);
-  const [depositOpen, setDepositOpen] = useState(false);
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const firstVault = vaults?.[0];
   const firstVaultId = firstVault?.id || '';
   const firstVaultSymbol = firstVault?.assetSymbol || 'USDC';
+
+  const firstBalance = balances[0]?.data;
+  const walletBalance = firstBalance ? parseFloat(firstBalance.underlyingBalance?.[0] ?? '0') : 0;
+
+  const displayApy = firstVault?.apy ? parseFloat(firstVault.apy) : 0;
+  const dailyYield = displayApy > 0 ? (totalInvested * (displayApy / 100)) / 365 : 0;
+
+  const level = getPigLevel(totalInvested);
+
+  const vaultsWithBalance: { vault: Vault; underlying: number; dfTokens: string }[] =
+    useMemo(() => {
+      if (!vaults) return [];
+      return vaults
+        .map((vault, i) => {
+          const bal = balances[i]?.data;
+          if (!bal) return null;
+          return {
+            vault,
+            underlying: parseFloat(bal.underlyingBalance?.[0] ?? '0'),
+            dfTokens: bal.dfTokens,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null && item.underlying > 0);
+    }, [vaults, balances]);
+
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+
+  const [displayBalance, setDisplayBalance] = useState(0);
 
   const isAnimating = useRef(false);
 
