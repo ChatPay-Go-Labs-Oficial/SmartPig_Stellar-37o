@@ -3,6 +3,7 @@
 **Small investments. A universe of possibilities.**
 
 DEMO: https://smartpigstellar.netlify.app/
+
 APP: https://expo.dev/accounts/businessmaycon/projects/pigfi/builds/f85c650b-3f44-4232-8e5b-9b219ea40c91
 
 PigFi is a mobile investment app built for Brazilian first-time investors. It lets users start with small amounts, use a familiar Pix-based flow, and access dollar-denominated opportunities through an interface that feels simple, playful and safe instead of technical or intimidating.

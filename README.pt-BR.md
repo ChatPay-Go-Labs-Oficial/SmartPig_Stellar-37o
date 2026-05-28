@@ -3,6 +3,7 @@
 **Pequenos investimentos, um universo de possibilidades.**
 
 DEMO: https://smartpigstellar.netlify.app/
+
 APP: https://expo.dev/accounts/businessmaycon/projects/pigfi/builds/f85c650b-3f44-4232-8e5b-9b219ea40c91
 
 A **PigFi** é um aplicativo mobile de investimento em dólar criado para tornar o primeiro investimento simples, acessível e divertido. A proposta é permitir que pessoas que nunca investiram — ou que acham que investir é complicado, caro ou “coisa de rico” — consigam começar com valores baixos, usando uma experiência familiar, leve e gamificada.
