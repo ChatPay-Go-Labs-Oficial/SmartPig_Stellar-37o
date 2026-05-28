@@ -7,6 +7,7 @@ interface AuthState {
   walletAccountId: string | null;
   contractId: string | null;
   isAuthenticated: boolean;
+  _hydrated: boolean;
   setAuth: (contractId: string) => void;
   setWalletAddress: (address: string) => void;
   setWalletAccountId: (id: string) => void;
@@ -20,6 +21,7 @@ export const useAuthStore = create<AuthState>()(
       walletAccountId: null,
       contractId: null,
       isAuthenticated: false,
+      _hydrated: false,
       setAuth: (contractId) => set({ contractId, isAuthenticated: true }),
       setWalletAddress: (address) => set({ walletAddress: address }),
       setWalletAccountId: (id) => set({ walletAccountId: id }),
@@ -33,6 +35,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'smartpig-auth',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => () => {
+        useAuthStore.setState({ _hydrated: true });
+      },
     },
   ),
 );

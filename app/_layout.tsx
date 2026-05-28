@@ -20,7 +20,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -55,51 +55,74 @@ export default function RootLayout() {
   }
 
   return (
-    <PrivyProvider
-      appId={process.env.EXPO_PUBLIC_PRIVY_APP_ID!}
-      clientId={process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID!}
-    >
-      <AppNavigator />
-      <QueryClientProvider client={queryClient}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="vault/[id]" />
-          <Stack.Screen name="education" />
-        </Stack>
-        <StatusBar style="light" />
-      </QueryClientProvider>
-    </PrivyProvider>
+    <View style={styles.root}>
+      <PrivyProvider
+        appId={process.env.EXPO_PUBLIC_PRIVY_APP_ID!}
+        clientId={process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID!}
+      >
+        <QueryClientProvider client={queryClient}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="vault/[id]" />
+            <Stack.Screen name="education" />
+          </Stack>
+          <StatusBar style="light" />
+        </QueryClientProvider>
+        <AppGate />
+      </PrivyProvider>
+    </View>
   );
 }
 
-function AppNavigator() {
-  const { getAccessToken, isReady, user } = usePrivy();
+function AppGate() {
+  const { getAccessToken, isReady } = usePrivy();
   const { signRawHash } = useSignRawHash();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hydrated = useAuthStore((s) => s._hydrated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const hasInitialized = useRef(false);
 
   useEffect(() => {
-    if (!isReady || hasInitialized.current) return;
+    if (!isReady || !hydrated || hasInitialized.current) return;
     hasInitialized.current = true;
 
     setTokenProvider(getAccessToken);
     setSignRawHashProvider(signRawHash);
 
-    if (isAuthenticated && user) {
-      router.replace('/(tabs)');
-    } else {
-      if (isAuthenticated && !user) {
+    (async () => {
+      const token = await getAccessToken();
+      if (isAuthenticated && !token) {
         clearAuth();
       }
+      setGateOpen(true);
+    })();
+  }, [isReady, hydrated]);
+
+  useEffect(() => {
+    if (!gateOpen) return;
+
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    } else {
       router.replace('/(auth)');
     }
-  }, [isReady]);
+
+    requestAnimationFrame(() => setSplashDone(true));
+  }, [gateOpen]);
+
+  if (!splashDone) return <View style={styles.absoluteSplash} />;
 
   return null;
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
   splash: { flex: 1, backgroundColor: Colors.background },
+  absoluteSplash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.background,
+  },
 });

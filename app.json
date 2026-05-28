@@ -24,7 +24,8 @@
         "monochromeImage": "./assets/images/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",
@@ -53,8 +54,7 @@
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 35,
-            "minSdkVersion": 28,
-            "softwareKeyboardLayoutMode": "adjustResize"
+            "minSdkVersion": 28
           }
         }
       ],
