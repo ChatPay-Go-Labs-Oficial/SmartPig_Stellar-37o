@@ -3,6 +3,7 @@
 **Pequenos investimentos, um universo de possibilidades.**
 
 DEMO: https://smartpigstellar.netlify.app/
+APP: https://expo.dev/accounts/businessmaycon/projects/pigfi/builds/f85c650b-3f44-4232-8e5b-9b219ea40c91
 
 A **PigFi** é um aplicativo mobile de investimento em dólar criado para tornar o primeiro investimento simples, acessível e divertido. A proposta é permitir que pessoas que nunca investiram — ou que acham que investir é complicado, caro ou “coisa de rico” — consigam começar com valores baixos, usando uma experiência familiar, leve e gamificada.
 
@@ -128,17 +129,17 @@ NestJS / Prisma / PostgreSQL
 
 ## Stack do app mobile
 
-| Camada | Tecnologia |
-|---|---|
-| Framework | Expo SDK 54 / React Native 0.81 |
-| Linguagem | TypeScript |
-| Roteamento | Expo Router |
-| Estado global | Zustand + AsyncStorage |
-| Dados remotos | TanStack Query + Axios |
-| Wallet | Stellar Wallets Kit + WalletConnect |
-| UI e animações | Expo Linear Gradient / Reanimated |
-| Rede | Stellar testnet |
-| Backend | NestJS API em repositório separado |
+| Camada         | Tecnologia                          |
+| -------------- | ----------------------------------- |
+| Framework      | Expo SDK 54 / React Native 0.81     |
+| Linguagem      | TypeScript                          |
+| Roteamento     | Expo Router                         |
+| Estado global  | Zustand + AsyncStorage              |
+| Dados remotos  | TanStack Query + Axios              |
+| Wallet         | Stellar Wallets Kit + WalletConnect |
+| UI e animações | Expo Linear Gradient / Reanimated   |
+| Rede           | Stellar testnet                     |
+| Backend        | NestJS API em repositório separado  |
 
 ---
 
@@ -214,13 +215,13 @@ npx expo start --web
 
 ## Scripts disponíveis
 
-| Comando | Descrição |
-|---|---|
-| `npm start` | Inicia o servidor Expo |
-| `npm run android` | Abre o app no Android |
-| `npm run ios` | Abre o app no iOS |
-| `npm run web` | Abre o app no navegador |
-| `npm run lint` | Executa lint do projeto |
+| Comando           | Descrição               |
+| ----------------- | ----------------------- |
+| `npm start`       | Inicia o servidor Expo  |
+| `npm run android` | Abre o app no Android   |
+| `npm run ios`     | Abre o app no iOS       |
+| `npm run web`     | Abre o app no navegador |
+| `npm run lint`    | Executa lint do projeto |
 
 ---
 
@@ -360,6 +361,7 @@ Projeto desenvolvido para fins de demonstração em hackathon.
 O uso, distribuição e evolução do projeto devem seguir as decisões da organização responsável pelo repositório.
 
 ---
+
 ## Estado atual do projeto
 
 Esta versão representa o estado atual do produto para apresentação no hackathon.
