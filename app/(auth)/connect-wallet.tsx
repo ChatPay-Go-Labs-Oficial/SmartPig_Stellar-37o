@@ -1,48 +1,42 @@
-import { PressableScale, StarryBackground } from '@/components/ui';
-import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { useWalletConnect } from '@/lib/hooks/use-wallet-connect';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { router } from 'expo-router';
-import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Gradients, Spacing, Radius, Font, FontSize, Accent } from '@/constants/theme';
+import { useSmartAccount } from '@/hooks/use-smart-account';
 
 export default function ConnectWalletScreen() {
-  const { connect, isConnecting, error } = useWalletConnect();
+  const { isConnecting, error, connect } = useSmartAccount();
 
   async function handleConnect() {
     try {
       await connect();
       router.replace('/(tabs)');
     } catch {
-      // error already set in hook state
+      // error is already set in the hook
     }
   }
 
   return (
     <View style={styles.container}>
-      <StarryBackground />
-      <LinearGradient
-        colors={['hsla(320, 90%, 58%, 0.2)', 'hsla(270, 80%, 60%, 0.2)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-
       <View style={styles.header}>
-        <Text style={styles.title}>Conectar carteira</Text>
+        <Text style={styles.title}>Entrar</Text>
         <Text style={styles.subtitle}>
-          Abra sua carteira Lobstr e aprove a conexão para continuar.
+          Use sua biometria para reconectar sua carteira existente.
         </Text>
       </View>
 
-      <View style={styles.hero}>
-        <Image source={require('@/assets/images/pig3.png')} style={styles.pigImage} />
-      </View>
+      <View style={styles.footer}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <View style={styles.actions}>
-        <PressableScale onPress={handleConnect} disabled={isConnecting} style={{ alignSelf: 'stretch' }}>
+        <TouchableOpacity onPress={handleConnect} disabled={isConnecting}>
           <LinearGradient
-            colors={Gradients.hot}
+            colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.btn, isConnecting && styles.btnDisabled]}
@@ -50,16 +44,18 @@ export default function ConnectWalletScreen() {
             {isConnecting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.btnText}>Conectar com Lobstr</Text>
+              <Text style={styles.btnText}>Entrar com biometria</Text>
             )}
           </LinearGradient>
-        </PressableScale>
+        </TouchableOpacity>
 
-        {error && <Text style={styles.errorText}>{error}</Text>}
-
-        <PressableScale onPress={() => router.back()} style={{ alignSelf: 'center' }}>
-          <Text style={styles.backText}>Voltar</Text>
-        </PressableScale>
+        <TouchableOpacity
+          style={styles.linkBtn}
+          onPress={() => router.push('/(auth)/create-wallet')}
+          disabled={isConnecting}
+        >
+          <Text style={styles.linkText}>Criar nova carteira</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -74,17 +70,7 @@ const styles = StyleSheet.create({
     paddingTop: 80,
     paddingBottom: 60,
   },
-  hero: {
-    alignItems: 'center',
-    gap: Spacing[4],
-    zIndex: 10,
-  },
-  pigImage: {
-    width: 250,
-    height: 250,
-    resizeMode: 'contain',
-  },
-  header: { gap: Spacing[4], zIndex: 10 },
+  header: { gap: Spacing[4] },
   title: {
     fontSize: FontSize.heading,
     fontWeight: '800',
@@ -97,36 +83,29 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontFamily: Font.regular,
   },
-  actions: {
-    gap: Spacing[3],
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  btn: {
-    paddingVertical: 14,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 56,
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  btnText: {
-    color: '#fff',
-    fontSize: FontSize.body,
-    fontWeight: '900',
-    fontFamily: Font.black,
-  },
+  footer: { gap: Spacing[4] },
   errorText: {
     fontSize: FontSize.bodySmall,
     color: Accent.destructive,
     fontFamily: Font.regular,
     textAlign: 'center',
   },
-  backText: {
+  btn: {
+    paddingVertical: 14,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+  },
+  btnDisabled: { opacity: 0.5 },
+  btnText: {
+    color: '#fff',
     fontSize: FontSize.body,
+    fontWeight: '700',
+    fontFamily: Font.bold,
+  },
+  linkBtn: { alignItems: 'center', paddingVertical: Spacing[2] },
+  linkText: {
     color: Colors.mutedForeground,
+    fontSize: FontSize.bodySmall,
     fontFamily: Font.semiBold,
   },
 });

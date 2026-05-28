@@ -1,27 +1,37 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Pressable, View, Text, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import { Button, Card, Input } from '@/components/ui';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
-import { useWalletConnect } from '@/lib/hooks/use-wallet-connect';
-import { useAuthStore } from '@/lib/stores/auth.store';
+import { useSmartAccount } from '@/hooks/use-smart-account';
 import { usePixStore } from '@/lib/stores/pix.store';
+import { useAuthStore } from '@/lib/stores/auth.store';
+import * as Clipboard from 'expo-clipboard';
 
 export default function ProfileScreen() {
-  const stellarAddress = useAuthStore((s) => s.stellarAddress);
+  const walletAddress = useAuthStore((s) => s.walletAddress);
   const { pixKey, setPixKey } = usePixStore();
-  const { disconnect } = useWalletConnect();
+  const { disconnect } = useSmartAccount();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [pixInput, setPixInput] = useState(pixKey);
   const [saved, setSaved] = useState(false);
 
-  const shortAddress = stellarAddress
-    ? `${stellarAddress.slice(0, 6)}…${stellarAddress.slice(-6)}`
+  const shortAddress = walletAddress
+    ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-6)}`
     : null;
 
   const initials = shortAddress ? shortAddress.slice(0, 2).toUpperCase() : '??';
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    if (!walletAddress) return;
+    await Clipboard.setStringAsync(walletAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [walletAddress]);
 
   function handleSavePix() {
     if (!pixInput.trim()) return;
@@ -39,7 +49,6 @@ export default function ProfileScreen() {
   return (
     <>
       <ScrollView style={styles.screen} contentContainerStyle={styles.scroll}>
-        {/* Header */}
         <LinearGradient
           colors={['hsla(320, 90%, 58%, 0.2)', 'hsla(270, 80%, 60%, 0.2)']}
           start={{ x: 0, y: 0 }}
@@ -51,24 +60,23 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.userName}>Investidor</Text>
           <Text style={styles.userEmail}>
-            {stellarAddress ? `${shortAddress}` : 'Carteira não conectada'}
+            {walletAddress ? `${shortAddress}` : 'Carteira não conectada'}
           </Text>
         </LinearGradient>
 
-        {/* Wallet */}
         <Card style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardIcon}>💳</Text>
             <Text style={styles.cardLabel}>Carteira Digital</Text>
           </View>
-          <View style={styles.walletBox}>
+          <Pressable onPress={handleCopy} style={styles.walletBox}>
             <Text style={styles.walletText} selectable>
-                {stellarAddress ?? 'Nenhuma carteira'}
+                {walletAddress ?? 'Nenhuma carteira'}
             </Text>
-          </View>
+            {copied && <Text style={styles.copiedBadge}>Copiado!</Text>}
+          </Pressable>
         </Card>
 
-        {/* PIX Key */}
         <Card style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardIcon}>🔑</Text>
@@ -92,7 +100,6 @@ export default function ProfileScreen() {
           />
         </Card>
 
-        {/* Logout */}
         <Button
           label="Sair da Conta"
           variant="destructive"
@@ -186,6 +193,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     fontFamily: 'monospace',
     color: Colors.foreground,
+  },
+  copiedBadge: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Accent.success,
+    marginTop: 4,
   },
   pixHint: {
     fontSize: FontSize.label,

@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.pigfi.app",
+      "sha256_cert_fingerprints": [
+        "9B:66:D9:15:11:8A:B6:8D:FD:E7:7F:08:B0:B8:F7:E8:4B:AC:89:3F:0B:C0:20:F9:AC:E7:BE:6A:D6:1E:E6:42"
+      ]
+    }
+  }
+]

@@ -1,31 +1,43 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AuthState {
-  userId: string | null;
+  walletAddress: string | null;
   walletAccountId: string | null;
-  stellarAddress: string | null;
+  contractId: string | null;
   isAuthenticated: boolean;
-  setAuth: (params: { userId: string; walletAccountId: string; stellarAddress: string }) => void;
+  _hydrated: boolean;
+  setAuth: (contractId: string) => void;
+  setWalletAddress: (address: string) => void;
+  setWalletAccountId: (id: string) => void;
   clearAuth: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      userId: null,
+      walletAddress: null,
       walletAccountId: null,
-      stellarAddress: null,
+      contractId: null,
       isAuthenticated: false,
-      setAuth: ({ userId, walletAccountId, stellarAddress }) =>
-        set({ userId, walletAccountId, stellarAddress, isAuthenticated: true }),
-      clearAuth: () =>
-        set({ userId: null, walletAccountId: null, stellarAddress: null, isAuthenticated: false }),
+      _hydrated: false,
+      setAuth: (contractId) => set({ contractId, isAuthenticated: true }),
+      setWalletAddress: (address) => set({ walletAddress: address }),
+      setWalletAccountId: (id) => set({ walletAccountId: id }),
+      clearAuth: () => {
+        import('@/lib/stellar/kit').then(({ getKit }) => {
+          getKit().disconnect().catch(() => {});
+        });
+        set({ walletAddress: null, walletAccountId: null, contractId: null, isAuthenticated: false });
+      },
     }),
     {
-      name: 'stellarpig-auth-v2',
+      name: 'smartpig-auth',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => () => {
+        useAuthStore.setState({ _hydrated: true });
+      },
     },
   ),
 );

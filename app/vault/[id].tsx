@@ -1,10 +1,11 @@
 import { ScreenContainer } from '@/components/layout';
 import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, WithdrawModal } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
-import { useVault, useVaultApy, useVaultBalance } from '@/lib/queries/vaults.queries';
+import { useVault, useVaultApy, useVaultBalance, vaultKeys } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 function formatVaultName(name: string): string {
@@ -29,17 +30,24 @@ function formatAmount(amount: string | null | undefined): string {
 
 export default function VaultDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const stellarAddress = useAuthStore((s) => s.stellarAddress);
+  const walletAddress = useAuthStore((s) => s.walletAddress);
+  const qc = useQueryClient();
 
   const { data: vault, isLoading } = useVault(id);
   const { data: apyData } = useVaultApy(id);
-  const { data: balanceData } = useVaultBalance(id, stellarAddress);
+  const { data: balanceData } = useVaultBalance(id, walletAddress);
 
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   const liveApy = apyData?.apy ?? (vault?.apy ? parseFloat(vault.apy) : null);
   const apyBadge = liveApy && liveApy >= 10 ? 'destaque' : liveApy && liveApy >= 5 ? 'conquista' : 'muted';
+
+  const handleDepositSuccess = useCallback(() => {
+    if (walletAddress) {
+      qc.invalidateQueries({ queryKey: vaultKeys.balance(id, walletAddress) });
+    }
+  }, [id, walletAddress, qc]);
 
   if (isLoading) {
     return (
@@ -61,7 +69,6 @@ export default function VaultDetailScreen() {
 
   return (
     <ScreenContainer style={styles.container}>
-      {/* Header */}
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <IconSymbol name="chevron.right" size={24} color={Colors.foreground} style={{ transform: [{ rotate: '180deg' }] }} />
@@ -73,7 +80,6 @@ export default function VaultDetailScreen() {
         <Badge label={formatApy(liveApy)} variant={apyBadge} />
       </View>
 
-      {/* Stats row */}
       <View style={styles.statsRow}>
         <Card style={styles.statCard}>
           <Text style={styles.statLabel}>APY</Text>
@@ -88,15 +94,14 @@ export default function VaultDetailScreen() {
         </Card>
       </View>
 
-      {/* My balance */}
       <Card style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Meu saldo</Text>
-        {stellarAddress ? (
+        {walletAddress ? (
           <>
             <Text style={styles.balanceValue}>
               {balanceData ? `${formatAmount(vaultBalance)} ${vault.assetSymbol}` : '…'}
             </Text>
-            {balanceData?.dfTokens && (
+            {balanceData?.dfTokens != null && (
               <Text style={styles.sharesHint}>{balanceData.dfTokens} dfTokens</Text>
             )}
           </>
@@ -105,12 +110,10 @@ export default function VaultDetailScreen() {
         )}
       </Card>
 
-      {/* Description */}
       {vault.description && (
         <Text style={styles.description}>{vault.description}</Text>
       )}
 
-      {/* CTAs */}
       <View style={styles.actions}>
         <Button
           label="Poupar"
@@ -133,6 +136,7 @@ export default function VaultDetailScreen() {
         vaultId={vault.id}
         assetSymbol={vault.assetSymbol}
         onClose={() => setDepositOpen(false)}
+        onSuccess={handleDepositSuccess}
       />
       <WithdrawModal
         visible={withdrawOpen}

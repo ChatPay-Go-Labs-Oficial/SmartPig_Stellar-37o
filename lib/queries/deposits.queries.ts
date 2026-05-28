@@ -4,9 +4,9 @@ import {
   submitSignedDeposit,
   getDeposit,
   listDeposits,
-  type CreateDepositParams,
 } from '@/lib/api/deposits';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { randomUUID } from 'expo-crypto';
 
 export const depositKeys = {
   all: (userId: string) => ['deposits', userId] as const,
@@ -14,11 +14,11 @@ export const depositKeys = {
 };
 
 export const useDeposits = () => {
-  const userId = useAuthStore((s) => s.userId);
+  const contractId = useAuthStore((s) => s.contractId);
   return useQuery({
-    queryKey: depositKeys.all(userId ?? ''),
-    queryFn: () => listDeposits(userId!),
-    enabled: !!userId,
+    queryKey: depositKeys.all(contractId ?? ''),
+    queryFn: () => listDeposits(contractId!),
+    enabled: !!contractId,
   });
 };
 
@@ -28,15 +28,30 @@ export const useDeposit = (id: string) =>
     queryFn: () => getDeposit(id),
     enabled: !!id,
     refetchInterval: (query) =>
-      query.state.data?.status === 'XDR_GENERATED' ? 5_000 : false,
+      query.state.data?.status === 'PENDING' ? 5_000 : false,
   });
 
 export const useCreateDeposit = () => {
   const qc = useQueryClient();
-  const userId = useAuthStore((s) => s.userId);
   return useMutation({
-    mutationFn: (params: CreateDepositParams) => createDeposit(params),
-    onSuccess: () => qc.invalidateQueries({ queryKey: depositKeys.all(userId ?? '') }),
+    mutationFn: async ({ vaultId, amount, assetSymbol }: { vaultId: string; amount: number; assetSymbol: string }) => {
+      const { contractId, walletAccountId } = useAuthStore.getState();
+      if (!contractId || !walletAccountId) {
+        throw new Error('Usuário não autenticado. Faça login novamente.');
+      }
+      return createDeposit({
+        idempotencyKey: randomUUID(),
+        userId: contractId,
+        walletAccountId,
+        vaultId,
+        amount: String(amount),
+        assetSymbol,
+      });
+    },
+    onSuccess: () => {
+      const { contractId } = useAuthStore.getState();
+      qc.invalidateQueries({ queryKey: depositKeys.all(contractId ?? '') });
+    },
   });
 };
 

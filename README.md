@@ -3,6 +3,7 @@
 **Small investments. A universe of possibilities.**
 
 DEMO: https://smartpigstellar.netlify.app/
+APP: https://expo.dev/accounts/businessmaycon/projects/pigfi/builds/f85c650b-3f44-4232-8e5b-9b219ea40c91
 
 PigFi is a mobile investment app built for Brazilian first-time investors. It lets users start with small amounts, use a familiar Pix-based flow, and access dollar-denominated opportunities through an interface that feels simple, playful and safe instead of technical or intimidating.
 
@@ -70,10 +71,10 @@ This limitation is not a UX or app logic decision. It is an infrastructure const
 
 PigFi is split into two main repositories:
 
-| Repository | Purpose |
-|---|---|
-| `SmartPig_Stellar-37o` | Mobile app built with Expo / React Native |
-| `smartpig-backend` | Backend API built with NestJS, Prisma/PostgreSQL, Stellar and DeFindex integration |
+| Repository             | Purpose                                                                            |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `SmartPig_Stellar-37o` | Mobile app built with Expo / React Native                                          |
+| `smartpig-backend`     | Backend API built with NestJS, Prisma/PostgreSQL, Stellar and DeFindex integration |
 
 The backend is responsible for API orchestration, vault data, deposit/withdrawal intents, XDR generation, background jobs, and communication with Stellar/DeFindex.
 
@@ -115,31 +116,31 @@ Current limitation: no third-party DeFindex on/off ramp execution in testnet
 
 ## Mobile stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Expo SDK 54 + React Native 0.81 |
-| Language | TypeScript |
-| Routing | Expo Router |
-| State | Zustand + AsyncStorage |
-| Remote data | TanStack Query + Axios |
-| Wallet | Stellar Wallets Kit + WalletConnect |
-| UI / animation | Expo Linear Gradient + Reanimated |
-| Storage | AsyncStorage / SecureStore where applicable |
+| Layer          | Technology                                  |
+| -------------- | ------------------------------------------- |
+| Framework      | Expo SDK 54 + React Native 0.81             |
+| Language       | TypeScript                                  |
+| Routing        | Expo Router                                 |
+| State          | Zustand + AsyncStorage                      |
+| Remote data    | TanStack Query + Axios                      |
+| Wallet         | Stellar Wallets Kit + WalletConnect         |
+| UI / animation | Expo Linear Gradient + Reanimated           |
+| Storage        | AsyncStorage / SecureStore where applicable |
 
 ---
 
 ## Backend stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js 20+ |
-| Framework | NestJS |
-| ORM | Prisma |
-| Database | PostgreSQL |
-| Blockchain | Stellar |
-| DeFi integration | DeFindex SDK / API |
-| Background jobs | NestJS Schedule / cron jobs |
-| Validation | class-validator / class-transformer |
+| Layer            | Technology                          |
+| ---------------- | ----------------------------------- |
+| Runtime          | Node.js 20+                         |
+| Framework        | NestJS                              |
+| ORM              | Prisma                              |
+| Database         | PostgreSQL                          |
+| Blockchain       | Stellar                             |
+| DeFi integration | DeFindex SDK / API                  |
+| Background jobs  | NestJS Schedule / cron jobs         |
+| Validation       | class-validator / class-transformer |
 
 ---
 
@@ -354,20 +355,20 @@ The blockchain and DeFi layers are infrastructure, not the user-facing story.
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `npm start` | Starts the Expo development server |
-| `npm run android` | Opens the Android build target |
-| `npm run ios` | Opens the iOS simulator target |
-| `npm run web` | Opens the web preview |
-| `npm run lint` | Runs Expo lint |
+| Command           | Description                        |
+| ----------------- | ---------------------------------- |
+| `npm start`       | Starts the Expo development server |
+| `npm run android` | Opens the Android build target     |
+| `npm run ios`     | Opens the iOS simulator target     |
+| `npm run web`     | Opens the web preview              |
+| `npm run lint`    | Runs Expo lint                     |
 
 ---
 
 ## Disclaimer
 
-PigFi is currently a hackathon MVP running in a testnet environment. It is not a regulated production investment product and must not be used as financial advice. Any production release would require additional compliance, custody, risk, legal, security and infrastructure reviews.
----
+## PigFi is currently a hackathon MVP running in a testnet environment. It is not a regulated production investment product and must not be used as financial advice. Any production release would require additional compliance, custody, risk, legal, security and infrastructure reviews.
+
 ## Current project status
 
 This version represents the current state of the product for the hackathon submission.

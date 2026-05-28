@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 
-export interface WalletLoginResponse {
+export interface AuthResponse {
   user: {
     id: string;
     name: string | null;
@@ -17,7 +17,7 @@ export interface WalletLoginResponse {
   isNewUser: boolean;
 }
 
-export async function walletLogin(stellarAddress: string, label?: string): Promise<WalletLoginResponse> {
-  const { data } = await apiClient.post('/auth/wallet', { stellarAddress, label });
+export const walletLogin = async (stellarAddress: string): Promise<AuthResponse> => {
+  const { data } = await apiClient.post('/auth/wallet', { stellarAddress });
   return data;
-}
+};
