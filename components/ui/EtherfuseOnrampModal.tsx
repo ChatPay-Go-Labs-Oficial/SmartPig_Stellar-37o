@@ -152,7 +152,18 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
   }
 
   function handleDoneTransfer() {
-    setStep('pending');
+    if (isTestEnv) {
+      Alert.alert(
+        'Ambiente de teste',
+        'Deseja simular o recebimento do pagamento para testar o fluxo?',
+        [
+          { text: 'Apenas aguardar', onPress: () => setStep('pending'), style: 'cancel' },
+          { text: 'Simular pagamento', onPress: handleSimulatePayment },
+        ],
+      );
+    } else {
+      setStep('pending');
+    }
   }
 
   function resetAndClose() {
@@ -164,9 +175,10 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
     onClose();
   }
 
-  const isSandbox =
+  const isTestEnv =
     typeof process !== 'undefined' &&
-    process.env?.EXPO_PUBLIC_API_URL?.includes('sand');
+    (process.env?.EXPO_PUBLIC_API_URL?.includes('sand') ||
+     process.env?.EXPO_PUBLIC_API_URL?.includes('dev'));
 
   const quote = getQuote.data;
 
@@ -350,11 +362,11 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
                   </Pressable>
                 </LinearGradient>
 
-                {isSandbox && (
+                {isTestEnv && (
                   <View style={[styles.actionBtn, styles.sandboxBtn]}>
                     <Pressable onPress={handleSimulatePayment}>
                       <Text style={styles.actionBtnText}>
-                        [Sandbox] Simular pagamento
+                        [Teste] Simular pagamento
                       </Text>
                     </Pressable>
                   </View>
@@ -369,6 +381,16 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
                 <Text style={styles.statusSub}>
                   Assim que o PIX for confirmado, seus USDC serão depositados automaticamente.
                 </Text>
+
+                {isTestEnv && (
+                  <View style={[styles.actionBtn, styles.sandboxBtn, { marginTop: Spacing[4] }]}>
+                    <Pressable onPress={handleSimulatePayment}>
+                      <Text style={styles.actionBtnText}>
+                        [Teste] Simular pagamento
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
             )}
 
