@@ -190,3 +190,29 @@ export async function getEtherfuseAssets(
   const { data } = await apiClient.get('/etherfuse/assets', { params });
   return data;
 }
+
+// ─── Trustline ────────────────────────────────────────────────────────────────
+
+export interface TrustlineXdrResponse {
+  unsignedXdr: string;
+  asset: string;
+}
+
+export interface TrustlineSubmitResponse {
+  hash: string;
+}
+
+export async function buildTrustlineXdr(
+  stellarAddress: string,
+): Promise<TrustlineXdrResponse> {
+  const { data } = await apiClient.post('/wallets/trustline/xdr', { stellarAddress });
+  return data;
+}
+
+export async function submitTrustlineXdr(
+  signedXdr: string,
+  stellarAddress: string,
+): Promise<TrustlineSubmitResponse> {
+  const { data } = await apiClient.post('/wallets/trustline/submit', { signedXdr, stellarAddress });
+  return data;
+}

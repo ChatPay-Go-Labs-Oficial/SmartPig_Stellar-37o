@@ -20,7 +20,10 @@ import {
   useSandboxSimulatePayment,
   useEtherfuseBankAccounts,
   useEtherfuseAssets,
+  useBuildTrustlineXdr,
+  useSubmitTrustlineXdr,
 } from '@/lib/queries/etherfuse-ramp.queries';
+import { signXdr } from '@/lib/stellar/kit';
 
 interface EtherfuseOnrampModalProps {
   visible: boolean;
@@ -32,6 +35,7 @@ type Step =
   | 'input'
   | 'quoting'
   | 'quote'
+  | 'trustline'
   | 'creating'
   | 'instructions'
   | 'pending'
@@ -50,6 +54,8 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
   const getQuote = useEtherfuseQuote();
   const createOnramp = useCreateOnramp();
   const sandboxPay = useSandboxSimulatePayment();
+  const buildTrustline = useBuildTrustlineXdr();
+  const submitTrustline = useSubmitTrustlineXdr();
   const { data: bankAccounts } = useEtherfuseBankAccounts(contractId);
   const { data: assets } = useEtherfuseAssets('brl', walletAddress);
   const { data: orderData } = useEtherfuseOrder(orderId);
@@ -119,6 +125,16 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
   async function handleConfirmQuote() {
     if (!getQuote.data) return;
     setError('');
+    // Step 1: cria trustline USDC se necessário
+    setStep('trustline');
+    try {
+      const trustXdr = await buildTrustline.mutateAsync(walletAddress!);
+      const signedXdr = await signXdr(trustXdr.unsignedXdr);
+      await submitTrustline.mutateAsync({ signedXdr, stellarAddress: walletAddress! });
+    } catch {
+      // trustline pode falhar se já existir — ignora
+    }
+    // Step 2: cria ordem
     setStep('creating');
     try {
       const result = await createOnramp.mutateAsync({
@@ -312,6 +328,16 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
                 <Pressable onPress={() => setStep('input')}>
                   <Text style={styles.backBtn}>Voltar</Text>
                 </Pressable>
+              </View>
+            )}
+
+            {step === 'trustline' && (
+              <View style={styles.centerBody}>
+                <ActivityIndicator color={Accent.primary} size="large" />
+                <Text style={styles.statusTitle}>Configurando trustline USDC...</Text>
+                <Text style={styles.statusSub}>
+                  Autorize com sua biometria para ativar o recebimento de USDC
+                </Text>
               </View>
             )}
 

@@ -88,3 +88,18 @@ export function useEtherfuseAssets(currency: string, wallet?: string | null) {
     staleTime: 1000 * 60 * 5,
   });
 }
+
+// ─── Trustline ────────────────────────────────────────────────────────────────
+
+export function useBuildTrustlineXdr() {
+  return useMutation({
+    mutationFn: (stellarAddress: string) => rampApi.buildTrustlineXdr(stellarAddress),
+  });
+}
+
+export function useSubmitTrustlineXdr() {
+  return useMutation({
+    mutationFn: ({ signedXdr, stellarAddress }: { signedXdr: string; stellarAddress: string }) =>
+      rampApi.submitTrustlineXdr(signedXdr, stellarAddress),
+  });
+}
