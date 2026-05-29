@@ -20,6 +20,11 @@ import {
   useEtherfuseCustomer,
   useListBankAccounts,
 } from "@/lib/queries/etherfuse.queries";
+import {
+  useBuildTrustlineXdr,
+  useSubmitTrustlineXdr,
+} from "@/lib/queries/etherfuse-ramp.queries";
+import { signXdr } from "@/lib/stellar/kit";
 import * as Clipboard from "expo-clipboard";
 
 export default function ProfileScreen() {
@@ -44,6 +49,11 @@ export default function ProfileScreen() {
   const initials = shortAddress ? shortAddress.slice(0, 2).toUpperCase() : "??";
 
   const [copied, setCopied] = useState(false);
+  const [trustlineLoading, setTrustlineLoading] = useState(false);
+  const [trustlineMsg, setTrustlineMsg] = useState("");
+
+  const buildTrustline = useBuildTrustlineXdr();
+  const submitTrustline = useSubmitTrustlineXdr();
 
   const handleCopy = useCallback(async () => {
     if (!walletAddress) return;
@@ -63,6 +73,30 @@ export default function ProfileScreen() {
     setShowLogoutModal(false);
     await disconnect();
     router.replace("/(auth)");
+  }
+
+  async function handleSetupTrustline() {
+    if (!walletAddress) return;
+    setTrustlineLoading(true);
+    setTrustlineMsg("");
+    try {
+      const { unsignedXdr } = await buildTrustline.mutateAsync(walletAddress);
+      const signedXdr = await signXdr(unsignedXdr);
+      const { hash } = await submitTrustline.mutateAsync({
+        signedXdr,
+        stellarAddress: walletAddress,
+      });
+      setTrustlineMsg(`Trustline ativada! Tx: ${hash.slice(0, 12)}…`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || "";
+      if (msg.includes("already exists") || msg.includes("op_already_exists")) {
+        setTrustlineMsg("Trustline já está ativa ✅");
+      } else {
+        setTrustlineMsg("Erro: " + msg);
+      }
+    } finally {
+      setTrustlineLoading(false);
+    }
   }
 
   return (
@@ -194,6 +228,23 @@ export default function ProfileScreen() {
               >
                 Iniciar verificação →
               </Text>
+            </View>
+          )}
+
+          {etherfuseCustomer && walletAddress && (
+            <View style={styles.trustlineSection}>
+              <View style={styles.trustlineRow}>
+                <Text style={styles.trustlineLabel}>Receber USDC</Text>
+                <Text
+                  style={styles.trustlineAction}
+                  onPress={handleSetupTrustline}
+                >
+                  {trustlineLoading ? "Ativando..." : "Configurar Trustline →"}
+                </Text>
+              </View>
+              {trustlineMsg ? (
+                <Text style={styles.trustlineMsg}>{trustlineMsg}</Text>
+              ) : null}
             </View>
           )}
         </Card>
@@ -335,6 +386,33 @@ const styles = StyleSheet.create({
     fontFamily: Font.bold,
     color: Accent.primary,
     marginTop: 8,
+  },
+  trustlineSection: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing[3],
+    marginTop: Spacing[1],
+    gap: 4,
+  },
+  trustlineRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  trustlineLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+  },
+  trustlineAction: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Accent.success,
+  },
+  trustlineMsg: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
   },
   logoutBtn: {
     marginHorizontal: Spacing[4],

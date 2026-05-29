@@ -131,8 +131,14 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
       const trustXdr = await buildTrustline.mutateAsync(walletAddress!);
       const signedXdr = await signXdr(trustXdr.unsignedXdr);
       await submitTrustline.mutateAsync({ signedXdr, stellarAddress: walletAddress! });
-    } catch {
-      // trustline pode falhar se já existir — ignora
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || '';
+      // trustline já existe → prossegue
+      if (!msg.includes('already_exists') && !msg.includes('already exists')) {
+        setError('Erro ao configurar trustline: ' + msg);
+        setStep('quote');
+        return;
+      }
     }
     // Step 2: cria ordem
     setStep('creating');
