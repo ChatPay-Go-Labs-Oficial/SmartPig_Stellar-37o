@@ -65,6 +65,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="vault/[id]" />
+            <Stack.Screen name="(etherfuse-onboarding)" />
             <Stack.Screen name="education" />
           </Stack>
           <StatusBar style="light" />

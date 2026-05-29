@@ -15,6 +15,7 @@ import {
 
 import { StarryBackground } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
 import { walletLogin } from '@/lib/api/auth';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
@@ -64,7 +65,14 @@ export default function OnboardingScreen() {
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
     setAuth(backendUser.id);
-    router.replace('/(tabs)');
+
+    const { kycStatus, hasBankAccount, bankAccountCompliant } = useEtherfuseStore.getState();
+    const onboarded =
+      (kycStatus === 'APPROVED' || kycStatus === 'APPROVED_CHAIN_DEPLOYING') &&
+      hasBankAccount &&
+      bankAccountCompliant;
+
+    router.replace(onboarded ? '/(tabs)' : '/(etherfuse-onboarding)' as any);
   }
 
   async function handleCreateWallet() {
