@@ -12,3 +12,6 @@ export { DepositModal } from './DepositModal';
 export { WithdrawModal } from './WithdrawModal';
 export { StarryBackground, ShootingStar } from './StarryBackground';
 export { PigSVG, getPigLevel, getProgress } from './EvolutionaryPig';
+export { RampMethodSelector } from './RampMethodSelector';
+export { EtherfuseOnrampModal } from './EtherfuseOnrampModal';
+export { EtherfuseOfframpModal } from './EtherfuseOfframpModal';

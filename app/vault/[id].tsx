@@ -1,5 +1,5 @@
 import { ScreenContainer } from '@/components/layout';
-import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, WithdrawModal } from '@/components/ui';
+import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, RampMethodSelector, EtherfuseOnrampModal, EtherfuseOfframpModal, WithdrawModal } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import { useVault, useVaultApy, useVaultBalance, vaultKeys } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -39,6 +39,10 @@ export default function VaultDetailScreen() {
 
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [showDepositMethod, setShowDepositMethod] = useState(false);
+  const [showWithdrawMethod, setShowWithdrawMethod] = useState(false);
+  const [onrampOpen, setOnrampOpen] = useState(false);
+  const [offrampOpen, setOfframpOpen] = useState(false);
 
   const liveApy = apyData?.apy ?? (vault?.apy ? parseFloat(vault.apy) : null);
   const apyBadge = liveApy && liveApy >= 10 ? 'destaque' : liveApy && liveApy >= 5 ? 'conquista' : 'muted';
@@ -120,16 +124,44 @@ export default function VaultDetailScreen() {
           variant="primary"
           size="lg"
           fullWidth
-          onPress={() => setDepositOpen(true)}
+          onPress={() => setShowDepositMethod(true)}
         />
         <Button
           label="Quebrar cofrinho"
           variant="secondary"
           size="lg"
           fullWidth
-          onPress={() => setWithdrawOpen(true)}
+          onPress={() => setShowWithdrawMethod(true)}
         />
       </View>
+
+      <RampMethodSelector
+        visible={showDepositMethod}
+        type="deposit"
+        onSelectStellar={() => {
+          setShowDepositMethod(false);
+          setDepositOpen(true);
+        }}
+        onSelectRamp={() => {
+          setShowDepositMethod(false);
+          setOnrampOpen(true);
+        }}
+        onClose={() => setShowDepositMethod(false)}
+      />
+
+      <RampMethodSelector
+        visible={showWithdrawMethod}
+        type="withdraw"
+        onSelectStellar={() => {
+          setShowWithdrawMethod(false);
+          setWithdrawOpen(true);
+        }}
+        onSelectRamp={() => {
+          setShowWithdrawMethod(false);
+          setOfframpOpen(true);
+        }}
+        onClose={() => setShowWithdrawMethod(false)}
+      />
 
       <DepositModal
         visible={depositOpen}
@@ -145,6 +177,15 @@ export default function VaultDetailScreen() {
         underlyingBalance={vaultBalance}
         assetSymbol={vault.assetSymbol}
         onClose={() => setWithdrawOpen(false)}
+      />
+
+      <EtherfuseOnrampModal
+        visible={onrampOpen}
+        onClose={() => setOnrampOpen(false)}
+      />
+      <EtherfuseOfframpModal
+        visible={offrampOpen}
+        onClose={() => setOfframpOpen(false)}
       />
     </ScreenContainer>
   );

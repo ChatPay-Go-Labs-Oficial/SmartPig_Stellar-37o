@@ -1,4 +1,4 @@
-import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, getPigLevel } from '@/components/ui';
+import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, RampMethodSelector, EtherfuseOnrampModal, EtherfuseOfframpModal, getPigLevel } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useVaults, useAllVaultBalances } from '@/lib/queries/vaults.queries';
@@ -64,6 +64,10 @@ export default function HomeScreen() {
 
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [showDepositMethod, setShowDepositMethod] = useState(false);
+  const [showWithdrawMethod, setShowWithdrawMethod] = useState(false);
+  const [onrampOpen, setOnrampOpen] = useState(false);
+  const [offrampOpen, setOfframpOpen] = useState(false);
 
   const [displayBalance, setDisplayBalance] = useState(0);
 
@@ -150,7 +154,7 @@ export default function HomeScreen() {
               variant="primary"
               size="lg"
               fullWidth
-              onPress={() => setDepositOpen(true)}
+              onPress={() => setShowDepositMethod(true)}
             />
           </View>
           <View style={styles.actionBtnWrapper}>
@@ -159,7 +163,7 @@ export default function HomeScreen() {
               variant="secondary"
               size="lg"
               fullWidth
-              onPress={() => setWithdrawOpen(true)}
+              onPress={() => setShowWithdrawMethod(true)}
             />
           </View>
           <Pressable
@@ -225,6 +229,34 @@ export default function HomeScreen() {
         )}
       </View>
 
+      <RampMethodSelector
+        visible={showDepositMethod}
+        type="deposit"
+        onSelectStellar={() => {
+          setShowDepositMethod(false);
+          setDepositOpen(true);
+        }}
+        onSelectRamp={() => {
+          setShowDepositMethod(false);
+          setOnrampOpen(true);
+        }}
+        onClose={() => setShowDepositMethod(false)}
+      />
+
+      <RampMethodSelector
+        visible={showWithdrawMethod}
+        type="withdraw"
+        onSelectStellar={() => {
+          setShowWithdrawMethod(false);
+          setWithdrawOpen(true);
+        }}
+        onSelectRamp={() => {
+          setShowWithdrawMethod(false);
+          setOfframpOpen(true);
+        }}
+        onClose={() => setShowWithdrawMethod(false)}
+      />
+
       <DepositModal
         visible={depositOpen}
         vaultId={firstVaultId}
@@ -239,6 +271,16 @@ export default function HomeScreen() {
         underlyingBalance={String(walletBalance)}
         assetSymbol={firstVaultSymbol}
         onClose={() => setWithdrawOpen(false)}
+      />
+
+      <EtherfuseOnrampModal
+        visible={onrampOpen}
+        onClose={() => setOnrampOpen(false)}
+      />
+      <EtherfuseOfframpModal
+        visible={offrampOpen}
+        maxAmount={walletBalance}
+        onClose={() => setOfframpOpen(false)}
       />
     </View>
   );
