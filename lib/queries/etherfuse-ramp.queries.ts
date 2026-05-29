@@ -80,3 +80,11 @@ export function useEtherfuseBankAccounts(userId: string | null) {
 export async function signOfframpBurnXdr(unsignedBurnXdr: string): Promise<string> {
   return signXdr(unsignedBurnXdr);
 }
+
+export function useEtherfuseAssets(currency: string, wallet?: string | null) {
+  return useQuery({
+    queryKey: ['etherfuse-assets', currency, wallet],
+    queryFn: () => rampApi.getEtherfuseAssets(currency, wallet ?? undefined),
+    staleTime: 1000 * 60 * 5,
+  });
+}

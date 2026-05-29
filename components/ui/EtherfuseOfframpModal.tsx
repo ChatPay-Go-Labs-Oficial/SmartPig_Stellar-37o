@@ -19,9 +19,10 @@ import {
   useSubmitOfframp,
   useEtherfuseOrder,
   useRefreshOfframpXdr,
+  useEtherfuseBankAccounts,
+  useEtherfuseAssets,
   signOfframpBurnXdr,
 } from '@/lib/queries/etherfuse-ramp.queries';
-import { useEtherfuseBankAccounts } from '@/lib/queries/etherfuse-ramp.queries';
 
 interface EtherfuseOfframpModalProps {
   visible: boolean;
@@ -61,6 +62,7 @@ export function EtherfuseOfframpModal({
   const refreshXdr = useRefreshOfframpXdr();
   const { data: orderData } = useEtherfuseOrder(orderId);
   const { data: bankAccounts } = useEtherfuseBankAccounts(contractId);
+  const { data: assets } = useEtherfuseAssets('brl', walletAddress);
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -92,17 +94,25 @@ export function EtherfuseOfframpModal({
   }, [orderData]);
 
   const selectedAccount = bankAccounts?.find((a: EtherfuseBankAccount) => a.isCompliant) ?? bankAccounts?.[0];
+  const usdcAsset = assets?.find(
+    (a) => a.symbol === 'USDC' && a.identifier.includes(':'),
+  );
+  const usdcIdentifier = usdcAsset?.identifier ?? 'USDC';
 
   async function handleGetQuote() {
     const value = parseFloat(amount);
     if (!value || value <= 0) return;
+    if (!usdcAsset) {
+      setError('Ativo USDC não encontrado');
+      return;
+    }
     setError('');
     setStep('quoting');
     try {
       await getQuote.mutateAsync({
         userId: contractId!,
         direction: 'offramp',
-        sourceAsset: 'USDC',
+        sourceAsset: usdcIdentifier,
         targetAsset: 'BRL',
         sourceAmount: String(value),
         walletAddress: walletAddress!,
@@ -124,7 +134,7 @@ export function EtherfuseOfframpModal({
         bankAccountId: selectedAccount.id,
         quoteId: getQuote.data.quoteId,
         walletAddress: walletAddress!,
-        sourceAsset: 'USDC',
+        sourceAsset: usdcIdentifier,
         targetAsset: 'BRL',
         sourceAmount: getQuote.data.sourceAmount,
         destinationAmount: getQuote.data.destinationAmount,

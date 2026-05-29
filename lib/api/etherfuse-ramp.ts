@@ -1,6 +1,15 @@
 import { apiClient } from './client';
 import type { EtherfuseBankAccount } from './etherfuse';
 
+export interface EtherfuseAsset {
+  symbol: string;
+  identifier: string;
+  name: string;
+  currency: string;
+  balance: string | null;
+  image: string | null;
+}
+
 export interface EtherfuseQuote {
   quoteId: string;
   blockchain: string;
@@ -169,5 +178,15 @@ export async function getEtherfuseBankAccounts(userId: string): Promise<Etherfus
   const { data } = await apiClient.get('/etherfuse/onboarding/bank-accounts', {
     params: { userId },
   });
+  return data;
+}
+
+export async function getEtherfuseAssets(
+  currency: string,
+  wallet?: string,
+): Promise<EtherfuseAsset[]> {
+  const params: Record<string, string> = { currency };
+  if (wallet) params.wallet = wallet;
+  const { data } = await apiClient.get('/etherfuse/assets', { params });
   return data;
 }

@@ -19,8 +19,9 @@ import {
   useCreateOnramp,
   useEtherfuseOrder,
   useSandboxSimulatePayment,
+  useEtherfuseBankAccounts,
+  useEtherfuseAssets,
 } from '@/lib/queries/etherfuse-ramp.queries';
-import { useEtherfuseBankAccounts } from '@/lib/queries/etherfuse-ramp.queries';
 
 interface EtherfuseOnrampModalProps {
   visible: boolean;
@@ -51,6 +52,7 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
   const createOnramp = useCreateOnramp();
   const sandboxPay = useSandboxSimulatePayment();
   const { data: bankAccounts } = useEtherfuseBankAccounts(contractId);
+  const { data: assets } = useEtherfuseAssets('brl', walletAddress);
   const { data: orderData } = useEtherfuseOrder(orderId);
 
   const firstBankId = bankAccounts?.[0]?.id;
@@ -85,10 +87,18 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
   }, [orderData]);
 
   const selectedAccount = bankAccounts?.find((a: EtherfuseBankAccount) => a.isCompliant) ?? bankAccounts?.[0];
+  const usdcAsset = assets?.find(
+    (a) => a.symbol === 'USDC' && a.identifier.includes(':'),
+  );
+  const usdcIdentifier = usdcAsset?.identifier ?? 'USDC';
 
   async function handleGetQuote() {
     const value = parseFloat(amount);
     if (!value || value <= 0) return;
+    if (!usdcAsset) {
+      setError('Ativo USDC não encontrado');
+      return;
+    }
     setError('');
     setStep('quoting');
     try {
@@ -96,7 +106,7 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
         userId: contractId!,
         direction: 'onramp',
         sourceAsset: 'BRL',
-        targetAsset: 'USDC',
+        targetAsset: usdcIdentifier,
         sourceAmount: String(value),
         walletAddress: walletAddress!,
       });
@@ -118,7 +128,7 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
         quoteId: getQuote.data.quoteId,
         walletAddress: walletAddress!,
         sourceAsset: 'BRL',
-        targetAsset: 'USDC',
+        targetAsset: usdcIdentifier,
         sourceAmount: getQuote.data.sourceAmount,
         destinationAmount: getQuote.data.destinationAmount,
       });
