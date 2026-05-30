@@ -21,6 +21,7 @@ import {
   useRefreshOfframpXdr,
   useEtherfuseBankAccounts,
   useEtherfuseAssets,
+  useSubmitTrustlineXdr,
   signOfframpBurnXdr,
 } from '@/lib/queries/etherfuse-ramp.queries';
 
@@ -62,6 +63,7 @@ export function EtherfuseOfframpModal({
   const createOfframp = useCreateOfframp();
   const submitOfframp = useSubmitOfframp();
   const refreshXdr = useRefreshOfframpXdr();
+  const submitToStellar = useSubmitTrustlineXdr();
   const { data: orderData } = useEtherfuseOrder(orderId);
   const { data: bankAccounts } = useEtherfuseBankAccounts(contractId);
   const { data: assets } = useEtherfuseAssets('brl', walletAddress);
@@ -184,9 +186,16 @@ export function EtherfuseOfframpModal({
       const signedXdr = await signOfframpBurnXdr(unsignedBurnXdr);
 
       setStep('submitting');
+      // 1. Registra o XDR assinado no backend
       await submitOfframp.mutateAsync({
         id: orderInternalId,
         dto: { signedBurnXdr: signedXdr, userId: contractId! },
+      });
+
+      // 2. Envia o XDR assinado para a rede Stellar (necessário para Etherfuse detectar o burn)
+      await submitToStellar.mutateAsync({
+        signedXdr,
+        stellarAddress: walletAddress!,
       });
 
       setStep('pending');
