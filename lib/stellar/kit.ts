@@ -81,7 +81,6 @@ export async function signTrustlineXdr(walletAddress: string): Promise<string> {
     .setTimeout(600)
     .build();
 
-  const unsignedXdr = tx.toXDR() as unknown as string;
   const txHash = tx.hash();
   const hashHex = `0x${txHash.toString('hex')}` as const;
 
@@ -94,7 +93,7 @@ export async function signTrustlineXdr(walletAddress: string): Promise<string> {
     signature: signatureBytes,
   });
 
-  const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
+  const envelope = tx.toEnvelope();
   const v1Envelope = envelope.v1();
   if (v1Envelope) {
     v1Envelope.signatures().push(decoratedSignature);
