@@ -20,11 +20,8 @@ import {
   useEtherfuseCustomer,
   useListBankAccounts,
 } from "@/lib/queries/etherfuse.queries";
-import {
-  useBuildTrustlineXdr,
-  useSubmitTrustlineXdr,
-} from "@/lib/queries/etherfuse-ramp.queries";
-import { signXdr } from "@/lib/stellar/kit";
+import { useSubmitTrustlineXdr } from "@/lib/queries/etherfuse-ramp.queries";
+import { signTrustlineXdr } from "@/lib/stellar/kit";
 import * as Clipboard from "expo-clipboard";
 
 export default function ProfileScreen() {
@@ -52,7 +49,6 @@ export default function ProfileScreen() {
   const [trustlineLoading, setTrustlineLoading] = useState(false);
   const [trustlineMsg, setTrustlineMsg] = useState("");
 
-  const buildTrustline = useBuildTrustlineXdr();
   const submitTrustline = useSubmitTrustlineXdr();
 
   const handleCopy = useCallback(async () => {
@@ -80,8 +76,7 @@ export default function ProfileScreen() {
     setTrustlineLoading(true);
     setTrustlineMsg("Configurando trustline...");
     try {
-      const { unsignedXdr } = await buildTrustline.mutateAsync(walletAddress);
-      const signedXdr = await signXdr(unsignedXdr);
+      const signedXdr = await signTrustlineXdr(walletAddress);
       const { hash } = await submitTrustline.mutateAsync({
         signedXdr,
         stellarAddress: walletAddress,

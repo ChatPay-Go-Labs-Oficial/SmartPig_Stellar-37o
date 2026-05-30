@@ -1,14 +1,18 @@
 import { SmartAccountKit } from 'smart-account-kit';
 import { ExpoStorageAdapter } from './expo-storage-adapter';
 import { rnPasskeysShim } from './rn-passkeys-shim';
-import { Keypair, xdr } from '@stellar/stellar-sdk';
+import {
+  Keypair,
+  xdr,
+  Transaction,
+  TransactionBuilder,
+  Asset,
+  Operation,
+  BASE_FEE,
+  Horizon,
+} from '@stellar/stellar-sdk';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { signHashViaPrivy } from './signer';
-
-// hash.js — pure-JS hash library compatible with React Native
-const hashJs = require('hash.js') as {
-  sha256: () => { update: (data: Uint8Array) => { digest: () => number[] } };
-};
 
 let _kit: SmartAccountKit | null = null;
 const NETWORK_PASSPHRASE = process.env.EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE!;
@@ -28,21 +32,6 @@ export function getKit(): SmartAccountKit {
   return _kit;
 }
 
-/**
- * Computes SHA256(transactionEnvelope.toXDR() + networkPassphrase)
- * without using the Transaction constructor (which fails for some operation types).
- */
-function computeTxHash(
-  envelope: xdr.TransactionEnvelope,
-  passphrase: string,
-): Buffer {
-  const xdrBytes = envelope.toXDR();
-  const passphraseBytes = Buffer.from(passphrase, 'utf-8');
-  const combined = Buffer.concat([Buffer.from(xdrBytes), passphraseBytes]);
-  const hash = hashJs.sha256().update(new Uint8Array(combined)).digest();
-  return Buffer.from(hash);
-}
-
 export async function signXdr(unsignedXdr: string): Promise<string> {
   const walletAddress = useAuthStore.getState().walletAddress;
   if (!walletAddress) {
@@ -51,7 +40,8 @@ export async function signXdr(unsignedXdr: string): Promise<string> {
 
   const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
 
-  const txHash = computeTxHash(envelope, NETWORK_PASSPHRASE);
+  const transaction = new Transaction(unsignedXdr, NETWORK_PASSPHRASE);
+  const txHash = transaction.hash();
   const hashHex = `0x${txHash.toString('hex')}` as const;
 
   const signature = await signHashViaPrivy(walletAddress, hashHex);
@@ -69,6 +59,47 @@ export async function signXdr(unsignedXdr: string): Promise<string> {
   } else {
     const v0Envelope = envelope.v0();
     v0Envelope.signatures().push(decoratedSignature);
+  }
+
+  return Buffer.from(envelope.toXDR()).toString('base64');
+}
+
+const USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+const USDC_CODE = 'USDC';
+const HORIZON_URL = 'https://horizon-testnet.stellar.org';
+
+export async function signTrustlineXdr(walletAddress: string): Promise<string> {
+  const server = new Horizon.Server(HORIZON_URL);
+  const account = await server.loadAccount(walletAddress);
+
+  const usdc = new Asset(USDC_CODE, USDC_ISSUER);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: NETWORK_PASSPHRASE,
+  })
+    .addOperation(Operation.changeTrust({ asset: usdc }))
+    .setTimeout(600)
+    .build();
+
+  const unsignedXdr = tx.toXDR();
+  const txHash = tx.hash();
+  const hashHex = `0x${txHash.toString('hex')}` as const;
+
+  const signature = await signHashViaPrivy(walletAddress, hashHex);
+
+  const signatureBytes = Buffer.from(signature.replace('0x', ''), 'hex');
+  const hint = Keypair.fromPublicKey(walletAddress).signatureHint();
+  const decoratedSignature = new xdr.DecoratedSignature({
+    hint,
+    signature: signatureBytes,
+  });
+
+  const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
+  const v1Envelope = envelope.v1();
+  if (v1Envelope) {
+    v1Envelope.signatures().push(decoratedSignature);
+  } else {
+    envelope.v0().signatures().push(decoratedSignature);
   }
 
   return Buffer.from(envelope.toXDR()).toString('base64');
