@@ -20,10 +20,9 @@ import {
   useSandboxSimulatePayment,
   useEtherfuseBankAccounts,
   useEtherfuseAssets,
-  useBuildTrustlineXdr,
   useSubmitTrustlineXdr,
 } from '@/lib/queries/etherfuse-ramp.queries';
-import { signXdr } from '@/lib/stellar/kit';
+import { signTrustlineXdr } from '@/lib/stellar/kit';
 
 interface EtherfuseOnrampModalProps {
   visible: boolean;
@@ -54,7 +53,6 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
   const getQuote = useEtherfuseQuote();
   const createOnramp = useCreateOnramp();
   const sandboxPay = useSandboxSimulatePayment();
-  const buildTrustline = useBuildTrustlineXdr();
   const submitTrustline = useSubmitTrustlineXdr();
   const { data: bankAccounts } = useEtherfuseBankAccounts(contractId);
   const { data: assets } = useEtherfuseAssets('brl', walletAddress);
@@ -128,8 +126,7 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
     // Step 1: cria trustline USDC se necessário
     setStep('trustline');
     try {
-      const trustXdr = await buildTrustline.mutateAsync(walletAddress!);
-      const signedXdr = await signXdr(trustXdr.unsignedXdr);
+      const signedXdr = await signTrustlineXdr(walletAddress!);
       await submitTrustline.mutateAsync({ signedXdr, stellarAddress: walletAddress! });
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || '';
