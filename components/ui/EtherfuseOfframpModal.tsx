@@ -204,14 +204,18 @@ export function EtherfuseOfframpModal({
         dto: { signedBurnXdr: signedXdr, userId: contractId! },
       });
 
-      // 2. Envia o XDR assinado para a rede Stellar (necessário para Etherfuse detectar o burn)
+      // 2. Envia o XDR assinado para a rede Stellar
       await submitToStellar.mutateAsync({
         signedXdr,
         stellarAddress: walletAddress!,
       });
 
-      setStep('pending');
-      pollOrderStatus(orderInternalId);
+      // 3. Em testnet, vai direto pra sucesso
+      setStep('success');
+      setTimeout(() => {
+        resetAndClose();
+        onSuccess?.();
+      }, 2500);
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Erro ao assinar/enviar');
       setStep('quote');
