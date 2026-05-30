@@ -80,8 +80,11 @@ export default function ProfileScreen() {
     setTrustlineLoading(true);
     setTrustlineMsg("");
     try {
+      setTrustlineMsg("Passo 1: gerando XDR...");
       const { unsignedXdr } = await buildTrustline.mutateAsync(walletAddress);
+      setTrustlineMsg("Passo 2: assinando XDR...");
       const signedXdr = await signXdr(unsignedXdr);
+      setTrustlineMsg("Passo 3: enviando trustline...");
       const { hash } = await submitTrustline.mutateAsync({
         signedXdr,
         stellarAddress: walletAddress,
