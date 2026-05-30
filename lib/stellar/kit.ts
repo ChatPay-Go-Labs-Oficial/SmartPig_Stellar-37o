@@ -1,7 +1,7 @@
 import { SmartAccountKit } from 'smart-account-kit';
 import { ExpoStorageAdapter } from './expo-storage-adapter';
 import { rnPasskeysShim } from './rn-passkeys-shim';
-import { Transaction, Keypair, xdr } from '@stellar/stellar-sdk';
+import { Keypair, xdr } from '@stellar/stellar-sdk';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { signHashViaPrivy } from './signer';
 
@@ -23,6 +23,22 @@ export function getKit(): SmartAccountKit {
   return _kit;
 }
 
+/**
+ * Computes SHA256(transactionEnvelope.toXDR() + networkPassphrase)
+ * without using the Transaction constructor (which fails for some operation types).
+ */
+async function computeTxHash(
+  envelope: xdr.TransactionEnvelope,
+  passphrase: string,
+): Promise<Buffer> {
+  const xdrBytes = envelope.toXDR();
+  const passphraseBytes = Buffer.from(passphrase, 'utf-8');
+  const combined = Buffer.concat([Buffer.from(xdrBytes), passphraseBytes]);
+
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(combined).digest();
+}
+
 export async function signXdr(unsignedXdr: string): Promise<string> {
   const walletAddress = useAuthStore.getState().walletAddress;
   if (!walletAddress) {
@@ -31,8 +47,7 @@ export async function signXdr(unsignedXdr: string): Promise<string> {
 
   const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
 
-  const transaction = new Transaction(unsignedXdr, NETWORK_PASSPHRASE);
-  const txHash = transaction.hash();
+  const txHash = await computeTxHash(envelope, NETWORK_PASSPHRASE);
   const hashHex = `0x${txHash.toString('hex')}` as const;
 
   const signature = await signHashViaPrivy(walletAddress, hashHex);
