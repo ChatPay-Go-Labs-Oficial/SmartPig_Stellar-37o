@@ -4,7 +4,6 @@ import { rnPasskeysShim } from './rn-passkeys-shim';
 import {
   Keypair,
   xdr,
-  Transaction,
   TransactionBuilder,
   Asset,
   Operation,
@@ -13,6 +12,11 @@ import {
 } from '@stellar/stellar-sdk';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { signHashViaPrivy } from './signer';
+
+// hash.js — pure-JS SHA256, funciona em Hermes/React Native
+const hashJs = require('hash.js') as {
+  sha256: () => { update: (d: Uint8Array) => { digest: () => number[] } };
+};
 
 let _kit: SmartAccountKit | null = null;
 const NETWORK_PASSPHRASE = process.env.EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE!;
@@ -40,8 +44,19 @@ export async function signXdr(unsignedXdr: string): Promise<string> {
 
   const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
 
-  const transaction = new Transaction(unsignedXdr, NETWORK_PASSPHRASE);
-  const txHash = transaction.hash();
+  // Computa o hash manualmente: SHA256(SHA256(pass) + envelopeType + txBody)
+  const v1 = envelope.v1();
+  const innerTx = v1 ? v1.tx() : envelope.v0().tx();
+  const txBytes = innerTx.toXDR();
+
+  const passHash = hashJs.sha256()
+    .update(new Uint8Array(Buffer.from(NETWORK_PASSPHRASE, 'utf-8')))
+    .digest();
+  const envType = Buffer.alloc(4);
+  envType.writeUInt32BE(v1 ? 2 : 0, 0);
+  const payload = Buffer.concat([Buffer.from(passHash), envType, Buffer.from(txBytes)]);
+  const hash = hashJs.sha256().update(new Uint8Array(payload)).digest();
+  const txHash = Buffer.from(hash);
   const hashHex = `0x${txHash.toString('hex')}` as const;
 
   const signature = await signHashViaPrivy(walletAddress, hashHex);
