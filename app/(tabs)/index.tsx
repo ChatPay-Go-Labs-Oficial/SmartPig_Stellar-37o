@@ -2,6 +2,8 @@ import { Badge, Button, Card, DepositModal, StarryBackground, WithdrawModal, Ram
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useVaults, useAllVaultBalances } from '@/lib/queries/vaults.queries';
+import { useWalletBalance } from '@/lib/queries/wallets.queries';
+import { findUsdcBalance } from '@/lib/api/wallets';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -33,6 +35,11 @@ export default function HomeScreen() {
     }
     return total;
   }, [balances]);
+
+  const { data: walletBalances } = useWalletBalance(walletAddress);
+  const walletUsdc = walletBalances ? findUsdcBalance(walletBalances) : '0';
+  const parsedWalletUsdc = parseFloat(walletUsdc);
+  const totalAssets = totalInvested + parsedWalletUsdc;
 
   const firstVault = vaults?.[0];
   const firstVaultId = firstVault?.id || '';
@@ -130,6 +137,14 @@ export default function HomeScreen() {
             <Text style={styles.balanceValue}>
               $ {displayBalance.toFixed(2)}
             </Text>
+
+            <View style={styles.walletRow}>
+              <Text style={styles.walletLabel}>Saldo disponível</Text>
+              <Text style={styles.walletAmount}>
+                $ {parsedWalletUsdc.toFixed(2)} USDC
+              </Text>
+            </View>
+
             <Text style={styles.walletSubText}>
               {walletAddress
                 ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
@@ -402,6 +417,23 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.7)',
     fontFamily: Font.semiBold,
     marginTop: 2,
+  },
+  walletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  walletLabel: {
+    fontSize: FontSize.label,
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: Font.semiBold,
+  },
+  walletAmount: {
+    fontSize: FontSize.bodySmall,
+    color: Accent.success,
+    fontFamily: Font.black,
   },
   content: {
     paddingHorizontal: 20,
