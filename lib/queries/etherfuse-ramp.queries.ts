@@ -89,6 +89,13 @@ export function useEtherfuseAssets(currency: string, wallet?: string | null) {
   });
 }
 
+export function useSyncOrderStatus() {
+  return useMutation({
+    mutationFn: ({ id, userId }: { id: string; userId: string }) =>
+      rampApi.syncOrderStatus(id, userId),
+  });
+}
+
 // ─── Trustline ────────────────────────────────────────────────────────────────
 
 export function useBuildTrustlineXdr() {

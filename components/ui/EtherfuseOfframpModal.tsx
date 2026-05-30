@@ -17,11 +17,11 @@ import {
   useEtherfuseQuote,
   useCreateOfframp,
   useSubmitOfframp,
-  useEtherfuseOrder,
   useRefreshOfframpXdr,
   useEtherfuseBankAccounts,
   useEtherfuseAssets,
   useSubmitTrustlineXdr,
+  useSyncOrderStatus,
   signOfframpBurnXdr,
 } from '@/lib/queries/etherfuse-ramp.queries';
 
@@ -64,7 +64,7 @@ export function EtherfuseOfframpModal({
   const submitOfframp = useSubmitOfframp();
   const refreshXdr = useRefreshOfframpXdr();
   const submitToStellar = useSubmitTrustlineXdr();
-  const { data: orderData } = useEtherfuseOrder(orderId);
+  const syncOrder = useSyncOrderStatus();
   const { data: bankAccounts } = useEtherfuseBankAccounts(contractId);
   const { data: assets } = useEtherfuseAssets('brl', walletAddress);
 
@@ -82,20 +82,32 @@ export function EtherfuseOfframpModal({
     return () => subs.forEach((s) => s.remove());
   }, []);
 
-  useEffect(() => {
-    if (orderData && step === 'pending') {
-      if (orderData.status === 'COMPLETED') {
-        setStep('success');
-        setTimeout(() => {
-          resetAndClose();
-          onSuccess?.();
-        }, 2500);
-      } else if (orderData.status === 'FAILED' || orderData.status === 'REFUNDED') {
-        setError('Ordem falhou. Tente novamente.');
-        setStep('error');
-      }
+  async function pollOrderStatus(orderInternalId: string) {
+    for (let i = 0; i < 60; i++) {
+      try {
+        const order = await syncOrder.mutateAsync({
+          id: orderInternalId,
+          userId: contractId!,
+        });
+        if (order.status === 'COMPLETED') {
+          setStep('success');
+          setTimeout(() => {
+            resetAndClose();
+            onSuccess?.();
+          }, 2500);
+          return;
+        }
+        if (order.status === 'FAILED' || order.status === 'REFUNDED') {
+          setError('Ordem falhou. Tente novamente.');
+          setStep('error');
+          return;
+        }
+      } catch {}
+      await new Promise((r) => setTimeout(r, 5000));
     }
-  }, [orderData]);
+    setError('Tempo limite excedido. Verifique o status mais tarde.');
+    setStep('error');
+  }
 
   const selectedAccount = bankAccounts?.find((a: EtherfuseBankAccount) => a.isCompliant) ?? bankAccounts?.[0];
   const usdcAsset = assets?.find(
@@ -199,6 +211,7 @@ export function EtherfuseOfframpModal({
       });
 
       setStep('pending');
+      pollOrderStatus(orderInternalId);
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Erro ao assinar/enviar');
       setStep('quote');

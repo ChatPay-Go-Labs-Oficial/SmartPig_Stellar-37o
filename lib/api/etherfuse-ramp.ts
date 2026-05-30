@@ -181,6 +181,14 @@ export async function getEtherfuseBankAccounts(userId: string): Promise<Etherfus
   return data;
 }
 
+export async function syncOrderStatus(
+  id: string,
+  userId: string,
+): Promise<EtherfuseOrder> {
+  const { data } = await apiClient.post(`/etherfuse/orders/${id}/sync`, { userId });
+  return data;
+}
+
 export async function getEtherfuseAssets(
   currency: string,
   wallet?: string,
