@@ -5,6 +5,11 @@ import { Keypair, xdr } from '@stellar/stellar-sdk';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { signHashViaPrivy } from './signer';
 
+// hash.js — pure-JS hash library compatible with React Native
+const hashJs = require('hash.js') as {
+  sha256: () => { update: (data: Uint8Array) => { digest: () => number[] } };
+};
+
 let _kit: SmartAccountKit | null = null;
 const NETWORK_PASSPHRASE = process.env.EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE!;
 
@@ -26,20 +31,16 @@ export function getKit(): SmartAccountKit {
 /**
  * Computes SHA256(transactionEnvelope.toXDR() + networkPassphrase)
  * without using the Transaction constructor (which fails for some operation types).
- * Uses the Web Crypto API (crypto.subtle) available in Hermes/React Native.
  */
-async function computeTxHash(
+function computeTxHash(
   envelope: xdr.TransactionEnvelope,
   passphrase: string,
-): Promise<Buffer> {
+): Buffer {
   const xdrBytes = envelope.toXDR();
-  const encoder = new TextEncoder();
-  const passphraseBytes = encoder.encode(passphrase);
-  const combined = new Uint8Array(xdrBytes.length + passphraseBytes.length);
-  combined.set(new Uint8Array(xdrBytes));
-  combined.set(passphraseBytes, xdrBytes.length);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
-  return Buffer.from(hashBuffer);
+  const passphraseBytes = Buffer.from(passphrase, 'utf-8');
+  const combined = Buffer.concat([Buffer.from(xdrBytes), passphraseBytes]);
+  const hash = hashJs.sha256().update(new Uint8Array(combined)).digest();
+  return Buffer.from(hash);
 }
 
 export async function signXdr(unsignedXdr: string): Promise<string> {
@@ -50,7 +51,7 @@ export async function signXdr(unsignedXdr: string): Promise<string> {
 
   const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
 
-  const txHash = await computeTxHash(envelope, NETWORK_PASSPHRASE);
+  const txHash = computeTxHash(envelope, NETWORK_PASSPHRASE);
   const hashHex = `0x${txHash.toString('hex')}` as const;
 
   const signature = await signHashViaPrivy(walletAddress, hashHex);
