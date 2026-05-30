@@ -26,17 +26,20 @@ export function getKit(): SmartAccountKit {
 /**
  * Computes SHA256(transactionEnvelope.toXDR() + networkPassphrase)
  * without using the Transaction constructor (which fails for some operation types).
+ * Uses the Web Crypto API (crypto.subtle) available in Hermes/React Native.
  */
 async function computeTxHash(
   envelope: xdr.TransactionEnvelope,
   passphrase: string,
 ): Promise<Buffer> {
   const xdrBytes = envelope.toXDR();
-  const passphraseBytes = Buffer.from(passphrase, 'utf-8');
-  const combined = Buffer.concat([Buffer.from(xdrBytes), passphraseBytes]);
-
-  const crypto = require('crypto');
-  return crypto.createHash('sha256').update(combined).digest();
+  const encoder = new TextEncoder();
+  const passphraseBytes = encoder.encode(passphrase);
+  const combined = new Uint8Array(xdrBytes.length + passphraseBytes.length);
+  combined.set(new Uint8Array(xdrBytes));
+  combined.set(passphraseBytes, xdrBytes.length);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
+  return Buffer.from(hashBuffer);
 }
 
 export async function signXdr(unsignedXdr: string): Promise<string> {
