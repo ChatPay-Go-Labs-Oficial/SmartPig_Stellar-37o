@@ -36,6 +36,7 @@ type Step =
   | 'quoting'
   | 'quote'
   | 'creating'
+  | 'wait-xdr'
   | 'signing'
   | 'submitting'
   | 'pending'
@@ -55,6 +56,7 @@ export function EtherfuseOfframpModal({
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setError] = useState('');
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [pollCount, setPollCount] = useState(0);
 
   const getQuote = useEtherfuseQuote();
   const createOfframp = useCreateOfframp();
@@ -141,40 +143,55 @@ export function EtherfuseOfframpModal({
       });
       setOrderId(result.id);
 
-      let unsignedXdr = result.unsignedBurnXdr;
-
-      if (!unsignedXdr) {
-        try {
-          const refreshed = await refreshXdr.mutateAsync({
-            id: result.id,
-            userId: contractId!,
-          });
-          unsignedXdr = refreshed.unsignedBurnXdr;
-        } catch {
-          setError('XDR não disponível. Tente novamente em instantes.');
-          setStep('quote');
-          return;
-        }
+      if (result.unsignedBurnXdr) {
+        await signAndSubmit(result.id, result.unsignedBurnXdr);
+      } else {
+        setStep('wait-xdr');
+        pollForXdr(result.id, 0);
       }
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.message || 'Erro ao criar ordem');
+      setStep('quote');
+    }
+  }
 
-      if (!unsignedXdr) {
-        setError('XDR não disponível. Tente novamente.');
-        setStep('quote');
+  async function pollForXdr(orderInternalId: string, attempt: number) {
+    const MAX_ATTEMPTS = 12;
+    if (attempt >= MAX_ATTEMPTS) {
+      setError('XDR não ficou disponível. Tente novamente.');
+      setStep('quote');
+      return;
+    }
+    try {
+      const refreshed = await refreshXdr.mutateAsync({
+        id: orderInternalId,
+        userId: contractId!,
+      });
+      if (refreshed.unsignedBurnXdr) {
+        await signAndSubmit(orderInternalId, refreshed.unsignedBurnXdr);
         return;
       }
+    } catch {
+      // Ainda não disponível, continua tentando
+    }
+    setPollCount(attempt + 1);
+    setTimeout(() => pollForXdr(orderInternalId, attempt + 1), 3000);
+  }
 
-      setStep('signing');
-      const signedXdr = await signOfframpBurnXdr(unsignedXdr);
+  async function signAndSubmit(orderInternalId: string, unsignedBurnXdr: string) {
+    setStep('signing');
+    try {
+      const signedXdr = await signOfframpBurnXdr(unsignedBurnXdr);
 
       setStep('submitting');
       await submitOfframp.mutateAsync({
-        id: result.id,
+        id: orderInternalId,
         dto: { signedBurnXdr: signedXdr, userId: contractId! },
       });
 
       setStep('pending');
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erro ao criar ordem');
+      setError(e?.response?.data?.message || e?.message || 'Erro ao assinar/enviar');
       setStep('quote');
     }
   }
@@ -332,17 +349,22 @@ export function EtherfuseOfframpModal({
             )}
 
             {(step === 'creating' ||
+              step === 'wait-xdr' ||
               step === 'signing' ||
               step === 'submitting') && (
               <View style={styles.centerBody}>
                 <ActivityIndicator color={Accent.secondary} size="large" />
                 <Text style={styles.statusTitle}>
                   {step === 'creating' && 'Criando ordem...'}
+                  {step === 'wait-xdr' &&
+                    `Aguardando XDR (${pollCount}/12)...`}
                   {step === 'signing' && 'Assine com sua biometria...'}
                   {step === 'submitting' && 'Enviando transação...'}
                 </Text>
                 <Text style={styles.statusSub}>
                   {step === 'creating' && 'Preparando saque via Etherfuse'}
+                  {step === 'wait-xdr' &&
+                    'O burn transaction está sendo gerado...'}
                   {step === 'signing' && 'Use Face ID / Touch ID para autorizar'}
                   {step === 'submitting' && 'Confirmando na Stellar ⚡'}
                 </Text>
