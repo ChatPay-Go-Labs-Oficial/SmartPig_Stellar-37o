@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { StarryBackground } from '@/components/ui';
+import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import {
   useGeneratePresignedUrl,
@@ -112,9 +113,10 @@ export default function AgreementsScreen() {
       contentContainerStyle={styles.container}
       bounces={false}
     >
-      <StarryBackground />
-      <View style={styles.content}>
-        <Text style={styles.title}>Termos e Acordos</Text>
+        <StarryBackground />
+        <View style={styles.content}>
+          <OnboardingBackButton />
+          <Text style={styles.title}>Termos e Acordos</Text>
         <Text style={styles.subtitle}>
           Aceite cada termo para prosseguir com o cadastro da conta bancária
         </Text>

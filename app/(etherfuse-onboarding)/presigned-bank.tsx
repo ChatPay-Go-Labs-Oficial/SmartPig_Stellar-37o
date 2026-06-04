@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,21 +12,64 @@ import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
-import { useSyncBankAccounts } from '@/lib/queries/etherfuse.queries';
+import { useSyncBankAccounts, useGeneratePresignedUrl, useAcceptEsign, useAcceptTerms, useAcceptCustomerAgreement } from '@/lib/queries/etherfuse.queries';
 
 export default function PresignedBankScreen() {
   const contractId = useAuthStore((s) => s.contractId);
+  const walletAddress = useAuthStore((s) => s.walletAddress);
   const presignedUrl = useEtherfuseStore((s) => s.presignedUrl);
+  const setPresignedUrl = useEtherfuseStore((s) => s.setPresignedUrl);
   const setCurrentStep = useEtherfuseStore((s) => s.setCurrentStep);
   const setBankAccount = useEtherfuseStore((s) => s.setBankAccount);
   const syncBankAccounts = useSyncBankAccounts();
 
+  const genUrl = useGeneratePresignedUrl();
+  const acceptEsign = useAcceptEsign();
+  const acceptTerms = useAcceptTerms();
+  const acceptCustomer = useAcceptCustomerAgreement();
+
+  const [localUrl, setLocalUrl] = useState<string | null>(presignedUrl ?? null);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(!presignedUrl);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState('');
   const hasCompleted = useRef(false);
+
+  useEffect(() => {
+    if (localUrl) return;
+    if (!walletAddress || !contractId) return;
+
+    async function preparePresignedUrl() {
+      setGenerating(true);
+      setError('');
+      try {
+        const presigned = await genUrl.mutateAsync({
+          userId: contractId!,
+          pubkey: walletAddress!,
+        });
+        const dto = { userId: contractId!, presignedUrl: presigned.presignedUrl };
+
+        await Promise.allSettled([
+          acceptEsign.mutateAsync(dto),
+          acceptTerms.mutateAsync(dto),
+          acceptCustomer.mutateAsync(dto),
+        ]);
+
+        setPresignedUrl(presigned.presignedUrl);
+        setLocalUrl(presigned.presignedUrl);
+      } catch (e: any) {
+        setError('Erro ao preparar cadastro bancário. Tente novamente.');
+        console.error(e);
+      } finally {
+        setGenerating(false);
+      }
+    }
+
+    preparePresignedUrl();
+  }, []);
 
   async function handleFinish() {
     if (hasCompleted.current) return;
@@ -69,6 +112,15 @@ export default function PresignedBankScreen() {
     }
   }
 
+  if (generating) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator color={Accent.primary} size="large" />
+        <Text style={styles.syncText}>Preparando cadastro bancário...</Text>
+      </View>
+    );
+  }
+
   if (syncing) {
     return (
       <View style={styles.centerContainer}>
@@ -78,7 +130,18 @@ export default function PresignedBankScreen() {
     );
   }
 
-  if (error) {
+  if (error && !localUrl) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <Pressable onPress={() => router.replace('/(etherfuse-onboarding)' as any)} style={styles.retryBtn}>
+          <Text style={styles.retryBtnText}>Tentar novamente</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (error && localUrl) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
@@ -92,15 +155,13 @@ export default function PresignedBankScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <View style={styles.header}>
-        <Pressable onPress={handleConfirmFinish} style={styles.closeBtn}>
-          <Text style={styles.closeBtnText}>✕</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>Cadastrar Conta Bancária</Text>
-        <View style={styles.headerSpacer} />
+        <View style={styles.header}>
+          <OnboardingBackButton />
+          <Text style={styles.headerTitle}>Cadastrar Conta Bancária</Text>
+          <View style={styles.headerSpacer} />
       </View>
       <WebView
-        source={{ uri: presignedUrl ?? '' }}
+        source={{ uri: localUrl ?? '' }}
         style={styles.webview}
         onLoadEnd={() => setLoading(false)}
         onNavigationStateChange={handleNavigationStateChange}

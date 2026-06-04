@@ -11,12 +11,15 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
 
 import { StarryBackground } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
 import { walletLogin } from '@/lib/api/auth';
+import { getActivationXdr, submitActivation } from '@/lib/api/wallets';
+import { signXdr } from '@/lib/stellar/kit';
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
 import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passkey';
@@ -36,17 +39,19 @@ export default function OnboardingScreen() {
   const setAuth = useAuthStore((s) => s.setAuth);
   const setWalletAddress = useAuthStore((s) => s.setWalletAddress);
   const setWalletAccountId = useAuthStore((s) => s.setWalletAccountId);
+  const setIsActivated = useAuthStore((s) => s.setIsActivated);
   const { createWallet } = useCreateWallet();
   const { loginWithPasskey } = useLoginWithPasskey();
   const { signupWithPasskey } = useSignupWithPasskey();
   const { sendCode, loginWithCode } = useLoginWithEmail();
-  const { isReady, user } = usePrivy();
+  const { isReady, user, logout } = usePrivy();
 
-  async function createAndAuth() {
+  async function createAndAuth(privyUser?: typeof user) {
+    const effectiveUser = privyUser ?? user;
     let address: string;
 
-    if (user) {
-      const existingWallet = (user.linked_accounts as any[]).find(
+    if (effectiveUser) {
+      const existingWallet = (effectiveUser.linked_accounts as any[]).find(
         (account) =>
           account.chain_type === 'stellar' && account.address,
       );
@@ -61,10 +66,34 @@ export default function OnboardingScreen() {
       address = wallet.address;
     }
 
-    const { user: backendUser, wallet } = await walletLogin(address);
+    const { user: backendUser, wallet, needsActivation } = await walletLogin(address);
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
     setAuth(backendUser.id);
+
+    let activationMsg: string | null = null;
+    if (needsActivation) {
+      try {
+        const { unsignedXdr } = await getActivationXdr({
+          userId: backendUser.id,
+          walletAccountId: wallet.id,
+          stellarAddress: address,
+        });
+        const signedXdr = await signXdr(unsignedXdr);
+        await submitActivation({
+          walletAccountId: wallet.id,
+          signedXdr,
+        });
+        setIsActivated(true);
+      } catch (activationErr: any) {
+        const detail = activationErr?.response?.data?.message ?? activationErr?.message ?? 'Unknown';
+        console.warn('Account activation failed:', detail);
+        activationMsg = detail;
+        setIsActivated(false);
+      }
+    } else {
+      setIsActivated(true);
+    }
 
     const { kycStatus, hasBankAccount, bankAccountCompliant } = useEtherfuseStore.getState();
     const onboarded =
@@ -73,6 +102,12 @@ export default function OnboardingScreen() {
       bankAccountCompliant;
 
     router.replace(onboarded ? '/(tabs)' : '/(etherfuse-onboarding)' as any);
+
+    if (activationMsg) {
+      setTimeout(() => {
+        Alert.alert('Ativação pendente', activationMsg);
+      }, 500);
+    }
   }
 
   async function handleCreateWallet() {
@@ -112,6 +147,10 @@ export default function OnboardingScreen() {
     setLoading('email');
     setError(null);
     try {
+      if (user) {
+        await logout();
+        await new Promise(r => setTimeout(r, 500));
+      }
       await sendCode({ email: email.trim() });
       setCodeSent(true);
     } catch (err) {
@@ -127,19 +166,15 @@ export default function OnboardingScreen() {
     setLoading('email');
     setError(null);
     try {
-      if (!user) {
-        await loginWithCode({ code: code.trim(), email: email.trim() });
-      }
-      await createAndAuth();
+      const loggedInUser = await loginWithCode({ code: code.trim(), email: email.trim() });
+      await createAndAuth(loggedInUser);
     } catch (err: any) {
-      if (err?.message?.includes?.('Already logged in')) {
-        try {
-          await createAndAuth();
-          return;
-        } catch (createErr) {
-          setError('Erro ao criar carteira');
-          console.error(createErr);
-        }
+      const status = err?.response?.status ?? err?.status;
+      if (status === 400 || err?.message?.includes?.('Already logged in')) {
+        await logout();
+        await sendCode({ email: email.trim() });
+        setCode('');
+        setError('Sessão reiniciada. Solicite um novo código e tente novamente.');
         return;
       }
       setError('Código inválido. Tente novamente.');

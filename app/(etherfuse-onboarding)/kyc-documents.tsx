@@ -12,6 +12,7 @@ import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { StarryBackground } from '@/components/ui';
+import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useUploadKycDocument } from '@/lib/queries/etherfuse.queries';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
@@ -92,6 +93,7 @@ export default function KycDocumentsScreen() {
     >
       <StarryBackground />
       <View style={styles.content}>
+        <OnboardingBackButton />
         <Text style={styles.title}>Upload de Documentos</Text>
         <Text style={styles.subtitle}>
           Envie 3 fotos para verificação de identidade

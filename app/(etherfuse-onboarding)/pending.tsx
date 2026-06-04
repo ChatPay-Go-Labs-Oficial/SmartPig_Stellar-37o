@@ -8,6 +8,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useGetKycStatus } from '@/lib/queries/etherfuse.queries';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
@@ -63,6 +64,7 @@ export default function PendingScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
+        <OnboardingBackButton />
         <View style={styles.iconContainer}>
           {kycStatus === 'REJECTED' ? (
             <Text style={styles.icon}>❌</Text>

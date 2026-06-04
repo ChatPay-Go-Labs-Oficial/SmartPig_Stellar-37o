@@ -71,7 +71,7 @@ export default function EtherfuseOnboardingIndex() {
       case 'APPROVED':
       case 'APPROVED_CHAIN_DEPLOYING':
         setCurrentStep('presigned-bank');
-        router.replace('/(etherfuse-onboarding)/agreements' as any);
+        router.replace('/(etherfuse-onboarding)/presigned-bank' as any);
         break;
       default:
         setCurrentStep('pending');

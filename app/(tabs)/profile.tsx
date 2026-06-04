@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Pressable, View, Text, StyleSheet, ScrollView } from "react-native";
+import { Pressable, View, Text, StyleSheet, ScrollView, Alert } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import {
@@ -19,14 +19,22 @@ import { useEtherfuseStore } from "@/lib/stores/etherfuse.store";
 import {
   useEtherfuseCustomer,
   useListBankAccounts,
+  useGeneratePresignedUrl,
+  useAcceptEsign,
+  useAcceptTerms,
+  useAcceptCustomerAgreement,
 } from "@/lib/queries/etherfuse.queries";
 import { useSubmitTrustlineXdr } from "@/lib/queries/etherfuse-ramp.queries";
-import { signTrustlineXdr } from "@/lib/stellar/kit";
+import { signTrustlineXdr, signXdr } from "@/lib/stellar/kit";
+import { getActivationXdr, submitActivation } from "@/lib/api/wallets";
 import * as Clipboard from "expo-clipboard";
 
 export default function ProfileScreen() {
   const walletAddress = useAuthStore((s) => s.walletAddress);
+  const walletAccountId = useAuthStore((s) => s.walletAccountId);
   const contractId = useAuthStore((s) => s.contractId);
+  const isActivated = useAuthStore((s) => s.isActivated);
+  const setIsActivated = useAuthStore((s) => s.setIsActivated);
   const { pixKey, setPixKey } = usePixStore();
   const { disconnect } = useSmartAccount();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -39,6 +47,11 @@ export default function ProfileScreen() {
     etherfuseCustomer ? contractId : null,
   );
 
+  const genUrl = useGeneratePresignedUrl();
+  const acceptEsign = useAcceptEsign();
+  const acceptTerms = useAcceptTerms();
+  const acceptCustomer = useAcceptCustomerAgreement();
+
   const shortAddress = walletAddress
     ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-6)}`
     : null;
@@ -48,6 +61,9 @@ export default function ProfileScreen() {
   const [copied, setCopied] = useState(false);
   const [trustlineLoading, setTrustlineLoading] = useState(false);
   const [trustlineMsg, setTrustlineMsg] = useState("");
+  const [activationLoading, setActivationLoading] = useState(false);
+  const [activationMsg, setActivationMsg] = useState("");
+  const [bankSetupLoading, setBankSetupLoading] = useState(false);
 
   const submitTrustline = useSubmitTrustlineXdr();
 
@@ -94,6 +110,53 @@ export default function ProfileScreen() {
     }
   }
 
+  async function handleRetryActivation() {
+    if (!walletAddress || !walletAccountId || !contractId) return;
+    setActivationLoading(true);
+    setActivationMsg("Ativando conta Stellar...");
+    try {
+      const { unsignedXdr } = await getActivationXdr({
+        userId: contractId,
+        walletAccountId,
+        stellarAddress: walletAddress,
+      });
+      const signedXdr = await signXdr(unsignedXdr);
+      await submitActivation({ walletAccountId, signedXdr });
+      setIsActivated(true);
+      setActivationMsg("Conta ativada com sucesso! ✅");
+    } catch (err: any) {
+      const detail = err?.response?.data?.message ?? err?.message ?? "Unknown";
+      setActivationMsg("Erro: " + detail);
+    } finally {
+      setActivationLoading(false);
+    }
+  }
+
+  async function handleSetupBankAccount() {
+    if (!walletAddress || !contractId) return;
+    setBankSetupLoading(true);
+    try {
+      const presigned = await genUrl.mutateAsync({
+        userId: contractId,
+        pubkey: walletAddress,
+      });
+      const dto = { userId: contractId, presignedUrl: presigned.presignedUrl };
+      await Promise.allSettled([
+        acceptEsign.mutateAsync(dto),
+        acceptTerms.mutateAsync(dto),
+        acceptCustomer.mutateAsync(dto),
+      ]);
+      useEtherfuseStore.getState().setPresignedUrl(presigned.presignedUrl);
+      useEtherfuseStore.getState().setCurrentStep("presigned-bank");
+      router.replace("/(etherfuse-onboarding)/presigned-bank" as any);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? err?.message ?? "Unknown";
+      Alert.alert("Erro", msg);
+    } finally {
+      setBankSetupLoading(false);
+    }
+  }
+
   return (
     <>
       <ScrollView style={styles.screen} contentContainerStyle={styles.scroll}>
@@ -123,6 +186,25 @@ export default function ProfileScreen() {
             </Text>
             {copied && <Text style={styles.copiedBadge}>Copiado!</Text>}
           </Pressable>
+          {!isActivated && (
+            <View style={styles.statusSection}>
+              <Text style={styles.statusPending}>⏳ Conta não ativada</Text>
+              <Text
+                style={styles.statusAction}
+                onPress={activationLoading ? undefined : handleRetryActivation}
+              >
+                {activationLoading ? "Ativando..." : "Ativar conta →"}
+              </Text>
+              {activationMsg ? (
+                <Text style={styles.statusMsg}>{activationMsg}</Text>
+              ) : null}
+            </View>
+          )}
+          {isActivated && (
+            <View style={styles.statusSection}>
+              <Text style={styles.statusOk}>✅ Conta ativada</Text>
+            </View>
+          )}
         </Card>
 
         <Card style={styles.card}>
@@ -191,6 +273,17 @@ export default function ProfileScreen() {
                     {bankAccounts.some((a) => a.isCompliant)
                       ? "Ativa"
                       : "Pendente"}
+                  </Text>
+                </View>
+              ) : etherfuseCustomer.kycStatus === "APPROVED" ||
+                etherfuseCustomer.kycStatus === "APPROVED_CHAIN_DEPLOYING" ? (
+                <View style={styles.statusSection}>
+                  <Text style={styles.statusPending}>⏳ Sem conta bancária</Text>
+                  <Text
+                    style={styles.statusAction}
+                    onPress={bankSetupLoading ? undefined : handleSetupBankAccount}
+                  >
+                    {bankSetupLoading ? "Preparando..." : "Cadastrar conta →"}
                   </Text>
                 </View>
               ) : null}
@@ -412,5 +505,33 @@ const styles = StyleSheet.create({
   logoutBtn: {
     marginHorizontal: Spacing[4],
     marginTop: Spacing[2],
+  },
+  statusSection: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    paddingTop: Spacing[3],
+    gap: 4,
+  },
+  statusPending: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Accent.accent,
+  },
+  statusOk: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Accent.success,
+  },
+  statusAction: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Accent.primary,
+    marginTop: 4,
+  },
+  statusMsg: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    marginTop: 2,
   },
 });

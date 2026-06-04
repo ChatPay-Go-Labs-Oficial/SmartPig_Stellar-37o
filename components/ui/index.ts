@@ -15,3 +15,4 @@ export { PigSVG, getPigLevel, getProgress } from './EvolutionaryPig';
 export { RampMethodSelector } from './RampMethodSelector';
 export { EtherfuseOnrampModal } from './EtherfuseOnrampModal';
 export { EtherfuseOfframpModal } from './EtherfuseOfframpModal';
+export { OnboardingBackButton } from './OnboardingBackButton';

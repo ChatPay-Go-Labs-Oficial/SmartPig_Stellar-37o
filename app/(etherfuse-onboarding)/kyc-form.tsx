@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { StarryBackground } from '@/components/ui';
+import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useSubmitKyc } from '@/lib/queries/etherfuse.queries';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
@@ -88,6 +89,7 @@ export default function KycFormScreen() {
       >
         <StarryBackground />
         <View style={styles.content}>
+          <OnboardingBackButton />
           <Text style={styles.title}>Verificação de Identidade</Text>
           <Text style={styles.subtitle}>
             Preencha seus dados pessoais conforme seu documento de identidade

@@ -21,6 +21,7 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { StarryBackground } from "@/components/ui";
+import { OnboardingBackButton } from "@/components/ui/OnboardingBackButton";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useCreateEtherfuseCustomer } from "@/lib/queries/etherfuse.queries";
 import { useEtherfuseStore } from "@/lib/stores/etherfuse.store";
@@ -71,6 +72,7 @@ export default function OrganizationScreen() {
       >
         <StarryBackground />
         <View style={styles.content}>
+          <OnboardingBackButton />
           <Text style={styles.title}>Criar Conta Etherfuse</Text>
           <Text style={styles.subtitle}>
             Precisamos criar sua conta na Etherfuse para{" "}
