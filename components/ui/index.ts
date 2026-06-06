@@ -16,3 +16,6 @@ export { RampMethodSelector } from './RampMethodSelector';
 export { EtherfuseOnrampModal } from './EtherfuseOnrampModal';
 export { EtherfuseOfframpModal } from './EtherfuseOfframpModal';
 export { OnboardingBackButton } from './OnboardingBackButton';
+export { LevelUpAnimation } from './LevelUpAnimation';
+export { Confetti } from './Confetti';
+
