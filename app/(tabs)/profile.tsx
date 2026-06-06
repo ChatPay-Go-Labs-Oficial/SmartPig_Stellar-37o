@@ -13,6 +13,7 @@ import {
 import { Button, Card, Input } from "@/components/ui";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { useSmartAccount } from "@/hooks/use-smart-account";
+import { useSound } from "@/hooks/use-sound";
 import { usePixStore } from "@/lib/stores/pix.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useEtherfuseStore } from "@/lib/stores/etherfuse.store";
@@ -37,6 +38,7 @@ export default function ProfileScreen() {
   const setIsActivated = useAuthStore((s) => s.setIsActivated);
   const { pixKey, setPixKey } = usePixStore();
   const { disconnect } = useSmartAccount();
+  const { playClick } = useSound();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [pixInput, setPixInput] = useState(pixKey);
   const [saved, setSaved] = useState(false);
@@ -69,10 +71,11 @@ export default function ProfileScreen() {
 
   const handleCopy = useCallback(async () => {
     if (!walletAddress) return;
+    playClick();
     await Clipboard.setStringAsync(walletAddress);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [walletAddress]);
+  }, [walletAddress, playClick]);
 
   function handleSavePix() {
     if (!pixInput.trim()) return;
@@ -231,7 +234,7 @@ export default function ProfileScreen() {
           />
         </Card>
 
-        <Card style={styles.card}>
+        {false && <Card style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardIcon}>🏦</Text>
             <Text style={styles.cardLabel}>Etherfuse</Text>
@@ -335,7 +338,7 @@ export default function ProfileScreen() {
               ) : null}
             </View>
           )}
-        </Card>
+        </Card>}
 
         <Button
           label="Sair da Conta"
