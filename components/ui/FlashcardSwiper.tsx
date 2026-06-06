@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions, PanResponder, Animated } from 'reac
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Font, FontSize, Radius } from '@/constants/theme';
 import { flashcards } from '@/constants/flashcards';
+import { useSound } from '@/hooks/use-sound';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - 40;
@@ -14,6 +15,7 @@ export function FlashcardSwiper() {
 
   const pan = useRef(new Animated.ValueXY()).current;
   const scale = useRef(new Animated.Value(1)).current;
+  const { playSwipe } = useSound();
 
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: () => true,
@@ -24,6 +26,7 @@ export function FlashcardSwiper() {
     },
     onPanResponderRelease: (_, gesture) => {
       if (Math.abs(gesture.dx) > 80) {
+        playSwipe();
         const swipeDir = gesture.dx > 0 ? 1 : -1;
         const indexDir = -swipeDir;
         const targetX = swipeDir * 400;
