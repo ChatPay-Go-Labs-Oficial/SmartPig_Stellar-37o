@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import { PressableScale } from './PressableScale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -247,21 +248,21 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
 
                 {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-                <LinearGradient
-                  colors={Gradients.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.actionBtn, (getQuote.isPending || !amount) && styles.btnDisabled]}
+                <PressableScale
+                  onPress={handleGetQuote}
+                  disabled={getQuote.isPending || !amount || parseFloat(amount) <= 0}
                 >
-                  <Pressable
-                    onPress={handleGetQuote}
-                    disabled={getQuote.isPending || !amount || parseFloat(amount) <= 0}
+                  <LinearGradient
+                    colors={Gradients.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.actionBtn, (getQuote.isPending || !amount) && styles.btnDisabled]}
                   >
                     <Text style={styles.actionBtnText}>
                       {getQuote.isPending ? 'Consultando...' : 'Obter cotação'}
                     </Text>
-                  </Pressable>
-                </LinearGradient>
+                  </LinearGradient>
+                </PressableScale>
               </View>
             )}
 
@@ -312,25 +313,22 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
 
                 {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-                <LinearGradient
-                  colors={Gradients.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.actionBtn, createOnramp.isPending && styles.btnDisabled]}
-                >
-                  <Pressable
-                    onPress={handleConfirmQuote}
-                    disabled={createOnramp.isPending}
+                <PressableScale onPress={handleConfirmQuote} disabled={createOnramp.isPending}>
+                  <LinearGradient
+                    colors={Gradients.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.actionBtn, createOnramp.isPending && styles.btnDisabled]}
                   >
                     <Text style={styles.actionBtnText}>
                       {createOnramp.isPending ? 'Criando ordem...' : 'Confirmar depósito'}
                     </Text>
-                  </Pressable>
-                </LinearGradient>
+                  </LinearGradient>
+                </PressableScale>
 
-                <Pressable onPress={() => setStep('input')}>
+                <PressableScale onPress={() => setStep('input')}>
                   <Text style={styles.backBtn}>Voltar</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             )}
 
@@ -375,24 +373,24 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
 
                 {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-                <LinearGradient
-                  colors={Gradients.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.actionBtn}
-                >
-                  <Pressable onPress={handleDoneTransfer}>
+                <PressableScale onPress={handleDoneTransfer}>
+                  <LinearGradient
+                    colors={Gradients.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionBtn}
+                  >
                     <Text style={styles.actionBtnText}>Já transferi</Text>
-                  </Pressable>
-                </LinearGradient>
+                  </LinearGradient>
+                </PressableScale>
 
+                <PressableScale onPress={handleSimulatePayment}>
                   <View style={[styles.actionBtn, styles.sandboxBtn]}>
-                    <Pressable onPress={handleSimulatePayment}>
-                      <Text style={styles.actionBtnText}>
-                        Simular pagamento
-                      </Text>
-                    </Pressable>
+                    <Text style={styles.actionBtnText}>
+                      Simular pagamento
+                    </Text>
                   </View>
+                </PressableScale>
               </View>
             )}
 
@@ -404,13 +402,13 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
                   Assim que o PIX for confirmado, seus USDC serão depositados automaticamente.
                 </Text>
 
-                <View style={[styles.actionBtn, styles.sandboxBtn, { marginTop: Spacing[4] }]}>
-                    <Pressable onPress={handleSimulatePayment}>
-                      <Text style={styles.actionBtnText}>
-                        Simular pagamento
-                      </Text>
-                    </Pressable>
+                <PressableScale onPress={handleSimulatePayment}>
+                  <View style={[styles.actionBtn, styles.sandboxBtn, { marginTop: Spacing[4] }]}>
+                    <Text style={styles.actionBtnText}>
+                      Simular pagamento
+                    </Text>
                   </View>
+                </PressableScale>
               </View>
             )}
 
@@ -429,16 +427,16 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
             {step === 'error' && (
               <View style={styles.centerBody}>
                 <Text style={styles.errorText}>{errorMsg}</Text>
-                <LinearGradient
-                  colors={Gradients.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.actionBtn}
-                >
-                  <Pressable onPress={resetAndClose}>
+                <PressableScale onPress={resetAndClose}>
+                  <LinearGradient
+                    colors={Gradients.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionBtn}
+                  >
                     <Text style={styles.actionBtnText}>Fechar</Text>
-                  </Pressable>
-                </LinearGradient>
+                  </LinearGradient>
+                </PressableScale>
               </View>
             )}
           </Pressable>

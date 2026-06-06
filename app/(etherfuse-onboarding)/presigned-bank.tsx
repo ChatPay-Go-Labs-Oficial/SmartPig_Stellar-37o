@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  Pressable,
   StatusBar,
   Alert,
 } from 'react-native';
+import { PressableScale } from '@/components/ui/PressableScale';
 import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -134,9 +134,11 @@ export default function PresignedBankScreen() {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={() => router.replace('/(etherfuse-onboarding)' as any)} style={styles.retryBtn}>
-          <Text style={styles.retryBtnText}>Tentar novamente</Text>
-        </Pressable>
+        <PressableScale onPress={() => router.replace('/(etherfuse-onboarding)' as any)}>
+          <View style={styles.retryBtn}>
+            <Text style={styles.retryBtnText}>Tentar novamente</Text>
+          </View>
+        </PressableScale>
       </View>
     );
   }
@@ -145,9 +147,11 @@ export default function PresignedBankScreen() {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={handleFinish} style={styles.retryBtn}>
-          <Text style={styles.retryBtnText}>Tentar novamente</Text>
-        </Pressable>
+        <PressableScale onPress={handleFinish}>
+          <View style={styles.retryBtn}>
+            <Text style={styles.retryBtnText}>Tentar novamente</Text>
+          </View>
+        </PressableScale>
       </View>
     );
   }
@@ -176,7 +180,7 @@ export default function PresignedBankScreen() {
         )}
       />
       <View style={styles.footer}>
-        <Pressable onPress={handleConfirmFinish}>
+        <PressableScale onPress={handleConfirmFinish}>
           <LinearGradient
             colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
@@ -185,7 +189,7 @@ export default function PresignedBankScreen() {
           >
             <Text style={styles.finishBtnText}>Já concluí o cadastro</Text>
           </LinearGradient>
-        </Pressable>
+        </PressableScale>
       </View>
     </View>
   );

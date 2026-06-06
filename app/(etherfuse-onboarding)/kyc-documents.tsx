@@ -5,8 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  Pressable,
 } from 'react-native';
+import { PressableScale } from '@/components/ui/PressableScale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -101,16 +101,18 @@ export default function KycDocumentsScreen() {
 
         <View style={styles.docsList}>
           {docs.map((doc) => (
-            <Pressable key={doc.type} onPress={() => pickImage(doc.type)} style={styles.docCard}>
-              {doc.uri ? (
-                <Image source={{ uri: doc.uri }} style={styles.docImage} />
-              ) : (
-                <View style={styles.docPlaceholder}>
-                  <Text style={styles.docPlaceholderIcon}>📷</Text>
-                  <Text style={styles.docPlaceholderText}>{doc.label}</Text>
-                </View>
-              )}
-            </Pressable>
+            <PressableScale key={doc.type} onPress={() => pickImage(doc.type)}>
+              <View style={styles.docCard}>
+                {doc.uri ? (
+                  <Image source={{ uri: doc.uri }} style={styles.docImage} />
+                ) : (
+                  <View style={styles.docPlaceholder}>
+                    <Text style={styles.docPlaceholderIcon}>📷</Text>
+                    <Text style={styles.docPlaceholderText}>{doc.label}</Text>
+                  </View>
+                )}
+              </View>
+            </PressableScale>
           ))}
         </View>
 

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import { PressableScale } from './PressableScale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -291,21 +292,21 @@ export function EtherfuseOfframpModal({
 
                 {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-                <LinearGradient
-                  colors={[Accent.secondary, Accent.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.actionBtn, (getQuote.isPending || !amount) && styles.btnDisabled]}
+                <PressableScale
+                  onPress={handleGetQuote}
+                  disabled={getQuote.isPending || !amount || parseFloat(amount) <= 0}
                 >
-                  <Pressable
-                    onPress={handleGetQuote}
-                    disabled={getQuote.isPending || !amount || parseFloat(amount) <= 0}
+                  <LinearGradient
+                    colors={[Accent.secondary, Accent.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.actionBtn, (getQuote.isPending || !amount) && styles.btnDisabled]}
                   >
                     <Text style={styles.actionBtnText}>
                       {getQuote.isPending ? 'Consultando...' : 'Obter cotação'}
                     </Text>
-                  </Pressable>
-                </LinearGradient>
+                  </LinearGradient>
+                </PressableScale>
               </View>
             )}
 
@@ -350,27 +351,24 @@ export function EtherfuseOfframpModal({
 
                 {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
-                <LinearGradient
-                  colors={[Accent.secondary, Accent.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.actionBtn, createOfframp.isPending && styles.btnDisabled]}
-                >
-                  <Pressable
-                    onPress={handleConfirmQuote}
-                    disabled={createOfframp.isPending}
+                <PressableScale onPress={handleConfirmQuote} disabled={createOfframp.isPending}>
+                  <LinearGradient
+                    colors={[Accent.secondary, Accent.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.actionBtn, createOfframp.isPending && styles.btnDisabled]}
                   >
                     <Text style={styles.actionBtnText}>
                       {createOfframp.isPending
                         ? 'Criando ordem...'
                         : 'Confirmar saque'}
                     </Text>
-                  </Pressable>
-                </LinearGradient>
+                  </LinearGradient>
+                </PressableScale>
 
-                <Pressable onPress={() => setStep('input')}>
+                <PressableScale onPress={() => setStep('input')}>
                   <Text style={styles.backBtn}>Voltar</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             )}
 
@@ -422,16 +420,16 @@ export function EtherfuseOfframpModal({
             {step === 'error' && (
               <View style={styles.centerBody}>
                 <Text style={styles.errorText}>{errorMsg}</Text>
-                <LinearGradient
-                  colors={[Accent.secondary, Accent.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.actionBtn}
-                >
-                  <Pressable onPress={resetAndClose}>
+                <PressableScale onPress={resetAndClose}>
+                  <LinearGradient
+                    colors={[Accent.secondary, Accent.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.actionBtn}
+                  >
                     <Text style={styles.actionBtnText}>Fechar</Text>
-                  </Pressable>
-                </LinearGradient>
+                  </LinearGradient>
+                </PressableScale>
               </View>
             )}
           </Pressable>

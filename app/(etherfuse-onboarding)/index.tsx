@@ -4,8 +4,8 @@ import {
   ActivityIndicator,
   Text,
   StyleSheet,
-  Pressable,
 } from 'react-native';
+import { PressableScale } from '@/components/ui/PressableScale';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -83,9 +83,9 @@ export default function EtherfuseOnboardingIndex() {
     return (
       <View style={styles.container}>
         <Text style={styles.errorText}>Erro ao verificar status da conta</Text>
-        <Pressable onPress={() => refetch()}>
+        <PressableScale onPress={() => refetch()}>
           <Text style={styles.retryBtn}>Tentar novamente</Text>
-        </Pressable>
+        </PressableScale>
       </View>
     );
   }

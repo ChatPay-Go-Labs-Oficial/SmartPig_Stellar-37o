@@ -3,12 +3,12 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Gradients, Spacing, Radius, Font, FontSize, Accent } from '@/constants/theme';
 import { useSmartAccount } from '@/hooks/use-smart-account';
+import { PressableScale } from '@/components/ui/PressableScale';
 
 export default function ConnectWalletScreen() {
   const { isConnecting, error, connect } = useSmartAccount();
@@ -34,7 +34,7 @@ export default function ConnectWalletScreen() {
       <View style={styles.footer}>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <TouchableOpacity onPress={handleConnect} disabled={isConnecting}>
+        <PressableScale onPress={handleConnect} disabled={isConnecting}>
           <LinearGradient
             colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
@@ -47,15 +47,16 @@ export default function ConnectWalletScreen() {
               <Text style={styles.btnText}>Entrar com biometria</Text>
             )}
           </LinearGradient>
-        </TouchableOpacity>
+        </PressableScale>
 
-        <TouchableOpacity
-          style={styles.linkBtn}
+        <PressableScale
           onPress={() => router.push('/(auth)/create-wallet')}
           disabled={isConnecting}
         >
-          <Text style={styles.linkText}>Criar nova carteira</Text>
-        </TouchableOpacity>
+          <View style={styles.linkBtn}>
+            <Text style={styles.linkText}>Criar nova carteira</Text>
+          </View>
+        </PressableScale>
       </View>
     </View>
   );

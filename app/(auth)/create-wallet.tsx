@@ -4,7 +4,6 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -13,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Colors, Gradients, Spacing, Radius, Font, FontSize, Accent } from '@/constants/theme';
 import { useSmartAccount } from '@/hooks/use-smart-account';
+import { PressableScale } from '@/components/ui/PressableScale';
 
 export default function CreateWalletScreen() {
   const [name, setName] = useState('');
@@ -58,7 +58,7 @@ export default function CreateWalletScreen() {
       </View>
 
       <View style={styles.footer}>
-        <TouchableOpacity onPress={handleCreate} disabled={isConnecting || !name.trim()}>
+        <PressableScale onPress={handleCreate} disabled={isConnecting || !name.trim()}>
           <LinearGradient
             colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
@@ -71,15 +71,16 @@ export default function CreateWalletScreen() {
               <Text style={styles.btnText}>Criar com Face ID / Touch ID</Text>
             )}
           </LinearGradient>
-        </TouchableOpacity>
+        </PressableScale>
 
-        <TouchableOpacity
-          style={styles.linkBtn}
+        <PressableScale
           onPress={() => router.push('/(auth)/connect-wallet')}
           disabled={isConnecting}
         >
-          <Text style={styles.linkText}>Já tenho uma carteira</Text>
-        </TouchableOpacity>
+          <View style={styles.linkBtn}>
+            <Text style={styles.linkText}>Já tenho uma carteira</Text>
+          </View>
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );

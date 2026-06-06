@@ -4,8 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
 } from 'react-native';
+import { PressableScale } from '@/components/ui/PressableScale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
@@ -126,29 +126,30 @@ export default function AgreementsScreen() {
             const isAccepted = accepted.has(item.key);
             const isLoading = loadingKey === item.key;
             return (
-              <Pressable
+              <PressableScale
                 key={item.key}
-                style={[styles.agreementCard, isAccepted && styles.agreementCardAccepted]}
                 onPress={() => handleAccept(item)}
                 disabled={isAccepted || isLoading}
               >
-                <View style={styles.agreementContent}>
-                  <View style={styles.checkBox}>
-                    {isAccepted ? (
-                      <Text style={styles.checkMark}>✓</Text>
-                    ) : isLoading ? (
-                      <Text style={styles.loadingDots}>...</Text>
-                    ) : null}
+                <View style={[styles.agreementCard, isAccepted && styles.agreementCardAccepted]}>
+                  <View style={styles.agreementContent}>
+                    <View style={styles.checkBox}>
+                      {isAccepted ? (
+                        <Text style={styles.checkMark}>✓</Text>
+                      ) : isLoading ? (
+                        <Text style={styles.loadingDots}>...</Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.agreementText}>
+                      <Text style={styles.agreementLabel}>{item.label}</Text>
+                      <Text style={styles.agreementDesc}>{item.description}</Text>
+                    </View>
                   </View>
-                  <View style={styles.agreementText}>
-                    <Text style={styles.agreementLabel}>{item.label}</Text>
-                    <Text style={styles.agreementDesc}>{item.description}</Text>
-                  </View>
+                  {!isAccepted && !isLoading && (
+                    <Text style={styles.acceptBtn}>Aceitar</Text>
+                  )}
                 </View>
-                {!isAccepted && !isLoading && (
-                  <Text style={styles.acceptBtn}>Aceitar</Text>
-                )}
-              </Pressable>
+              </PressableScale>
             );
           })}
         </View>

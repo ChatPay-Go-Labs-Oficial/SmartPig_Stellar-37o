@@ -14,6 +14,7 @@ import {
 import { useEtherfuseStore } from "@/lib/stores/etherfuse.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useEtherfuseCustomer } from "@/lib/queries/etherfuse.queries";
+import { PressableScale } from "./PressableScale";
 
 interface RampMethodSelectorProps {
   visible: boolean;
@@ -76,63 +77,67 @@ export function RampMethodSelector({
           </View>
 
           <View style={styles.options}>
-            <Pressable style={styles.optionCard} onPress={onSelectStellar}>
-              <View style={styles.optionLeft}>
-                <View
-                  style={[
-                    styles.optionIcon,
-                    { backgroundColor: "hsla(320, 90%, 58%, 0.15)" },
-                  ]}
-                >
-                  <Text
-                    style={[styles.optionIconText, { color: Accent.primary }]}
+            <PressableScale onPress={onSelectStellar}>
+              <View style={styles.optionCard}>
+                <View style={styles.optionLeft}>
+                  <View
+                    style={[
+                      styles.optionIcon,
+                      { backgroundColor: "hsla(320, 90%, 58%, 0.15)" },
+                    ]}
                   >
-                    ⚡
-                  </Text>
+                    <Text
+                      style={[styles.optionIconText, { color: Accent.primary }]}
+                    >
+                      ⚡
+                    </Text>
+                  </View>
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>Cofrinho</Text>
+                    <Text style={styles.optionDesc}>
+                      {isDeposit
+                        ? "Instante — direto no cofinho"
+                        : "Instante — direto na sua carteira"}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.optionText}>
-                  <Text style={styles.optionLabel}>Cofrinho</Text>
-                  <Text style={styles.optionDesc}>
-                    {isDeposit
-                      ? "Instante — direto no cofinho"
-                      : "Instante — direto na sua carteira"}
-                  </Text>
-                </View>
+                <Text style={styles.optionArrow}>→</Text>
               </View>
-              <Text style={styles.optionArrow}>→</Text>
-            </Pressable>
+            </PressableScale>
 
-            <Pressable style={styles.optionCard} onPress={handleRamp}>
-              <View style={styles.optionLeft}>
-                <View
-                  style={[
-                    styles.optionIcon,
-                    { backgroundColor: "hsla(145, 80%, 48%, 0.15)" },
-                  ]}
-                >
-                  <Text
-                    style={[styles.optionIconText, { color: Accent.success }]}
+            <PressableScale onPress={handleRamp}>
+              <View style={styles.optionCard}>
+                <View style={styles.optionLeft}>
+                  <View
+                    style={[
+                      styles.optionIcon,
+                      { backgroundColor: "hsla(145, 80%, 48%, 0.15)" },
+                    ]}
                   >
-                    🏦
-                  </Text>
+                    <Text
+                      style={[styles.optionIconText, { color: Accent.success }]}
+                    >
+                      🏦
+                    </Text>
+                  </View>
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>Via PIX (BRL)</Text>
+                    <Text style={styles.optionDesc}>
+                      {isDeposit
+                        ? "Depósito via Pix — 5-10 min"
+                        : "Receba na sua conta bancária"}
+                    </Text>
+                    {!customer && (
+                      <Text style={styles.optionBadge}>Requer cadastro</Text>
+                    )}
+                    {customer && !isOnboarded && (
+                      <Text style={styles.optionBadge}>Complete o cadastro</Text>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.optionText}>
-                  <Text style={styles.optionLabel}>Via PIX (BRL)</Text>
-                  <Text style={styles.optionDesc}>
-                    {isDeposit
-                      ? "Depósito via Pix — 5-10 min"
-                      : "Receba na sua conta bancária"}
-                  </Text>
-                  {!customer && (
-                    <Text style={styles.optionBadge}>Requer cadastro</Text>
-                  )}
-                  {customer && !isOnboarded && (
-                    <Text style={styles.optionBadge}>Complete o cadastro</Text>
-                  )}
-                </View>
+                <Text style={styles.optionArrow}>→</Text>
               </View>
-              <Text style={styles.optionArrow}>→</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </Pressable>
       </Pressable>

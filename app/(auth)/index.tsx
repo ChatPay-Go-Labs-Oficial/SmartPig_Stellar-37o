@@ -66,7 +66,18 @@ export default function OnboardingScreen() {
       address = wallet.address;
     }
 
-    const { user: backendUser, wallet, needsActivation } = await walletLogin(address);
+    let loginResult: Awaited<ReturnType<typeof walletLogin>>;
+    try {
+      loginResult = await walletLogin(address);
+    } catch (e: any) {
+      if (!e?.response) {
+        await new Promise(r => setTimeout(r, 1000));
+        loginResult = await walletLogin(address);
+      } else {
+        throw e;
+      }
+    }
+    const { user: backendUser, wallet, needsActivation } = loginResult;
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
     setAuth(backendUser.id);
@@ -101,7 +112,7 @@ export default function OnboardingScreen() {
       hasBankAccount &&
       bankAccountCompliant;
 
-    router.replace(onboarded ? '/(tabs)' : '/(etherfuse-onboarding)' as any);
+    router.replace('/(tabs)');
 
     if (activationMsg) {
       setTimeout(() => {
@@ -167,10 +178,15 @@ export default function OnboardingScreen() {
     setError(null);
     try {
       const loggedInUser = await loginWithCode({ code: code.trim(), email: email.trim() });
-      await createAndAuth(loggedInUser);
-    } catch (err: any) {
-      const status = err?.response?.status ?? err?.status;
-      if (status === 400 || err?.message?.includes?.('Already logged in')) {
+      try {
+        await createAndAuth(loggedInUser);
+      } catch (backendErr: any) {
+        setError('Erro ao conectar. Tente novamente.');
+        console.error('[createAndAuth]', backendErr);
+      }
+    } catch (privyErr: any) {
+      const status = privyErr?.response?.status ?? privyErr?.status;
+      if (status === 400 || privyErr?.message?.includes?.('Already logged in')) {
         await logout();
         await sendCode({ email: email.trim() });
         setCode('');
@@ -178,7 +194,7 @@ export default function OnboardingScreen() {
         return;
       }
       setError('Código inválido. Tente novamente.');
-      console.error(err);
+      console.error('[loginWithCode]', privyErr);
     } finally {
       setLoading(null);
     }
