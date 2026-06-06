@@ -8,10 +8,16 @@ export const apiClient = axios.create({
   timeout: 15_000,
 });
 
+const PUBLIC_ENDPOINTS = ['/auth/wallet'];
+
 apiClient.interceptors.request.use(async (config) => {
-  const token = await getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const isPublic = PUBLIC_ENDPOINTS.some(e => (config.url ?? '').includes(e));
+
+  if (!isPublic) {
+    const token = await getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
 
   const contractId = useAuthStore.getState().contractId;

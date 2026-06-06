@@ -1,22 +1,24 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { IconSymbol } from './icon-symbol';
 import { Colors, Spacing } from '@/constants/theme';
+import { PressableScale } from './PressableScale';
 
 export function OnboardingBackButton() {
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.replace('/(tabs)' as any)}
-      style={styles.backBtn}
       hitSlop={8}
     >
-      <IconSymbol
-        name="chevron.right"
-        size={24}
-        color={Colors.foreground}
-        style={{ transform: [{ rotate: '180deg' }] }}
-      />
-    </Pressable>
+      <View style={styles.backBtn}>
+        <IconSymbol
+          name="chevron.right"
+          size={24}
+          color={Colors.foreground}
+          style={{ transform: [{ rotate: '180deg' }] }}
+        />
+      </View>
+    </PressableScale>
   );
 }
 
