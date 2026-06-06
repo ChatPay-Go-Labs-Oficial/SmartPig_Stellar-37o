@@ -1,6 +1,14 @@
 import { Buffer } from 'buffer';
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
+import { Audio } from 'expo-av';
+
+Audio.setAudioModeAsync({
+  allowsRecordingIOS: false,
+  playsInSilentModeIOS: true,
+  staysActiveInBackground: false,
+  shouldDuckAndroid: true,
+});
 
 import { PrivyProvider, usePrivy } from '@privy-io/expo';
 import { useSignRawHash } from '@privy-io/expo/extended-chains';
@@ -67,6 +75,7 @@ export default function RootLayout() {
             <Stack.Screen name="vault/[id]" />
             <Stack.Screen name="(etherfuse-onboarding)" />
             <Stack.Screen name="education" />
+            <Stack.Screen name="pigs" />
           </Stack>
           <StatusBar style="light" />
         </QueryClientProvider>
