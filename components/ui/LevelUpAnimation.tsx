@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Modal,
   View,
@@ -30,8 +30,8 @@ export function LevelUpAnimation({
   onClose,
   onDeposit,
 }: LevelUpAnimationProps) {
-  // Sounds: level_up.wav for evolution, retirar_do_porquinho_sound.mp3 for fall
-  const { playLevelUp, playRetirarConfirmacao } = useSound();
+  // Sounds: level_up.wav for evolution, quedaPersonagem for fall
+  const { playLevelUp, playQuedaPersonagem } = useSound();
   const isDown   = direction === "down";
   const didClose = useRef(false);
 
@@ -39,8 +39,8 @@ export function LevelUpAnimation({
   const arrowAnim   = useRef(new Animated.Value(0)).current;
   const newPigScale = useRef(new Animated.Value(0)).current;
   const floatAnim   = useRef(new Animated.Value(0)).current;
-  const messageAnim = useRef(new Animated.Value(0)).current;
   const floatLoop   = useRef<Animated.CompositeAnimation | null>(null);
+  const [showCard, setShowCard] = useState(false);
   const timerRefs   = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const cancelAll = () => {
@@ -56,7 +56,7 @@ export function LevelUpAnimation({
       arrowAnim.setValue(0);
       newPigScale.setValue(0);
       floatAnim.setValue(0);
-      messageAnim.setValue(0);
+      setShowCard(false);
       cancelAll();
 
       const after = (ms: number, fn: () => void) => {
@@ -78,7 +78,7 @@ export function LevelUpAnimation({
         Animated.spring(newPigScale, {
           toValue: 1, damping: 7, mass: 0.7, stiffness: 130, useNativeDriver: true,
         }).start();
-        isDown ? playRetirarConfirmacao() : playLevelUp();
+        isDown ? playQuedaPersonagem() : playLevelUp();
         floatLoop.current = Animated.loop(
           Animated.sequence([
             Animated.timing(floatAnim, { toValue: -10, duration: 1400, useNativeDriver: true }),
@@ -87,9 +87,7 @@ export function LevelUpAnimation({
         );
         floatLoop.current.start();
       });
-      after(1750, () =>
-        Animated.timing(messageAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start()
-      );
+      after(1750, () => setShowCard(true));
     } else {
       cancelAll();
     }
@@ -97,18 +95,8 @@ export function LevelUpAnimation({
   }, [visible, direction]);
 
   const handleClose = () => {
-    if (didClose.current) return;
-    didClose.current = true;
     cancelAll();
     onClose();
-  };
-
-  const handleDeposit = () => {
-    if (didClose.current) return;
-    didClose.current = true;
-    cancelAll();
-    onClose();
-    onDeposit?.();
   };
 
   if (!oldLevel || !newLevel) return null;
@@ -117,12 +105,12 @@ export function LevelUpAnimation({
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType="fade"
       statusBarTranslucent
       onRequestClose={handleClose}
     >
-      <View style={styles.overlay}>
-        <View style={styles.inner}>
+      <Pressable style={styles.overlay} onPress={handleClose}>
+        <Pressable style={styles.inner} onPress={() => {}}>
 
           {/* ── Título ── */}
           <View style={styles.titleRow}>
@@ -175,48 +163,43 @@ export function LevelUpAnimation({
 
           </View>
 
-          {/* ── Card — apenas opacity (sem translateY evita bug de touch target) ── */}
-          <Animated.View style={[styles.card, { opacity: messageAnim }]}>
-            <Text style={styles.cardText}>
-              {isDown ? (
-                <>
-                  Seu porquinho voltou de nível.{"\n"}
-                  <Text style={styles.cardBold}>Deposite</Text> para evoluir de novo!
-                </>
-              ) : (
-                <>
-                  Seu porquinho evoluiu para{"\n"}
-                  <Text style={styles.cardBold}>{newLevel.label}</Text>! Continue poupando.
-                </>
-              )}
-            </Text>
+          {/* ── Card ── */}
+          {showCard && (
+            <View style={styles.card}>
+              <Text style={styles.cardText}>
+                {isDown ? (
+                  <>
+                    Seu porquinho voltou de nível.{"\n"}
+                    Não desanime e continue poupando!
+                  </>
+                ) : (
+                  <>
+                    Seu porquinho evoluiu para{"\n"}
+                    <Text style={styles.cardBold}>{newLevel.label}</Text>! Continue poupando.
+                  </>
+                )}
+              </Text>
 
-            <Pressable
-              onPress={isDown ? handleDeposit : handleClose}
-              style={styles.btnWrap}
-            >
-              <LinearGradient
-                colors={Gradients.primary as any}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.btn}
+              <Pressable
+                onPress={handleClose}
+                style={styles.btnWrap}
               >
-                {isDown && <MaterialIcons name="add" size={18} color="#fff" />}
-                <Text style={styles.btnText}>
-                  {isDown ? "Depositar agora" : "Que legal!"}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-
-            {isDown && (
-              <Pressable onPress={handleClose} hitSlop={16}>
-                <Text style={styles.skipText}>Agora não</Text>
+                <LinearGradient
+                  colors={Gradients.primary as any}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.btn}
+                >
+                  <Text style={styles.btnText}>
+                    {isDown ? "Vou me esforçar" : "Que legal!"}
+                  </Text>
+                </LinearGradient>
               </Pressable>
-            )}
-          </Animated.View>
+            </View>
+          )}
 
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }

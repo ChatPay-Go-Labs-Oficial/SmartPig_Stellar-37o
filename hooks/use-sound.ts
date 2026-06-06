@@ -27,6 +27,7 @@ type SoundName = keyof typeof SOUND_FILES;
 
 // Preloaded sound pool — loaded once, replayed instantly
 const soundPool: Partial<Record<SoundName, Audio.Sound>> = {};
+const lastPlayed: Partial<Record<SoundName, number>> = {};
 
 async function getSound(name: SoundName): Promise<Audio.Sound> {
   if (soundPool[name]) {
@@ -61,6 +62,12 @@ export function useSound() {
       soundName: SoundName,
       hapticType?: Haptics.ImpactFeedbackStyle | Haptics.NotificationFeedbackType
     ) => {
+      const now = Date.now();
+      if (lastPlayed[soundName] && now - lastPlayed[soundName]! < 500) {
+        return;
+      }
+      lastPlayed[soundName] = now;
+
       if (hapticType) {
         try {
           if (
