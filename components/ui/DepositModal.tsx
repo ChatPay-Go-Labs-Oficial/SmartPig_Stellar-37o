@@ -37,6 +37,19 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 const QUICK_VALUES = [10, 50, 100];
 
+function friendlyError(raw: string): string {
+  const s = raw.toLowerCase();
+  if (s.includes('insufficient') || s.includes('balance') || s.includes('saldo') || s.includes('funds'))
+    return 'Saldo insuficiente na carteira. Deposite USDC via "Depositar Fundos" antes de investir.';
+  if (s.includes('network') || s.includes('timeout') || s.includes('econnrefused') || s.includes('fetch'))
+    return 'Erro de conexao. Verifique sua internet e tente novamente.';
+  if (s.includes('unauthorized') || s.includes('401') || s.includes('forbidden'))
+    return 'Sessao expirada. Saia e entre novamente no app.';
+  if (s.includes('minimum') || s.includes('minimo') || s.includes('min amount'))
+    return 'Valor abaixo do minimo permitido.';
+  return 'Nao foi possivel processar o investimento. Tente novamente em instantes.';
+}
+
 interface DepositModalProps {
   visible: boolean;
   vaultId: string;
@@ -271,7 +284,15 @@ export function DepositModal({
                   {" "}por ano
                 </Text>
 
-                {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+                {errorMsg ? (
+                  <View style={styles.errorCard}>
+                    <MaterialIcons name="error-outline" size={18} color={Accent.destructive} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.errorCardTitle}>Ops, algo deu errado</Text>
+                      <Text style={styles.errorCardMsg}>{friendlyError(errorMsg)}</Text>
+                    </View>
+                  </View>
+                ) : null}
 
                 {/* Confirm */}
                 <Pressable
@@ -495,11 +516,26 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontFamily: Font.black,
   },
-  errorText: {
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(220,38,38,0.08)",
+    borderRadius: Radius.md,
+    padding: Spacing[3],
+    borderWidth: 1,
+    borderColor: "rgba(220,38,38,0.2)",
+  },
+  errorCardTitle: {
     fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
     color: Accent.destructive,
-    fontFamily: Font.regular,
-    textAlign: "center",
+  },
+  errorCardMsg: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
   },
   centerBody: {
     alignItems: "center",

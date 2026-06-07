@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { Modal, View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
   Colors,
   Accent,
@@ -11,9 +10,6 @@ import {
   Radius,
   Spacing,
 } from "@/constants/theme";
-import { useEtherfuseStore } from "@/lib/stores/etherfuse.store";
-import { useAuthStore } from "@/lib/stores/auth.store";
-import { useEtherfuseCustomer } from "@/lib/queries/etherfuse.queries";
 import { PressableScale } from "./PressableScale";
 
 interface RampMethodSelectorProps {
@@ -28,33 +24,9 @@ export function RampMethodSelector({
   visible,
   type,
   onSelectStellar,
-  onSelectRamp,
   onClose,
 }: RampMethodSelectorProps) {
-  const contractId = useAuthStore((s) => s.contractId);
-  const { data: customer } = useEtherfuseCustomer(contractId);
-
-  const hasCompliantBank = customer?.bankAccounts?.some((a) => a.isCompliant);
-  const isOnboarded =
-    (customer?.kycStatus === "APPROVED" ||
-      customer?.kycStatus === "APPROVED_CHAIN_DEPLOYING") &&
-    hasCompliantBank;
-
   const isDeposit = type === "deposit";
-
-  function handleRamp() {
-    if (!customer) {
-      useEtherfuseStore.getState().setCurrentStep("organization");
-      router.replace("/(etherfuse-onboarding)" as any);
-      return;
-    }
-    if (!isOnboarded) {
-      useEtherfuseStore.getState().setCurrentStep("check-status");
-      router.replace("/(etherfuse-onboarding)" as any);
-      return;
-    }
-    onSelectRamp();
-  }
 
   return (
     <Modal
@@ -67,77 +39,69 @@ export function RampMethodSelector({
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
+
+          {/* Header */}
           <View style={styles.headerRow}>
-            <View style={styles.headerIcon}>
-              <Text style={styles.headerIconText}>{isDeposit ? "↓" : "↑"}</Text>
-            </View>
+            <LinearGradient
+              colors={Gradients.primary as any}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.headerIcon}
+            >
+              <MaterialIcons
+                name={isDeposit ? "arrow-downward" : "arrow-upward"}
+                size={18}
+                color="#fff"
+              />
+            </LinearGradient>
             <Text style={styles.headerTitle}>
               {isDeposit ? "Depositar fundos" : "Sacar fundos"}
             </Text>
+            <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
+              <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
+            </Pressable>
           </View>
 
           <View style={styles.options}>
+            {/* Investir no porquinho — ativo */}
             <PressableScale onPress={onSelectStellar}>
               <View style={styles.optionCard}>
-                <View style={styles.optionLeft}>
-                  <View
-                    style={[
-                      styles.optionIcon,
-                      { backgroundColor: "hsla(320, 90%, 58%, 0.15)" },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.optionIconText, { color: Accent.primary }]}
-                    >
-                      ⚡
-                    </Text>
-                  </View>
-                  <View style={styles.optionText}>
-                    <Text style={styles.optionLabel}>Cofrinho</Text>
-                    <Text style={styles.optionDesc}>
-                      {isDeposit
-                        ? "Instante — direto no cofinho"
-                        : "Instante — direto na sua carteira"}
-                    </Text>
-                  </View>
+                <View style={styles.optionIconWrap}>
+                  <MaterialIcons name="savings" size={24} color={Accent.primary} />
                 </View>
-                <Text style={styles.optionArrow}>→</Text>
+                <View style={styles.optionText}>
+                  <Text style={styles.optionLabel}>
+                    {isDeposit ? "Investir no porquinho" : "Sacar do porquinho"}
+                  </Text>
+                  <Text style={styles.optionDesc}>
+                    {isDeposit
+                      ? "Invista USDC direto no seu cofrinho"
+                      : "Retire do cofrinho para sua carteira Stellar"}
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
               </View>
             </PressableScale>
 
-            <PressableScale onPress={handleRamp}>
-              <View style={styles.optionCard}>
-                <View style={styles.optionLeft}>
-                  <View
-                    style={[
-                      styles.optionIcon,
-                      { backgroundColor: "hsla(145, 80%, 48%, 0.15)" },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.optionIconText, { color: Accent.success }]}
-                    >
-                      🏦
-                    </Text>
-                  </View>
-                  <View style={styles.optionText}>
-                    <Text style={styles.optionLabel}>Via PIX (BRL)</Text>
-                    <Text style={styles.optionDesc}>
-                      {isDeposit
-                        ? "Depósito via Pix — 5-10 min"
-                        : "Receba na sua conta bancária"}
-                    </Text>
-                    {!customer && (
-                      <Text style={styles.optionBadge}>Requer cadastro</Text>
-                    )}
-                    {customer && !isOnboarded && (
-                      <Text style={styles.optionBadge}>Complete o cadastro</Text>
-                    )}
+            {/* PIX — em breve */}
+            <View style={[styles.optionCard, styles.optionCardDisabled]}>
+              <View style={[styles.optionIconWrap, styles.optionIconWrapDisabled]}>
+                <MaterialIcons name="pix" size={22} color={Colors.mutedForeground} />
+              </View>
+              <View style={styles.optionText}>
+                <View style={styles.optionLabelRow}>
+                  <Text style={styles.optionLabelDisabled}>PIX (BRL)</Text>
+                  <View style={styles.comingSoonBadge}>
+                    <Text style={styles.comingSoonText}>Em breve</Text>
                   </View>
                 </View>
-                <Text style={styles.optionArrow}>→</Text>
+                <Text style={styles.optionDesc}>
+                  {isDeposit
+                    ? "Deposito via Pix em reais"
+                    : "Receba na sua conta bancaria"}
+                </Text>
               </View>
-            </PressableScale>
+            </View>
           </View>
         </Pressable>
       </Pressable>
@@ -148,13 +112,13 @@ export function RampMethodSelector({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "flex-end",
   },
   sheet: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: Spacing[6],
     paddingTop: Spacing[3],
     paddingBottom: Spacing[8],
@@ -169,83 +133,105 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: Spacing[4],
   },
+
+  // Header
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     marginBottom: Spacing[6],
   },
   headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "hsla(270, 80%, 60%, 0.15)",
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-  },
-  headerIconText: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: Accent.secondary,
-    fontFamily: Font.black,
+    flexShrink: 0,
   },
   headerTitle: {
-    fontSize: FontSize.subheading,
+    flex: 1,
+    fontSize: FontSize.body,
     fontFamily: Font.black,
     color: Colors.foreground,
   },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.muted,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Options
   options: {
     gap: Spacing[3],
   },
   optionCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: Colors.muted,
+    gap: 14,
+    backgroundColor: Colors.card,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
     padding: Spacing[4],
   },
-  optionLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
+  optionCardDisabled: {
+    opacity: 0.5,
   },
-  optionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  optionIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: "rgba(244,52,180,0.12)",
     justifyContent: "center",
     alignItems: "center",
+    flexShrink: 0,
   },
-  optionIconText: {
-    fontSize: 20,
+  optionIconWrapDisabled: {
+    backgroundColor: Colors.muted,
   },
   optionText: {
-    gap: 2,
     flex: 1,
+    gap: 3,
+  },
+  optionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   optionLabel: {
     fontSize: FontSize.body,
     fontFamily: Font.bold,
     color: Colors.foreground,
   },
+  optionLabelDisabled: {
+    fontSize: FontSize.body,
+    fontFamily: Font.bold,
+    color: Colors.mutedForeground,
+  },
   optionDesc: {
     fontSize: FontSize.label,
-    fontFamily: Font.regular,
+    fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
+    lineHeight: 18,
   },
-  optionBadge: {
+
+  // Em breve badge
+  comingSoonBadge: {
+    backgroundColor: Colors.muted,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  comingSoonText: {
     fontSize: 10,
-    fontFamily: Font.bold,
-    color: Accent.accent,
-    marginTop: 2,
-  },
-  optionArrow: {
-    fontSize: FontSize.body,
+    fontFamily: Font.black,
     color: Colors.mutedForeground,
-    fontFamily: Font.bold,
+    letterSpacing: 0.3,
   },
 });

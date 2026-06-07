@@ -1,29 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   Modal,
   View,
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
-  ActivityIndicator,
-  Keyboard,
 } from 'react-native';
-import { PressableScale } from './PressableScale';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import type { EtherfuseBankAccount } from '@/lib/api/etherfuse';
-import {
-  useEtherfuseQuote,
-  useCreateOnramp,
-  useEtherfuseOrder,
-  useSandboxSimulatePayment,
-  useEtherfuseBankAccounts,
-  useEtherfuseAssets,
-  useSubmitTrustlineXdr,
-} from '@/lib/queries/etherfuse-ramp.queries';
-import { signTrustlineXdr } from '@/lib/stellar/kit';
+import { useSound } from '@/hooks/use-sound';
 
 interface EtherfuseOnrampModalProps {
   visible: boolean;
@@ -31,173 +19,22 @@ interface EtherfuseOnrampModalProps {
   onSuccess?: () => void;
 }
 
-type Step =
-  | 'input'
-  | 'quoting'
-  | 'quote'
-  | 'trustline'
-  | 'creating'
-  | 'instructions'
-  | 'pending'
-  | 'success'
-  | 'error';
-
-export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseOnrampModalProps) {
-  const contractId = useAuthStore((s) => s.contractId);
+export function EtherfuseOnrampModal({ visible, onClose }: EtherfuseOnrampModalProps) {
   const walletAddress = useAuthStore((s) => s.walletAddress);
+  const { playClick } = useSound();
+  const [copied, setCopied] = useState(false);
 
-  const [amount, setAmount] = useState('');
-  const [step, setStep] = useState<Step>('input');
-  const [errorMsg, setError] = useState('');
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const handleCopy = async () => {
+    if (!walletAddress) return;
+    playClick();
+    await Clipboard.setStringAsync(walletAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
 
-  const getQuote = useEtherfuseQuote();
-  const createOnramp = useCreateOnramp();
-  const sandboxPay = useSandboxSimulatePayment();
-  const submitTrustline = useSubmitTrustlineXdr();
-  const { data: bankAccounts } = useEtherfuseBankAccounts(contractId);
-  const { data: assets } = useEtherfuseAssets('brl', walletAddress);
-  const { data: orderData } = useEtherfuseOrder(orderId);
-
-  const firstBankId = bankAccounts?.[0]?.id;
-
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    const onShow = (e: any) => setKeyboardHeight(e.endCoordinates.height);
-    const onHide = () => setKeyboardHeight(0);
-    const subs = [
-      Keyboard.addListener('keyboardWillShow', onShow),
-      Keyboard.addListener('keyboardWillHide', onHide),
-      Keyboard.addListener('keyboardDidShow', onShow),
-      Keyboard.addListener('keyboardDidHide', onHide),
-    ];
-    return () => subs.forEach((s) => s.remove());
-  }, []);
-
-  useEffect(() => {
-    if (orderData && step === 'pending') {
-      if (orderData.status === 'COMPLETED') {
-        setStep('success');
-        setTimeout(() => {
-          resetAndClose();
-          onSuccess?.();
-        }, 2500);
-      } else if (orderData.status === 'FAILED' || orderData.status === 'REFUNDED') {
-        setError('Ordem falhou. Tente novamente.');
-        setStep('error');
-      }
-    }
-  }, [orderData]);
-
-  const selectedAccount = bankAccounts?.find((a: EtherfuseBankAccount) => a.isCompliant) ?? bankAccounts?.[0];
-  const usdcAsset = assets?.find(
-    (a) => a.symbol === 'USDC' && a.identifier.includes(':'),
-  );
-  const usdcIdentifier = usdcAsset?.identifier ?? 'USDC';
-
-  async function handleGetQuote() {
-    const value = parseFloat(amount);
-    if (!value || value <= 0) return;
-    if (!usdcAsset) {
-      setError('Ativo USDC não encontrado');
-      return;
-    }
-    setError('');
-    setStep('quoting');
-    try {
-      await getQuote.mutateAsync({
-        userId: contractId!,
-        direction: 'onramp',
-        sourceAsset: 'BRL',
-        targetAsset: usdcIdentifier,
-        sourceAmount: String(value),
-        walletAddress: walletAddress!,
-      });
-      setStep('quote');
-    } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erro ao obter cotação');
-      setStep('input');
-    }
-  }
-
-  async function handleConfirmQuote() {
-    if (!getQuote.data) return;
-    setError('');
-    // Step 1: cria trustline USDC se necessário
-    setStep('trustline');
-    try {
-      const signedXdr = await signTrustlineXdr(walletAddress!);
-      await submitTrustline.mutateAsync({ signedXdr, stellarAddress: walletAddress! });
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || '';
-      // trustline já existe → prossegue
-      if (!msg.includes('already_exists') && !msg.includes('already exists')) {
-        setError('Erro ao configurar trustline: ' + msg);
-        setStep('quote');
-        return;
-      }
-    }
-    // Step 2: cria ordem
-    setStep('creating');
-    try {
-      const result = await createOnramp.mutateAsync({
-        userId: contractId!,
-        bankAccountId: selectedAccount!.id,
-        quoteId: getQuote.data.quoteId,
-        walletAddress: walletAddress!,
-        sourceAsset: 'BRL',
-        targetAsset: usdcIdentifier,
-        sourceAmount: getQuote.data.sourceAmount,
-        destinationAmount: getQuote.data.destinationAmount,
-      });
-      setOrderId(result.id);
-      setStep('instructions');
-    } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Erro ao criar ordem');
-      setStep('quote');
-    }
-  }
-
-  async function handleSimulatePayment() {
-    if (!orderId) {
-      setStep('pending');
-      return;
-    }
-    try {
-      await sandboxPay.mutateAsync({ id: orderId, userId: contractId! });
-      // Simulação ok → aguarda alguns segundos e mostra sucesso
-      // (em sandbox/devnet o webhook pode não chegar no dev, então confirma localmente)
-      setStep('pending');
-      setTimeout(() => {
-        setStep('success');
-        setTimeout(() => {
-          resetAndClose();
-          onSuccess?.();
-        }, 2500);
-      }, 3000);
-    } catch {
-      setStep('pending');
-    }
-  }
-
-  function handleDoneTransfer() {
-    // Tenta simular o pagamento (funciona em sandbox/devnet, falha 403 em produção)
-    handleSimulatePayment();
-  }
-
-  function resetAndClose() {
-    setStep('input');
-    setAmount('');
-    setError('');
-    setOrderId(null);
-    getQuote.reset();
-    onClose();
-  }
-
-  const quote = getQuote.data;
-
-  if (!visible) return null;
+  const displayAddress = walletAddress
+    ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}`
+    : '—';
 
   return (
     <Modal
@@ -205,257 +42,179 @@ export function EtherfuseOnrampModal({ visible, onClose, onSuccess }: EtherfuseO
       transparent
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={resetAndClose}
+      onRequestClose={onClose}
     >
-      <Pressable
-        style={styles.backdrop}
-        onPress={step === 'input' || step === 'quote' ? resetAndClose : undefined}
-      >
-        <View style={{ paddingBottom: keyboardHeight }}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            <View style={styles.handle} />
-            <View style={styles.headerRow}>
-              <View style={[styles.headerIcon, { backgroundColor: 'hsla(320, 90%, 58%, 0.15)' }]}>
-                <Text style={[styles.headerIconText, { color: Accent.primary }]}>↓</Text>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <View style={styles.handle} />
+
+          {/* ── Header ── */}
+          <View style={styles.headerRow}>
+            <LinearGradient
+              colors={Gradients.primary as any}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.headerIcon}
+            >
+              <MaterialIcons name="arrow-downward" size={18} color="#fff" />
+            </LinearGradient>
+            <View style={styles.headerTextBlock}>
+              <Text style={styles.headerTitle}>Depositar fundos</Text>
+              <View style={styles.networkBadge}>
+                <View style={styles.networkDot} />
+                <Text style={styles.networkText}>Stellar · USDC</Text>
               </View>
-              <Text style={styles.headerTitle}>Depositar via PIX</Text>
+            </View>
+            <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
+              <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
+            </Pressable>
+          </View>
+
+          {/* ── Body ── */}
+          <View style={styles.body}>
+
+            {/* Method selector */}
+            <View style={styles.methodRow}>
+              {/* USDC — active */}
+              <View style={[styles.methodCard, styles.methodCardActive]}>
+                <MaterialIcons name="account-balance-wallet" size={20} color={Accent.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.methodLabel}>USDC via Stellar</Text>
+                  <Text style={styles.methodSub}>Carteira crypto</Text>
+                </View>
+                <MaterialIcons name="check-circle" size={16} color={Accent.primary} />
+              </View>
+
+              {/* PIX — disabled */}
+              <View style={[styles.methodCard, styles.methodCardDisabled]}>
+                <MaterialIcons name="pix" size={20} color={Colors.mutedForeground} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.methodLabelDisabled}>PIX</Text>
+                  <Text style={styles.methodSub}>Transferência bancária</Text>
+                </View>
+                <View style={styles.comingSoonBadge}>
+                  <Text style={styles.comingSoonText}>Em breve</Text>
+                </View>
+              </View>
             </View>
 
-            {(step === 'input' || step === 'quoting') && (
-              <View style={styles.body}>
-                <Text style={styles.label}>Valor em BRL</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="0,00"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                  cursorColor="transparent"
-                />
+            {/* Steps */}
+            <View style={styles.stepsList}>
+              <Step num={1} text="Abra sua carteira Stellar (Lobstr, Freighter, etc.)" />
+              <Step num={2} text="Copie o endereco da sua carteira PigFi abaixo" />
+              <Step num={3} text="Envie USDC na rede Stellar — aparece em instantes" />
+            </View>
 
-                {selectedAccount && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Conta destino</Text>
-                    <Text style={styles.infoValue}>
-                      {selectedAccount.rail === 'pix'
-                        ? selectedAccount.pixKey ?? 'Chave PIX'
-                        : `CLABE: ${selectedAccount.clabe ?? ''}`}
-                    </Text>
-                  </View>
-                )}
-
-                {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-
-                <PressableScale
-                  onPress={handleGetQuote}
-                  disabled={getQuote.isPending || !amount || parseFloat(amount) <= 0}
+            {/* Address card */}
+            <View style={styles.addressCard}>
+              <View style={styles.addressLabelRow}>
+                <MaterialIcons name="account-balance-wallet" size={14} color={Colors.mutedForeground} />
+                <Text style={styles.addressLabel}>Sua carteira PigFi</Text>
+              </View>
+              <View style={styles.addressRow}>
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {displayAddress}
+                </Text>
+                <Pressable
+                  onPress={handleCopy}
+                  style={[styles.copyBtn, copied && styles.copyBtnDone]}
+                  hitSlop={8}
                 >
-                  <LinearGradient
-                    colors={Gradients.primary}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.actionBtn, (getQuote.isPending || !amount) && styles.btnDisabled]}
-                  >
-                    <Text style={styles.actionBtnText}>
-                      {getQuote.isPending ? 'Consultando...' : 'Obter cotação'}
-                    </Text>
-                  </LinearGradient>
-                </PressableScale>
-              </View>
-            )}
-
-            {step === 'quote' && quote && (
-              <View style={styles.body}>
-                <Text style={styles.sectionTitle}>Cotação</Text>
-
-                <View style={styles.quoteCard}>
-                  <View style={styles.quoteRow}>
-                    <Text style={styles.quoteLabel}>Você envia</Text>
-                    <Text style={styles.quoteValue}>
-                      R$ {parseFloat(quote.sourceAmount).toFixed(2)}
-                    </Text>
-                  </View>
-                  <View style={styles.quoteDivider} />
-                  <View style={styles.quoteRow}>
-                    <Text style={styles.quoteLabel}>Você recebe</Text>
-                    <Text style={[styles.quoteValue, { color: Accent.success }]}>
-                      ${parseFloat(quote.destinationAmount).toFixed(2)} USDC
-                    </Text>
-                  </View>
-                  <View style={styles.quoteDivider} />
-                  <View style={styles.quoteRow}>
-                    <Text style={styles.quoteLabel}>Taxa de câmbio</Text>
-                    <Text style={styles.quoteValue}>
-                      R$ {parseFloat(quote.exchangeRate).toFixed(4)}
-                    </Text>
-                  </View>
-                  {quote.feeAmount && (
-                    <View style={styles.quoteRow}>
-                      <Text style={styles.quoteLabel}>Taxa</Text>
-                      <Text style={styles.quoteValue}>R$ {parseFloat(quote.feeAmount).toFixed(2)}</Text>
-                    </View>
-                  )}
-                  {quote.destinationAmountAfterFee && (
-                    <View style={styles.quoteRow}>
-                      <Text style={styles.quoteLabel}>Líquido</Text>
-                      <Text style={[styles.quoteValue, { color: Accent.success }]}>
-                        ${parseFloat(quote.destinationAmountAfterFee).toFixed(2)} USDC
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <Text style={styles.expiryText}>
-                  Cotação expira em 2 minutos
-                </Text>
-
-                {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-
-                <PressableScale onPress={handleConfirmQuote} disabled={createOnramp.isPending}>
-                  <LinearGradient
-                    colors={Gradients.primary}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.actionBtn, createOnramp.isPending && styles.btnDisabled]}
-                  >
-                    <Text style={styles.actionBtnText}>
-                      {createOnramp.isPending ? 'Criando ordem...' : 'Confirmar depósito'}
-                    </Text>
-                  </LinearGradient>
-                </PressableScale>
-
-                <PressableScale onPress={() => setStep('input')}>
-                  <Text style={styles.backBtn}>Voltar</Text>
-                </PressableScale>
-              </View>
-            )}
-
-            {step === 'trustline' && (
-              <View style={styles.centerBody}>
-                <ActivityIndicator color={Accent.primary} size="large" />
-                <Text style={styles.statusTitle}>Configurando trustline USDC...</Text>
-                <Text style={styles.statusSub}>
-                  Autorize com sua biometria para ativar o recebimento de USDC
-                </Text>
-              </View>
-            )}
-
-            {step === 'creating' && (
-              <View style={styles.centerBody}>
-                <ActivityIndicator color={Accent.primary} size="large" />
-                <Text style={styles.statusTitle}>Criando ordem...</Text>
-              </View>
-            )}
-
-            {step === 'instructions' && (
-              <View style={styles.body}>
-                <Text style={styles.sectionTitle}>Instruções de Pagamento</Text>
-                <Text style={styles.instructionsText}>
-                  Faça um PIX no valor de{' '}
-                  <Text style={styles.instructionsHighlight}>
-                    R$ {getQuote.data ? parseFloat(getQuote.data.sourceAmount).toFixed(2) : ''}
-                  </Text>{' '}
-                  para a chave abaixo:
-                </Text>
-
-                <View style={styles.pixCard}>
-                  <Text style={styles.pixLabel}>Chave PIX</Text>
-                  <Text style={styles.pixValue} selectable>
-                    {orderData?.etherfuseOrderId ?? 'Aguardando chave PIX...'}
+                  <MaterialIcons
+                    name={copied ? 'check' : 'content-copy'}
+                    size={16}
+                    color={copied ? Accent.success : Accent.primary}
+                  />
+                  <Text style={[styles.copyText, copied && styles.copyTextDone]}>
+                    {copied ? 'Copiado!' : 'Copiar'}
                   </Text>
-                </View>
-
-                <Text style={styles.instructionsHint}>
-                  Após fazer o PIX, clique em "Já transferi" para acompanhar o status.
-                </Text>
-
-                {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
-
-                <PressableScale onPress={handleDoneTransfer}>
-                  <LinearGradient
-                    colors={Gradients.primary}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.actionBtn}
-                  >
-                    <Text style={styles.actionBtnText}>Já transferi</Text>
-                  </LinearGradient>
-                </PressableScale>
-
-                <PressableScale onPress={handleSimulatePayment}>
-                  <View style={[styles.actionBtn, styles.sandboxBtn]}>
-                    <Text style={styles.actionBtnText}>
-                      Simular pagamento
-                    </Text>
-                  </View>
-                </PressableScale>
+                </Pressable>
               </View>
-            )}
+            </View>
 
-            {step === 'pending' && (
-              <View style={styles.centerBody}>
-                <ActivityIndicator color={Accent.primary} size="large" />
-                <Text style={styles.statusTitle}>Aguardando pagamento...</Text>
-                <Text style={styles.statusSub}>
-                  Assim que o PIX for confirmado, seus USDC serão depositados automaticamente.
-                </Text>
+            {/* Warning */}
+            <View style={styles.warningRow}>
+              <MaterialIcons name="info-outline" size={14} color={Colors.mutedForeground} />
+              <Text style={styles.warningText}>
+                Envie somente{' '}
+                <Text style={styles.warningBold}>USDC na rede Stellar</Text>.
+                {' '}Outras redes ou tokens não são suportados.
+              </Text>
+            </View>
 
-                <PressableScale onPress={handleSimulatePayment}>
-                  <View style={[styles.actionBtn, styles.sandboxBtn, { marginTop: Spacing[4] }]}>
-                    <Text style={styles.actionBtnText}>
-                      Simular pagamento
-                    </Text>
-                  </View>
-                </PressableScale>
-              </View>
-            )}
-
-            {step === 'success' && (
-              <View style={styles.centerBody}>
-                <View style={styles.checkCircle}>
-                  <Text style={styles.checkMark}>✓</Text>
-                </View>
-                <Text style={styles.statusTitle}>Depósito confirmado! 🎉</Text>
-                <Text style={styles.statusSub}>
-                  USDC depositados na sua carteira Stellar
-                </Text>
-              </View>
-            )}
-
-            {step === 'error' && (
-              <View style={styles.centerBody}>
-                <Text style={styles.errorText}>{errorMsg}</Text>
-                <PressableScale onPress={resetAndClose}>
-                  <LinearGradient
-                    colors={Gradients.primary}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.actionBtn}
-                  >
-                    <Text style={styles.actionBtnText}>Fechar</Text>
-                  </LinearGradient>
-                </PressableScale>
-              </View>
-            )}
-          </Pressable>
-        </View>
+            {/* CTA */}
+            <Pressable onPress={onClose} style={{ alignSelf: 'stretch' }}>
+              <LinearGradient
+                colors={Gradients.primary as any}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.confirmBtn}
+              >
+                <MaterialIcons name="check" size={18} color="#fff" />
+                <Text style={styles.confirmBtnText}>Entendi</Text>
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </Pressable>
       </Pressable>
     </Modal>
   );
 }
 
+function Step({ num, text }: { num: number; text: string }) {
+  return (
+    <View style={stepStyles.row}>
+      <LinearGradient
+        colors={Gradients.primary as any}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={stepStyles.numBadge}
+      >
+        <Text style={stepStyles.numText}>{num}</Text>
+      </LinearGradient>
+      <Text style={stepStyles.text}>{text}</Text>
+    </View>
+  );
+}
+
+const stepStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  numBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  numText: {
+    fontSize: FontSize.label,
+    fontFamily: Font.black,
+    color: '#fff',
+  },
+  text: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    flex: 1,
+    lineHeight: 20,
+  },
+});
+
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: Spacing[6],
     paddingTop: Spacing[3],
     paddingBottom: Spacing[8],
@@ -470,196 +229,217 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: Spacing[4],
   },
+
+  // Header
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     marginBottom: Spacing[6],
   },
   headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
-  headerIconText: {
-    fontSize: 18,
-    fontWeight: '900',
-    fontFamily: Font.black,
+  headerTextBlock: {
+    flex: 1,
+    gap: 5,
   },
   headerTitle: {
-    fontSize: FontSize.subheading,
+    fontSize: FontSize.body,
     fontFamily: Font.black,
     color: Colors.foreground,
   },
-  body: {
-    gap: Spacing[3],
-  },
-  centerBody: {
+  networkBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: Spacing[8],
-  },
-  label: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-  },
-  amountInput: {
-    height: 56,
-    borderRadius: Radius.lg,
+    gap: 5,
+    alignSelf: 'flex-start',
     backgroundColor: Colors.muted,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderWidth: 1,
     borderColor: Colors.border,
-    color: Colors.foreground,
-    fontFamily: Font.black,
-    fontSize: 28,
-    textAlign: 'center',
-    paddingHorizontal: 16,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  infoLabel: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
-  },
-  infoValue: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Colors.foreground,
-  },
-  actionBtn: {
-    borderRadius: Radius.lg,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  actionBtnText: {
-    color: '#fff',
-    fontSize: FontSize.body,
-    fontFamily: Font.bold,
-  },
-  sectionTitle: {
-    fontSize: FontSize.body,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-  },
-  quoteCard: {
-    backgroundColor: Colors.muted,
-    borderRadius: Radius.lg,
-    padding: Spacing[4],
-    gap: 8,
-  },
-  quoteRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  quoteLabel: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
-  },
-  quoteValue: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-  },
-  quoteDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  expiryText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
-    textAlign: 'center',
-  },
-  backBtn: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Accent.primary,
-    textAlign: 'center',
-  },
-  instructionsText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
-    lineHeight: 22,
-  },
-  instructionsHighlight: {
-    fontFamily: Font.bold,
-    color: Accent.accent,
-    fontSize: FontSize.body,
-  },
-  pixCard: {
-    backgroundColor: Colors.muted,
-    borderRadius: Radius.md,
-    padding: Spacing[4],
-    alignItems: 'center',
-    gap: 4,
-  },
-  pixLabel: {
-    fontSize: FontSize.label,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  pixValue: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: 'monospace',
-    color: Colors.foreground,
-    textAlign: 'center',
-  },
-  instructionsHint: {
-    fontSize: FontSize.label,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  sandboxBtn: {
-    backgroundColor: Accent.accent,
-    marginTop: Spacing[2],
-  },
-  statusTitle: {
-    fontSize: FontSize.subheading,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-    textAlign: 'center',
-  },
-  statusSub: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  errorText: {
-    fontSize: FontSize.bodySmall,
-    color: Accent.destructive,
-    fontFamily: Font.regular,
-    textAlign: 'center',
-  },
-  checkCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  networkDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: Accent.success,
+  },
+  networkText: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Colors.mutedForeground,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.muted,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
-  checkMark: {
-    fontSize: 32,
+
+  // Body
+  body: {
+    gap: Spacing[4],
+  },
+
+  // Method selector
+  methodRow: {
+    gap: 8,
+  },
+  methodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: Radius.md,
+    padding: Spacing[3],
+    borderWidth: 1,
+  },
+  methodCardActive: {
+    backgroundColor: 'rgba(244,52,180,0.08)',
+    borderColor: 'rgba(244,52,180,0.3)',
+  },
+  methodCardDisabled: {
+    backgroundColor: Colors.muted,
+    borderColor: Colors.border,
+    opacity: 0.6,
+  },
+  methodLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  methodLabelDisabled: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
+    color: Colors.mutedForeground,
+  },
+  methodSub: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    marginTop: 1,
+  },
+  comingSoonBadge: {
+    backgroundColor: Colors.muted,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  comingSoonText: {
+    fontSize: 10,
+    fontFamily: Font.black,
+    color: Colors.mutedForeground,
+    letterSpacing: 0.3,
+  },
+
+  stepsList: {
+    gap: 12,
+    paddingVertical: Spacing[2],
+  },
+
+  // Address card
+  addressCard: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing[4],
+    gap: 10,
+  },
+  addressLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  addressLabel: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  addressText: {
+    flex: 1,
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+    letterSpacing: 0.5,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(244,52,180,0.12)',
+    borderRadius: Radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(244,52,180,0.25)',
+    flexShrink: 0,
+  },
+  copyBtnDone: {
+    backgroundColor: 'rgba(72,207,120,0.12)',
+    borderColor: 'rgba(72,207,120,0.25)',
+  },
+  copyText: {
+    fontSize: FontSize.label,
+    fontFamily: Font.black,
+    color: Accent.primary,
+  },
+  copyTextDone: {
+    color: Accent.success,
+  },
+
+  // Warning
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    backgroundColor: Colors.muted,
+    borderRadius: Radius.sm,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
+  },
+  warningBold: {
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+
+  // CTA
+  confirmBtn: {
+    height: 54,
+    borderRadius: Radius.lg,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  confirmBtnText: {
     color: '#fff',
+    fontSize: FontSize.body,
     fontFamily: Font.black,
   },
 });

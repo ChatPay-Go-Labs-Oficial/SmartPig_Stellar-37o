@@ -35,6 +35,19 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 // Blue → purple gradient exclusive to the withdraw flow
 const WITHDRAW_GRADIENT = ["hsl(220, 90%, 58%)", "hsl(270, 80%, 60%)"] as const;
 
+function friendlyError(raw: string): string {
+  const s = raw.toLowerCase();
+  if (s.includes('insufficient') || s.includes('balance') || s.includes('saldo') || s.includes('funds'))
+    return 'Saldo insuficiente no porquinho para realizar o saque.';
+  if (s.includes('network') || s.includes('timeout') || s.includes('econnrefused') || s.includes('fetch'))
+    return 'Erro de conexao. Verifique sua internet e tente novamente.';
+  if (s.includes('unauthorized') || s.includes('401') || s.includes('forbidden'))
+    return 'Sessao expirada. Saia e entre novamente no app.';
+  if (s.includes('minimum') || s.includes('minimo') || s.includes('min amount'))
+    return 'Valor abaixo do minimo permitido para saque.';
+  return 'Nao foi possivel processar o saque. Tente novamente em instantes.';
+}
+
 interface WithdrawModalProps {
   visible: boolean;
   vaultId: string;
@@ -286,10 +299,17 @@ export function WithdrawModal({
                 <Text style={styles.hintLabel}>
                   Cai na sua carteira{" "}
                   <Text style={styles.hintBold}>na hora</Text>
-                  , sem taxa
                 </Text>
 
-                {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
+                {errorMsg ? (
+                  <View style={styles.errorCard}>
+                    <MaterialIcons name="error-outline" size={18} color={Accent.destructive} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.errorCardTitle}>Ops, algo deu errado</Text>
+                      <Text style={styles.errorCardMsg}>{friendlyError(errorMsg)}</Text>
+                    </View>
+                  </View>
+                ) : null}
 
                 {/* Confirm button */}
                 <Pressable
@@ -343,7 +363,7 @@ export function WithdrawModal({
                 </Animated.View>
                 <Text style={styles.successTitle}>Saque concluído!</Text>
                 <Text style={styles.statusSub}>
-                  ${parsedAmount.toFixed(2)} já caíram na sua carteira,{"\n"}sem taxa.
+                  ${parsedAmount.toFixed(2)} já caíram na sua carteira.
                 </Text>
                 <Pressable
                   onPress={() => { handleClose(); router.navigate("/(tabs)"); }}
@@ -513,11 +533,26 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontFamily: Font.black,
   },
-  errorText: {
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(220,38,38,0.08)",
+    borderRadius: Radius.md,
+    padding: Spacing[3],
+    borderWidth: 1,
+    borderColor: "rgba(220,38,38,0.2)",
+  },
+  errorCardTitle: {
     fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
     color: Accent.destructive,
-    fontFamily: Font.regular,
-    textAlign: "center",
+  },
+  errorCardMsg: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
   },
   centerBody: {
     alignItems: "center",
