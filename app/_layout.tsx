@@ -1,13 +1,13 @@
 import { Buffer } from 'buffer';
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
-import { Audio } from 'expo-av';
+import { setAudioModeAsync } from 'expo-audio';
 
-Audio.setAudioModeAsync({
-  allowsRecordingIOS: false,
-  playsInSilentModeIOS: true,
-  staysActiveInBackground: false,
-  shouldDuckAndroid: true,
+setAudioModeAsync({
+  playsInSilentMode: true,
+  allowsRecording: false,
+  shouldPlayInBackground: false,
+  shouldDuckOtherAudio: true,
 });
 
 import { PrivyProvider, usePrivy } from '@privy-io/expo';

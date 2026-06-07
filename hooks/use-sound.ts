@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useSettingsStore } from '@/lib/stores/settings.store';
 import { useCallback } from 'react';
@@ -21,51 +21,49 @@ const SOUND_FILES = {
   retirarConfirmacao: require('@/assets/sounds/retirar_do_porquinho_sound.mp3'),
   evolucaoPersonagem: require('@/assets/sounds/evolucao-personagem-pigfi.mp3'),
   quedaPersonagem: require('@/assets/sounds/queda-personagem-pigfi.mp3'),
+  questaoErrada: require('@/assets/sounds/quetao_errada.mp3'),
 };
 
 type SoundName = keyof typeof SOUND_FILES;
 
-// Preloaded sound pool — loaded once, replayed instantly
-const soundPool: Partial<Record<SoundName, Audio.Sound>> = {};
+type AudioPlayer = ReturnType<typeof createAudioPlayer>;
+
+// Preloaded pool — one instance per sound, seeked back to 0 on reuse
+const soundPool: Partial<Record<SoundName, AudioPlayer>> = {};
 const lastPlayed: Partial<Record<SoundName, number>> = {};
 
-async function getSound(name: SoundName): Promise<Audio.Sound> {
+function getSound(name: SoundName): AudioPlayer {
   if (soundPool[name]) {
-    const sound = soundPool[name]!;
+    const player = soundPool[name]!;
     try {
-      await sound.setPositionAsync(0);
-      return sound;
+      player.seekTo(0);
+      return player;
     } catch {
+      try { soundPool[name]?.remove(); } catch {}
       delete soundPool[name];
     }
   }
-  const { sound } = await Audio.Sound.createAsync(SOUND_FILES[name], { shouldPlay: false });
-  soundPool[name] = sound;
-  return sound;
+  const player = createAudioPlayer(SOUND_FILES[name]);
+  soundPool[name] = player;
+  return player;
 }
 
-// Eagerly preload UI sounds so first click is instant
-(async () => {
-  try {
-    await Promise.all(
-      (['click', 'nav', 'swipe'] as SoundName[]).map(getSound)
-    );
-  } catch {}
-})();
+// Eagerly preload the most-used UI sounds so first tap is instant
+try {
+  (['click', 'nav', 'swipe'] as SoundName[]).forEach(getSound);
+} catch {}
 
 export function useSound() {
   const muted = useSettingsStore((s) => s.muted);
   const toggleMute = useSettingsStore((s) => s.toggleMute);
 
   const playSound = useCallback(
-    async (
+    (
       soundName: SoundName,
       hapticType?: Haptics.ImpactFeedbackStyle | Haptics.NotificationFeedbackType
     ) => {
       const now = Date.now();
-      if (lastPlayed[soundName] && now - lastPlayed[soundName]! < 500) {
-        return;
-      }
+      if (lastPlayed[soundName] && now - lastPlayed[soundName]! < 500) return;
       lastPlayed[soundName] = now;
 
       if (hapticType) {
@@ -85,15 +83,16 @@ export function useSound() {
       if (muted) return;
 
       try {
-        const sound = await getSound(soundName);
-        await sound.playAsync();
-      } catch (err) {
-        // Fallback: create fresh if pool entry is stale
+        getSound(soundName).play();
+      } catch {
+        // Fallback: fresh one-shot player that cleans itself up
         try {
-          const { sound } = await Audio.Sound.createAsync(SOUND_FILES[soundName], { shouldPlay: true });
-          sound.setOnPlaybackStatusUpdate((status) => {
-            if (status.isLoaded && status.didJustFinish) {
-              sound.unloadAsync().catch(() => {});
+          const player = createAudioPlayer(SOUND_FILES[soundName]);
+          player.play();
+          const sub = player.addListener('playbackStatusUpdate', (status) => {
+            if (status.didJustFinish) {
+              sub.remove();
+              player.remove();
             }
           });
         } catch {}
@@ -115,19 +114,25 @@ export function useSound() {
   const playError = useCallback(() => playSound('error', Haptics.NotificationFeedbackType.Error), [playSound]);
   const playNav = useCallback(() => playSound('nav', Haptics.ImpactFeedbackStyle.Light), [playSound]);
   const playInvestirConfirmacao = useCallback(() => playSound('investirConfirmacao', Haptics.NotificationFeedbackType.Success), [playSound]);
-  // Fresh instance per call so concurrent coin sounds don't interrupt each other
-  const playInvestirCoin = useCallback(async () => {
-    if (muted) return;
-    try {
-      const { sound } = await Audio.Sound.createAsync(SOUND_FILES.investirCoin, { shouldPlay: true });
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) sound.unloadAsync().catch(() => {});
-      });
-    } catch {}
-  }, [muted]);
   const playRetirarConfirmacao = useCallback(() => playSound('retirarConfirmacao', Haptics.NotificationFeedbackType.Success), [playSound]);
   const playEvolucaoPersonagem = useCallback(() => playSound('evolucaoPersonagem', Haptics.NotificationFeedbackType.Success), [playSound]);
   const playQuedaPersonagem = useCallback(() => playSound('quedaPersonagem', Haptics.NotificationFeedbackType.Warning), [playSound]);
+  const playQuestaoErrada = useCallback(() => playSound('questaoErrada', Haptics.NotificationFeedbackType.Error), [playSound]);
+
+  // Fresh instance per call so concurrent coin sounds don't interrupt each other
+  const playInvestirCoin = useCallback(() => {
+    if (muted) return;
+    try {
+      const player = createAudioPlayer(SOUND_FILES.investirCoin);
+      player.play();
+      const sub = player.addListener('playbackStatusUpdate', (status) => {
+        if (status.didJustFinish) {
+          sub.remove();
+          player.remove();
+        }
+      });
+    } catch {}
+  }, [muted]);
 
   return {
     playCoin,
@@ -147,6 +152,7 @@ export function useSound() {
     playRetirarConfirmacao,
     playEvolucaoPersonagem,
     playQuedaPersonagem,
+    playQuestaoErrada,
     muted,
     toggleMute,
   };
