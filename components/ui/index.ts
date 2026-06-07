@@ -17,5 +17,7 @@ export { EtherfuseOnrampModal } from './EtherfuseOnrampModal';
 export { EtherfuseOfframpModal } from './EtherfuseOfframpModal';
 export { OnboardingBackButton } from './OnboardingBackButton';
 export { LevelUpAnimation } from './LevelUpAnimation';
+export { LessonPlayer } from './LessonPlayer';
 export { Confetti } from './Confetti';
+export { TransferModal } from './TransferModal';
 
