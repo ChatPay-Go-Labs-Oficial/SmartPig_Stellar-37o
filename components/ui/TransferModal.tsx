@@ -12,11 +12,18 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Clipboard from 'expo-clipboard';
-import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import { useQueryClient } from '@tanstack/react-query';
+import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useWalletBalance } from '@/lib/queries/wallets.queries';
+import { useWalletBalance, walletKeys } from '@/lib/queries/wallets.queries';
 import { findUsdcBalance } from '@/lib/api/wallets';
-import { signAndSubmitTransfer } from '@/lib/stellar/kit';
+import {
+  normalizeUsdcAmount,
+  signAndSubmitTransfer,
+  TransferError,
+  validateTransferFields,
+  validateUsdcDestination,
+} from '@/lib/stellar/transfers';
 import { useSound } from '@/hooks/use-sound';
 
 interface TransferModalProps {
@@ -24,7 +31,7 @@ interface TransferModalProps {
   onClose: () => void;
 }
 
-type Step = 'input' | 'signing' | 'success';
+type Step = 'input' | 'validating' | 'review' | 'signing' | 'success';
 
 function friendlyError(raw: string): string {
   const s = raw.toLowerCase();
@@ -41,7 +48,14 @@ function friendlyError(raw: string): string {
   return 'Nao foi possivel processar a transferencia. Tente novamente.';
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof TransferError) return error.message;
+  const candidate = error as { message?: string };
+  return friendlyError(candidate.message ?? '');
+}
+
 export function TransferModal({ visible, onClose }: TransferModalProps) {
+  const queryClient = useQueryClient();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const { data: balances } = useWalletBalance(walletAddress);
   const usdcBalance = balances ? findUsdcBalance(balances) : '0';
@@ -61,27 +75,53 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
     if (text) setToAddress(text.trim());
   };
 
-  const handleConfirm = async () => {
+  const handleReview = async () => {
     if (!walletAddress || !toAddress.trim() || !amount) return;
-    const value = parseFloat(amount);
-    if (!value || value <= 0) return;
+    setErrorMsg('');
+    setStep('validating');
+    try {
+      const fields = validateTransferFields({
+        fromAddress: walletAddress,
+        toAddress,
+        amount,
+        memo,
+      });
+      if (Number(fields.amount) > Number(usdcBalance)) {
+        throw new TransferError('INSUFFICIENT_BALANCE', 'Saldo USDC insuficiente.');
+      }
+      await validateUsdcDestination(fields.toAddress, fields.amount);
+      setAmount(fields.amount);
+      setToAddress(fields.toAddress);
+      setMemo(fields.memo ?? '');
+      setStep('review');
+    } catch (error) {
+      setErrorMsg(errorMessage(error));
+      setStep('input');
+      playQuestaoErrada();
+    }
+  };
 
+  const handleConfirm = async () => {
+    if (!walletAddress) return;
     setErrorMsg('');
     setStep('signing');
     try {
       const result = await signAndSubmitTransfer({
         fromAddress: walletAddress,
-        toAddress: toAddress.trim(),
-        amount: value.toFixed(7),
+        toAddress,
+        amount,
         memo: memo.trim() || undefined,
       });
       setTxHash(result.hash);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: walletKeys.balance(walletAddress) }),
+        queryClient.invalidateQueries({ queryKey: walletKeys.transfers(walletAddress) }),
+      ]);
       setStep('success');
       playInvestirConfirmacao();
-    } catch (e: any) {
-      const raw = e?.response?.data?.message || e?.extras?.result_codes?.operations?.[0] || e?.message || '';
-      setErrorMsg(raw);
-      setStep('input');
+    } catch (error) {
+      setErrorMsg(errorMessage(error));
+      setStep('review');
       playQuestaoErrada();
     }
   };
@@ -96,9 +136,15 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
     onClose();
   };
 
-  const amountNum = parseFloat(amount || '0');
-  const canConfirm = !!toAddress.trim() && !!amount && amountNum > 0 && amountNum <= parseFloat(usdcBalance);
-  const isSigning = step === 'signing';
+  let amountNum = 0;
+  try {
+    amountNum = Number(normalizeUsdcAmount(amount));
+  } catch {}
+  const canConfirm = !!toAddress.trim() && amountNum > 0 && amountNum <= Number(usdcBalance);
+  const isBusy = step === 'validating' || step === 'signing';
+  const shortDestination = toAddress
+    ? `${toAddress.slice(0, 10)}...${toAddress.slice(-10)}`
+    : '-';
 
   return (
     <Modal
@@ -106,9 +152,9 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
       transparent
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={isSigning ? undefined : handleClose}
+      onRequestClose={isBusy ? undefined : handleClose}
     >
-      <Pressable style={styles.backdrop} onPress={isSigning ? undefined : handleClose}>
+      <Pressable style={styles.backdrop} onPress={isBusy ? undefined : handleClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
 
@@ -129,7 +175,7 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
                 <Text style={styles.networkText}>Stellar · USDC</Text>
               </View>
             </View>
-            {!isSigning && (
+            {!isBusy && (
               <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
                 <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
               </Pressable>
@@ -226,7 +272,7 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
 
                 {/* Confirm */}
                 <Pressable
-                  onPress={() => { playClick(); handleConfirm(); }}
+                  onPress={() => { playClick(); handleReview(); }}
                   disabled={!canConfirm}
                   style={{ alignSelf: 'stretch' }}
                 >
@@ -237,11 +283,59 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
                     style={[styles.confirmBtn, !canConfirm && styles.btnDisabled]}
                   >
                     <MaterialIcons name="send" size={16} color="#fff" />
-                    <Text style={styles.confirmBtnText}>Confirmar transferencia</Text>
+                    <Text style={styles.confirmBtnText}>Revisar transferencia</Text>
                   </LinearGradient>
                 </Pressable>
               </View>
             </ScrollView>
+          )}
+
+          {step === 'validating' && (
+            <View style={styles.centerBody}>
+              <ActivityIndicator color={Accent.secondary} size="large" />
+              <Text style={styles.statusTitle}>Validando destino...</Text>
+              <Text style={styles.statusSub}>Verificando conta e trustline USDC na Stellar</Text>
+            </View>
+          )}
+
+          {step === 'review' && (
+            <View style={styles.body}>
+              <Text style={styles.reviewTitle}>Revise antes de enviar</Text>
+              <View style={styles.reviewCard}>
+                <ReviewRow label="Valor" value={`$${Number(amount).toFixed(2)} USDC`} />
+                <ReviewRow label="Destino" value={shortDestination} mono />
+                <ReviewRow label="Memo" value={memo || 'Sem memo'} />
+                <ReviewRow label="Rede" value="Stellar Testnet" />
+              </View>
+              <View style={styles.warningRow}>
+                <MaterialIcons name="warning-amber" size={16} color={Accent.accent} />
+                <Text style={styles.warningText}>
+                  Confira os dados com atenção. Transferências Stellar são irreversíveis.
+                </Text>
+              </View>
+              {errorMsg ? (
+                <View style={styles.errorCard}>
+                  <MaterialIcons name="error-outline" size={18} color={Accent.destructive} />
+                  <Text style={[styles.errorMsg, { flex: 1 }]}>{errorMsg}</Text>
+                </View>
+              ) : null}
+              <View style={styles.reviewActions}>
+                <Pressable onPress={() => setStep('input')} style={styles.backBtn}>
+                  <Text style={styles.backBtnText}>Editar</Text>
+                </Pressable>
+                <Pressable onPress={handleConfirm} style={styles.reviewConfirmWrap}>
+                  <LinearGradient
+                    colors={['hsl(220, 90%, 58%)', 'hsl(270, 80%, 60%)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.confirmBtn}
+                  >
+                    <MaterialIcons name="fingerprint" size={18} color="#fff" />
+                    <Text style={styles.confirmBtnText}>Assinar e enviar</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </View>
           )}
 
           {/* ── Signing ── */}
@@ -291,6 +385,15 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
   );
 }
 
+function ReviewRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <View style={styles.reviewRow}>
+      <Text style={styles.reviewLabel}>{label}</Text>
+      <Text style={[styles.reviewValue, mono && styles.reviewMono]} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
@@ -322,7 +425,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: Spacing[5],
+    marginBottom: 20,
   },
   headerIcon: {
     width: 42,
@@ -373,6 +476,57 @@ const styles = StyleSheet.create({
 
   // Body
   body: { gap: Spacing[4] },
+  reviewTitle: {
+    fontSize: FontSize.subheading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  reviewCard: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing[4],
+  },
+  reviewRow: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  reviewLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+  },
+  reviewValue: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+  reviewMono: { fontSize: FontSize.label },
+  reviewActions: { flexDirection: 'row', gap: 10 },
+  backBtn: {
+    height: 54,
+    minWidth: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.muted,
+  },
+  backBtnText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  reviewConfirmWrap: { flex: 1 },
 
   balanceRow: {
     flexDirection: 'row',

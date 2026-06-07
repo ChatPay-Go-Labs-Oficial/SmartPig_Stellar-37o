@@ -4,8 +4,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useWithdrawals } from '@/lib/queries/withdrawals.queries';
+import { useAuthStore } from '@/lib/stores/auth.store';
+import { useUsdcTransfers } from '@/lib/queries/wallets.queries';
 
-type TxType = 'deposit' | 'withdrawal';
+type TxType = 'deposit' | 'withdrawal' | 'transfer-sent' | 'transfer-received';
 
 interface TxItem {
   id: string;
@@ -13,6 +15,8 @@ interface TxItem {
   amount: number;
   status: string;
   createdAt: string;
+  counterparty?: string;
+  hash?: string;
 }
 
 function formatDate(iso: string): string {
@@ -40,12 +44,23 @@ function statusConfig(status: string) {
 }
 
 function TxRow({ item }: { item: TxItem }) {
-  const isDeposit = item.type === 'deposit';
-  const amountColor = isDeposit ? Accent.success : Accent.destructive;
-  const iconBg = isDeposit ? 'rgba(25,213,96,0.12)' : 'rgba(239,68,68,0.12)';
+  const isIncoming = item.type === 'deposit' || item.type === 'transfer-received';
+  const isTransfer = item.type === 'transfer-sent' || item.type === 'transfer-received';
+  const amountColor = isIncoming ? Accent.success : Accent.destructive;
+  const iconBg = isIncoming ? 'rgba(25,213,96,0.12)' : 'rgba(239,68,68,0.12)';
   const iconColor = amountColor;
   const status = statusConfig(item.status);
   const amountDisplay = isFinite(item.amount) ? item.amount.toFixed(2) : '0.00';
+  const title = item.type === 'deposit'
+    ? 'Investimento'
+    : item.type === 'withdrawal'
+      ? 'Saque'
+      : item.type === 'transfer-sent'
+        ? 'USDC enviado'
+        : 'USDC recebido';
+  const subtitle = isTransfer && item.counterparty
+    ? `${item.counterparty.slice(0, 6)}...${item.counterparty.slice(-6)} · ${formatDate(item.createdAt)}`
+    : formatDate(item.createdAt);
 
   return (
     <View style={styles.txCard}>
@@ -53,7 +68,7 @@ function TxRow({ item }: { item: TxItem }) {
         {/* Icon */}
         <View style={[styles.txIconWrap, { backgroundColor: iconBg }]}>
           <MaterialIcons
-            name={isDeposit ? 'arrow-downward' : 'arrow-upward'}
+            name={isIncoming ? 'arrow-downward' : 'arrow-upward'}
             size={20}
             color={iconColor}
           />
@@ -61,14 +76,19 @@ function TxRow({ item }: { item: TxItem }) {
 
         {/* Info */}
         <View style={styles.txInfo}>
-          <Text style={styles.txType}>{isDeposit ? 'Investimento' : 'Saque'}</Text>
-          <Text style={styles.txDate}>{formatDate(item.createdAt)}</Text>
+          <Text style={styles.txType}>{title}</Text>
+          <Text style={styles.txDate} numberOfLines={1}>{subtitle}</Text>
+          {isTransfer && item.hash ? (
+            <Text style={styles.txHash} numberOfLines={1}>
+              Tx: {item.hash.slice(0, 8)}...{item.hash.slice(-6)}
+            </Text>
+          ) : null}
         </View>
 
         {/* Amount + Status */}
         <View style={styles.txRight}>
           <Text style={[styles.txAmount, { color: amountColor }]}>
-            {isDeposit ? '+' : '-'}${amountDisplay}
+            {isIncoming ? '+' : '-'}${amountDisplay}
           </Text>
           <View style={styles.txStatusRow}>
             <MaterialIcons name={status.icon} size={11} color={status.color} />
@@ -81,8 +101,10 @@ function TxRow({ item }: { item: TxItem }) {
 }
 
 export default function HistoryScreen() {
+  const walletAddress = useAuthStore((s) => s.walletAddress);
   const { data: deposits, isLoading: dLoading } = useDeposits();
   const { data: withdrawals, isLoading: wLoading } = useWithdrawals();
+  const { data: transfers } = useUsdcTransfers(walletAddress);
 
   const isLoading = dLoading || wLoading;
 
@@ -100,6 +122,15 @@ export default function HistoryScreen() {
       amount: typeof w.shares === 'number' ? w.shares : parseFloat(String(w.shares ?? 0)),
       status: w.status,
       createdAt: w.createdAt,
+    })),
+    ...(transfers ?? []).map((transfer) => ({
+      id: transfer.id,
+      type: (transfer.direction === 'sent' ? 'transfer-sent' : 'transfer-received') as TxType,
+      amount: transfer.amount,
+      status: 'CONFIRMED',
+      createdAt: transfer.createdAt,
+      counterparty: transfer.counterparty,
+      hash: transfer.hash,
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
@@ -218,6 +249,11 @@ const styles = StyleSheet.create({
   },
   txDate: {
     fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+  },
+  txHash: {
+    fontSize: 10,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
   },

@@ -5,15 +5,14 @@ import {
   Keypair,
   xdr,
   TransactionBuilder,
-  Transaction,
   Asset,
   Operation,
-  Memo,
   BASE_FEE,
   Horizon,
 } from '@stellar/stellar-sdk';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { signHashViaPrivy } from './signer';
+import { getUsdcConfig, STELLAR_CONFIG } from './config';
 
 // hash.js — pure-JS SHA256, funciona em Hermes/React Native
 const hashJs = require('hash.js') as {
@@ -21,7 +20,7 @@ const hashJs = require('hash.js') as {
 };
 
 let _kit: SmartAccountKit | null = null;
-const NETWORK_PASSPHRASE = process.env.EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE!;
+const NETWORK_PASSPHRASE = STELLAR_CONFIG.networkPassphrase;
 
 export function getKit(): SmartAccountKit {
   if (!_kit) {
@@ -81,15 +80,12 @@ export async function signXdr(unsignedXdr: string): Promise<string> {
   return Buffer.from(envelope.toXDR()).toString('base64');
 }
 
-const USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
-const USDC_CODE = 'USDC';
-const HORIZON_URL = 'https://horizon-testnet.stellar.org';
-
 export async function signTrustlineXdr(walletAddress: string): Promise<string> {
-  const server = new Horizon.Server(HORIZON_URL);
+  const server = new Horizon.Server(STELLAR_CONFIG.horizonUrl);
   const account = await server.loadAccount(walletAddress);
 
-  const usdc = new Asset(USDC_CODE, USDC_ISSUER);
+  const usdcConfig = getUsdcConfig();
+  const usdc = new Asset(usdcConfig.code, usdcConfig.issuer);
   const tx = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -120,48 +116,4 @@ export async function signTrustlineXdr(walletAddress: string): Promise<string> {
 
   const raw = envelope.toXDR();
   return typeof raw === 'string' ? raw : Buffer.from(raw).toString('base64');
-}
-
-export async function signAndSubmitTransfer(params: {
-  fromAddress: string;
-  toAddress: string;
-  amount: string;
-  memo?: string;
-}): Promise<{ hash: string }> {
-  const server = new Horizon.Server(HORIZON_URL);
-  const account = await server.loadAccount(params.fromAddress);
-  const usdc = new Asset(USDC_CODE, USDC_ISSUER);
-
-  const builder = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase: NETWORK_PASSPHRASE,
-  })
-    .addOperation(Operation.payment({
-      destination: params.toAddress,
-      asset: usdc,
-      amount: params.amount,
-    }))
-    .setTimeout(600);
-
-  if (params.memo?.trim()) builder.addMemo(Memo.text(params.memo.trim()));
-
-  const tx = builder.build();
-  const txHash = tx.hash();
-  const hashHex = `0x${txHash.toString('hex')}` as `0x${string}`;
-
-  const signature = await signHashViaPrivy(params.fromAddress, hashHex);
-  const signatureBytes = Buffer.from(signature.replace('0x', ''), 'hex');
-  const hint = Keypair.fromPublicKey(params.fromAddress).signatureHint();
-  const decoratedSig = new xdr.DecoratedSignature({ hint, signature: signatureBytes });
-
-  const envelope = tx.toEnvelope();
-  const v1 = envelope.v1();
-  if (v1) v1.signatures().push(decoratedSig);
-  else envelope.v0().signatures().push(decoratedSig);
-
-  const rawSigned = envelope.toXDR();
-  const signedXdr = typeof rawSigned === 'string' ? rawSigned : Buffer.from(rawSigned).toString('base64');
-  const signedTx = new Transaction(signedXdr, NETWORK_PASSPHRASE);
-  const result = await server.submitTransaction(signedTx);
-  return { hash: result.hash };
 }
