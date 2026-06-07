@@ -15,7 +15,7 @@ type TabConfig = {
 const TABS: TabConfig[] = [
   { name: 'index',   title: 'Home',      icon: 'home' },
   { name: 'vaults',  title: 'Investir',  icon: 'bar-chart' },
-  { name: 'learn',   title: 'Aprender',  icon: 'school' },
+  { name: 'learn',   title: 'Trilha',    icon: 'school' },
   { name: 'history', title: 'Histórico', icon: 'history' },
   { name: 'profile', title: 'Perfil',    icon: 'person' },
 ];
