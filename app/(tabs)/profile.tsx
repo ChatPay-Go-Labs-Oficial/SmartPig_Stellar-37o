@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Image, Pressable, View, Text, StyleSheet, ScrollView } from "react-native";
+import { Image, Pressable, View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, Modal } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -17,8 +17,11 @@ import { useSmartAccount } from "@/hooks/use-smart-account";
 import { useSound } from "@/hooks/use-sound";
 import { usePixStore } from "@/lib/stores/pix.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
-import { useWalletBalance } from "@/lib/queries/wallets.queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { useAllVaultBalances } from "@/lib/queries/vaults.queries";
+import { usePrivy } from "@privy-io/expo";
+import { swapXlmForUsdc, SwapError, SwapResult } from "@/lib/stellar/swap";
 
 const PIG_IMAGES: Record<string, any> = {
   'Porquinho Bebê':    require('@/assets/images/pig_babe.png'),
@@ -38,9 +41,11 @@ export default function ProfileScreen() {
   const contractId = useAuthStore((s) => s.contractId);
   const isActivated = useAuthStore((s) => s.isActivated);
   const setIsActivated = useAuthStore((s) => s.setIsActivated);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const { pixKey, setPixKey } = usePixStore();
   const { disconnect } = useSmartAccount();
-  const { playClick } = useSound();
+  const { logout } = usePrivy();
+  const { playClick, playInvestirConfirmacao, playQuestaoErrada } = useSound();
 
   const { data: balances } = useWalletBalance(walletAddress);
   const usdcBalance = balances ? findUsdcBalance(balances) : null;
@@ -64,6 +69,14 @@ export default function ProfileScreen() {
   const [trustlineMsg, setTrustlineMsg] = useState("");
   const [activationLoading, setActivationLoading] = useState(false);
   const [activationMsg, setActivationMsg] = useState("");
+
+  const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapAmount, setSwapAmount] = useState("");
+  const [swapStep, setSwapStep] = useState<"input" | "review" | "signing" | "success" | "error">("input");
+  const [swapLoading, setSwapLoading] = useState(false);
+  const [swapError, setSwapError] = useState("");
+  const [swapResult, setSwapResult] = useState<SwapResult | null>(null);
+  const queryClient = useQueryClient();
 
   const submitTrustline = useSubmitTrustlineXdr();
 
@@ -89,7 +102,11 @@ export default function ProfileScreen() {
 
   async function handleConfirmLogout() {
     setShowLogoutModal(false);
-    await disconnect();
+    await Promise.allSettled([
+      logout(),
+      disconnect(),
+    ]);
+    clearAuth();
     router.replace("/(auth)");
   }
 
@@ -239,6 +256,19 @@ export default function ProfileScreen() {
               <Text style={styles.transferBtnText}>Transferir USDC</Text>
             </LinearGradient>
           </Pressable>
+
+          <View style={styles.divider} />
+          <Pressable onPress={() => { playClick(); setShowSwapModal(true); setSwapStep("input"); setSwapError(""); setSwapResult(null); setSwapLoading(false); }}>
+            <LinearGradient
+              colors={['hsl(150, 80%, 45%)', 'hsl(190, 80%, 50%)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.transferBtn}
+            >
+              <MaterialIcons name="swap-horiz" size={16} color="#fff" />
+              <Text style={styles.transferBtnText}>Swap XLM → USDC</Text>
+            </LinearGradient>
+          </Pressable>
         </Card>
 
         {/* ── Chave PIX ── */}
@@ -331,6 +361,160 @@ export default function ProfileScreen() {
         visible={showTransferModal}
         onClose={() => setShowTransferModal(false)}
       />
+
+      {/* Swap XLM → USDC Modal */}
+      <Modal
+        visible={showSwapModal}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => { setShowSwapModal(false); setSwapLoading(false); }}
+      >
+        <Pressable style={styles.backdrop} onPress={() => { setShowSwapModal(false); setSwapLoading(false); }}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <View style={styles.handle} />
+
+            <View style={styles.headerRow}>
+              <LinearGradient
+                colors={['hsl(150, 80%, 45%)', 'hsl(190, 80%, 50%)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.headerIcon}
+              >
+                <MaterialIcons name="swap-horiz" size={18} color="#fff" />
+              </LinearGradient>
+              <View style={styles.headerTextBlock}>
+                <Text style={styles.headerTitle}>Swap XLM → USDC</Text>
+                <View style={styles.networkBadge}>
+                  <View style={styles.networkDot} />
+                  <Text style={styles.networkText}>Stellar Testnet</Text>
+                </View>
+              </View>
+              <Pressable onPress={() => { setShowSwapModal(false); setSwapLoading(false); }} hitSlop={12} style={styles.closeBtn}>
+                <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
+              </Pressable>
+            </View>
+
+            {swapStep === "input" && (
+              <View style={styles.body2}>
+                <Text style={styles.fieldLabel}>Quanto USDC você quer receber?</Text>
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountDollar}>$</Text>
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="0.00"
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    value={swapAmount}
+                    onChangeText={setSwapAmount}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                    cursorColor={Accent.secondary}
+                  />
+                  <Text style={styles.amountAsset}>USDC</Text>
+                </View>
+
+                <View style={styles.warningRow}>
+                  <MaterialIcons name="info-outline" size={14} color={Colors.mutedForeground} />
+                  <Text style={styles.warningText}>
+                    Você trocará XLM pelo valor equivalente em USDC com base na liquidez disponível na testnet.
+                  </Text>
+                </View>
+
+                {swapError ? (
+                  <View style={styles.errorCard}>
+                    <MaterialIcons name="error-outline" size={18} color={Accent.destructive} />
+                    <Text style={[styles.errorMsg, { flex: 1 }]}>{swapError}</Text>
+                  </View>
+                ) : null}
+
+                <Pressable
+                  onPress={() => {
+                    playClick();
+                    const amt = swapAmount.trim().replace(',', '.');
+                    if (!amt || Number(amt) <= 0) {
+                      setSwapError("Informe um valor válido.");
+                      return;
+                    }
+                    setSwapError("");
+                    setSwapLoading(true);
+                    setSwapStep("signing");
+                    (async () => {
+                      try {
+                        const result = await swapXlmForUsdc(walletAddress!, amt);
+                        setSwapResult(result);
+                        await queryClient.invalidateQueries({ queryKey: walletKeys.balance(walletAddress!) });
+                        setSwapStep("success");
+                        playInvestirConfirmacao();
+                      } catch (err: any) {
+                        setSwapError(err instanceof SwapError ? err.message : (err?.message ?? "Erro ao realizar swap."));
+                        setSwapStep("input");
+                        playQuestaoErrada();
+                      } finally {
+                        setSwapLoading(false);
+                      }
+                    })();
+                  }}
+                  disabled={!swapAmount.trim() || swapLoading}
+                >
+                  <LinearGradient
+                    colors={['hsl(150, 80%, 45%)', 'hsl(190, 80%, 50%)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.confirmBtn, (!swapAmount.trim() || swapLoading) && styles.btnDisabled]}
+                  >
+                    <MaterialIcons name="swap-horiz" size={16} color="#fff" />
+                    <Text style={styles.confirmBtnText}>Iniciar Swap</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            )}
+
+            {swapStep === "signing" && (
+              <View style={styles.centerBody}>
+                <ActivityIndicator color={Accent.secondary} size="large" />
+                <Text style={styles.statusTitle}>Assine com sua biometria...</Text>
+                <Text style={styles.statusSub}>Use Face ID / Touch ID para autorizar a troca</Text>
+              </View>
+            )}
+
+            {swapStep === "success" && swapResult && (
+              <View style={styles.centerBody}>
+                <LinearGradient
+                  colors={[Accent.success, 'hsl(145, 70%, 38%)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.successIcon}
+                >
+                  <MaterialIcons name="check" size={36} color="#fff" />
+                </LinearGradient>
+                <Text style={styles.successTitle}>Swap realizado!</Text>
+                <Text style={styles.statusSub}>
+                  {swapResult.usdcReceived} USDC recebidos{'\n'}
+                  Gastou ~{Number(swapResult.xlmSpent).toFixed(2)} XLM (taxa: {swapResult.rate} XLM/USDC)
+                </Text>
+                {swapResult.hash ? (
+                  <Text style={styles.txHash} numberOfLines={1}>
+                    Tx: {swapResult.hash.slice(0, 12)}...{swapResult.hash.slice(-8)}
+                  </Text>
+                ) : null}
+                <Pressable
+                  onPress={() => { setShowSwapModal(false); setSwapLoading(false); }}
+                  style={{ alignSelf: 'stretch' }}
+                >
+                  <LinearGradient
+                    colors={[Accent.success, 'hsl(145, 70%, 38%)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.confirmBtn}
+                  >
+                    <Text style={styles.confirmBtnText}>Fechar</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -589,5 +773,215 @@ const styles = StyleSheet.create({
     fontSize: FontSize.bodySmall,
     fontFamily: Font.black,
     color: Accent.destructive,
+  },
+
+  // Swap Modal styles
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: Spacing[6],
+    paddingTop: Spacing[3],
+    paddingBottom: Spacing[8],
+    borderTopWidth: 1,
+    borderColor: Colors.border,
+    maxHeight: '92%',
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.muted,
+    alignSelf: 'center',
+    marginBottom: Spacing[4],
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  headerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  headerTextBlock: { flex: 1, gap: 4 },
+  headerTitle: {
+    fontSize: FontSize.body,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  networkBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.muted,
+    borderRadius: Radius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  networkDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'hsl(150, 80%, 45%)',
+  },
+  networkText: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Colors.mutedForeground,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.muted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  body2: { gap: Spacing[4] },
+  centerBody: {
+    alignItems: 'center',
+    gap: 16,
+    paddingVertical: Spacing[8],
+  },
+  statusTitle: {
+    fontSize: FontSize.subheading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+    textAlign: 'center',
+  },
+  statusSub: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  confirmBtn: {
+    height: 54,
+    borderRadius: Radius.lg,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  btnDisabled: { opacity: 0.35 },
+  confirmBtnText: {
+    color: '#fff',
+    fontSize: FontSize.body,
+    fontFamily: Font.black,
+  },
+  successIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successTitle: {
+    fontSize: FontSize.heading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  txHash: {
+    fontSize: FontSize.label,
+    fontFamily: Font.bold,
+    color: Colors.mutedForeground,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  balanceLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+  },
+  balanceValue: {
+    fontFamily: Font.black,
+    color: Colors.foreground,
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: Spacing[2],
+  },
+  amountDollar: {
+    fontSize: 36,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+    lineHeight: 46,
+  },
+  amountInput: {
+    minWidth: 60,
+    maxWidth: 200,
+    fontFamily: Font.black,
+    fontSize: 46,
+    color: Colors.foreground,
+    padding: 0,
+    lineHeight: 54,
+  },
+  amountAsset: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Colors.mutedForeground,
+    alignSelf: 'flex-end',
+    paddingBottom: 8,
+    marginLeft: 2,
+  },
+  fieldLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    backgroundColor: Colors.muted,
+    borderRadius: Radius.sm,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
+  },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(220,38,38,0.08)',
+    borderRadius: Radius.md,
+    padding: Spacing[3],
+    borderWidth: 1,
+    borderColor: 'rgba(220,38,38,0.2)',
+  },
+  errorMsg: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
   },
 });

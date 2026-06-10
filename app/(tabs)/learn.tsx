@@ -7,12 +7,21 @@ import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing } from
 import { TRILHA_LESSONS } from '@/constants/trilha';
 import { LessonPlayer } from '@/components/ui/LessonPlayer';
 import type { TrilhaLesson } from '@/constants/trilha';
+import { getLearningProgress, useLearningStore } from '@/lib/stores/learning.store';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function TrilhaScreen() {
   const insets = useSafeAreaInsets();
-  const [completedIds, setCompletedIds] = useState<number[]>([]);
-  const [totalXp, setTotalXp] = useState(0);
   const [openLesson, setOpenLesson] = useState<TrilhaLesson | null>(null);
+  const contractId = useAuthStore((state) => state.contractId);
+  const walletAddress = useAuthStore((state) => state.walletAddress);
+  const learningUserId = contractId ?? walletAddress;
+  const progress = useLearningStore((state) =>
+    getLearningProgress(state.progressByUser, learningUserId),
+  );
+  const completeLesson = useLearningStore((state) => state.completeLesson);
+  const completedIds = progress.completedLessonIds;
+  const totalXp = progress.totalXp;
 
   const trailDone = completedIds.length === TRILHA_LESSONS.length;
   const currentId = trailDone
@@ -26,9 +35,8 @@ export default function TrilhaScreen() {
   };
 
   const handleComplete = (xp: number) => {
-    if (!openLesson) return;
-    setCompletedIds((prev) => [...prev, openLesson.id]);
-    setTotalXp((prev) => prev + xp);
+    if (!openLesson || !learningUserId) return;
+    completeLesson(learningUserId, openLesson.id, xp);
     setOpenLesson(null);
   };
 
@@ -77,7 +85,7 @@ export default function TrilhaScreen() {
             <MaterialIcons name="workspace-premium" size={24} color={Accent.gold} />
             <View style={{ flex: 1 }}>
               <Text style={styles.bannerTitle}>Trilha concluída!</Text>
-              <Text style={styles.bannerSub}>Badge "Porquinho Iniciante" desbloqueado</Text>
+              <Text style={styles.bannerSub}>Badge &quot;Porquinho Iniciante&quot; desbloqueado</Text>
             </View>
           </View>
         )}

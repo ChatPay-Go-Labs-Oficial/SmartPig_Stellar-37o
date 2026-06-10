@@ -32,9 +32,9 @@ apiClient.interceptors.request.use(async (config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      useAuthStore.getState().clearAuth();
-    }
+    // A request can race Privy's session restoration during app startup. A 401
+    // must not erase the persisted session; AppGate reconciles explicit logout
+    // using Privy's restored user state.
     return Promise.reject(error);
   },
 );

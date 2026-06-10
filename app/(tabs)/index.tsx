@@ -60,7 +60,16 @@ function ActiveVaultRow({ vault, underlying }: { vault: Vault; underlying?: numb
 export default function HomeScreen() {
   const { data: vaults, refetch: refetchVaults } = useVaults();
   const walletAddress = useAuthStore((s) => s.walletAddress);
+  const lastSeenPigLevel = useAuthStore((s) =>
+    walletAddress ? s.lastSeenPigLevelByWallet[walletAddress] : undefined,
+  );
+  const setLastSeenPigLevel = useAuthStore((s) => s.setLastSeenPigLevel);
   const balances = useAllVaultBalances(walletAddress);
+  const balancesReady =
+    !!walletAddress &&
+    vaults !== undefined &&
+    balances.length === vaults.length &&
+    balances.every((balance) => balance.isSuccess && balance.isFetchedAfterMount);
 
   const totalInvested = useMemo(() => {
     let total = 0;
@@ -129,28 +138,36 @@ export default function HomeScreen() {
   const [oldLevelForAnim, setOldLevelForAnim] = useState<any>(null);
   const [newLevelForAnim, setNewLevelForAnim] = useState<any>(null);
   const [levelDirection, setLevelDirection] = useState<'up' | 'down'>('up');
-  const prevLevelLabel = useRef<string | null>(null);
 
   useEffect(() => {
-    if (totalInvested === 0 && !prevLevelLabel.current) {
-      prevLevelLabel.current = level.label;
+    if (!balancesReady || !walletAddress) return;
+
+    if (!lastSeenPigLevel) {
+      setLastSeenPigLevel(walletAddress, level.label);
       return;
     }
-    if (prevLevelLabel.current && prevLevelLabel.current !== level.label) {
-      const oldIdx = PIG_LEVELS.findIndex(p => p.label === prevLevelLabel.current);
-      const newIdx = PIG_LEVELS.findIndex(p => p.label === level.label);
-      const oldLevelObj = PIG_LEVELS[oldIdx >= 0 ? oldIdx : 0];
-      const newLevelObj = PIG_LEVELS[newIdx >= 0 ? newIdx : 0];
-      const direction = newIdx > oldIdx ? 'up' : 'down';
-      setOldLevelForAnim(oldLevelObj);
-      setNewLevelForAnim(newLevelObj);
-      setLevelDirection(direction);
-      setLevelUpModalVisible(true);
-      prevLevelLabel.current = level.label;
-    } else if (!prevLevelLabel.current) {
-      prevLevelLabel.current = level.label;
-    }
-  }, [level.label, totalInvested]);
+
+    if (lastSeenPigLevel === level.label) return;
+
+    const oldIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.label === lastSeenPigLevel);
+    const newIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.label === level.label);
+
+    // Persist before opening the modal so remounting the screen cannot replay it.
+    setLastSeenPigLevel(walletAddress, level.label);
+
+    if (oldIdx < 0 || newIdx < 0) return;
+
+    setOldLevelForAnim(PIG_LEVELS[oldIdx]);
+    setNewLevelForAnim(PIG_LEVELS[newIdx]);
+    setLevelDirection(newIdx > oldIdx ? 'up' : 'down');
+    setLevelUpModalVisible(true);
+  }, [
+    balancesReady,
+    lastSeenPigLevel,
+    level.label,
+    setLastSeenPigLevel,
+    walletAddress,
+  ]);
 
   useEffect(() => {
     const target = totalInvested;

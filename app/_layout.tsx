@@ -28,7 +28,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
@@ -86,30 +86,35 @@ export default function RootLayout() {
 }
 
 function AppGate() {
-  const { getAccessToken, isReady } = usePrivy();
+  const { getAccessToken, isReady, user } = usePrivy();
   const { signRawHash } = useSignRawHash();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hydrated = useAuthStore((s) => s._hydrated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [gateOpen, setGateOpen] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
-  const hasInitialized = useRef(false);
 
   useEffect(() => {
-    if (!isReady || !hydrated || hasInitialized.current) return;
-    hasInitialized.current = true;
+    if (!isReady || !hydrated) return;
 
     setTokenProvider(getAccessToken);
     setSignRawHashProvider(signRawHash);
 
-    (async () => {
-      const token = await getAccessToken();
-      if (isAuthenticated && !token) {
-        clearAuth();
-      }
-      setGateOpen(true);
-    })();
-  }, [isReady, hydrated]);
+    // `user` is restored from Privy's secure storage when `isReady` becomes true.
+    // Avoid treating a transient token refresh failure as an explicit logout.
+    if (isAuthenticated && !user) {
+      clearAuth();
+    }
+    setGateOpen(true);
+  }, [
+    clearAuth,
+    getAccessToken,
+    hydrated,
+    isAuthenticated,
+    isReady,
+    signRawHash,
+    user,
+  ]);
 
   useEffect(() => {
     if (!gateOpen) return;
@@ -121,7 +126,7 @@ function AppGate() {
     }
 
     requestAnimationFrame(() => setSplashDone(true));
-  }, [gateOpen]);
+  }, [gateOpen, isAuthenticated]);
 
   if (!splashDone) return <View style={styles.absoluteSplash} />;
 
