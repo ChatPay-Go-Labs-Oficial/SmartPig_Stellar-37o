@@ -6,12 +6,9 @@ DEMO: https://smartpigstellar.netlify.app/
 
 APP: https://expo.dev/artifacts/eas/2Xi-gvL4wtYjelSX1W-p6gQHXxyU8mQKxpTejxNdaqk.apk
 
-A **PigFi** é um aplicativo mobile de investimento em dólar criado para tornar o primeiro investimento simples, acessível e divertido. A proposta é permitir que pessoas que nunca investiram — ou que acham que investir é complicado, caro ou “coisa de rico” — consigam começar com valores baixos, usando uma experiência familiar, leve e gamificada.
+A **PigFi** é um aplicativo mobile de investimento em dólar criado para tornar o primeiro investimento simples, acessível e divertido. A proposta é permitir que pessoas que nunca investiram ou que acham que investir é complicado, caro ou “coisa de rico”, consigam começar com valores baixos, usando uma experiência familiar, leve e gamificada.
 
 Este repositório contém o **aplicativo mobile** da PigFi, desenvolvido em **React Native / Expo** e integrado à infraestrutura da rede **Stellar**.
-
-> Projeto desenvolvido em contexto de hackathon.  
-> O ambiente atual usa **testnet** e demonstra os fluxos técnicos possíveis dentro das limitações das integrações disponíveis para avaliação.
 
 ---
 
@@ -34,7 +31,7 @@ Na comunicação com o usuário final, a PigFi não se posiciona como um app cri
 
 ## Estado atual do projeto
 
-Esta versão representa o estado atual do produto para apresentação no hackathon.
+Esta versão representa o estado atual do produto
 
 O app mobile já demonstra:
 
@@ -77,29 +74,6 @@ Repositório do backend:
 ```txt
 https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend
 ```
-
----
-
-## Observação importante sobre Etherfuse, on/off ramp e testnet
-
-No desenho do produto, a PigFi usa infraestrutura de **on/off ramp** para permitir que o usuário entre e saia da experiência de investimento a partir de dinheiro local.
-
-No estado atual do hackathon, a integração considerada para ramp é a **Etherfuse**.
-
-Porém, existe uma limitação relevante no ambiente de avaliação:
-
-> Em ambiente de **testnet**, a Etherfuse não executa o fluxo completo de on/off ramp para terceiros integrados ao **DeFindex**.
-
-Isso significa que, para esta entrega, o app consegue demonstrar a arquitetura, a experiência mobile, a integração com Stellar, a preparação dos fluxos e a lógica de produto, mas o fluxo completo de dinheiro local → investimento em DeFindex → retirada via ramp depende de condições que não estão disponíveis em testnet para terceiros.
-
-Essa limitação não é uma ausência de intenção do produto, mas uma restrição do ambiente de integração durante o hackathon.
-
-Na prática, para avaliação:
-
-- o app deve ser testado como **MVP mobile em testnet**;
-- a experiência de produto e os fluxos de carteira/vault devem ser avaliados dentro do ambiente disponível;
-- o on/off ramp completo deve ser entendido como dependente da disponibilidade da integração em ambiente compatível;
-- em produção, o fluxo exigiria credenciais, ambiente habilitado, compliance e integração operacional completa com o provedor de ramp.
 
 ---
 

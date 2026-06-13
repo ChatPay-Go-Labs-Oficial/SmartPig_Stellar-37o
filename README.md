@@ -8,9 +8,9 @@ APP: https://expo.dev/artifacts/eas/2Xi-gvL4wtYjelSX1W-p6gQHXxyU8mQKxpTejxNdaqk.
 
 PigFi is a mobile investment app built for Brazilian first-time investors. It lets users start with small amounts, use a familiar Pix-based flow, and access dollar-denominated opportunities through an interface that feels simple, playful and safe instead of technical or intimidating.
 
-This repository contains the **mobile app** built with **Expo / React Native** and integrated with the PigFi backend, Stellar testnet infrastructure, wallet flows, and the current hackathon ramp architecture.
+This repository contains the **mobile app** built with **Expo / React Native** and integrated with the PigFi backend, Stellar mainnet infrastructure, wallet flows.
 
-> **Hackathon status:** this is a testnet MVP. It demonstrates the product experience, wallet connection, backend integration, Stellar/DeFindex investment flows and ramp architecture limitations in the current testnet environment. It is not a production financial product.
+> **Status:** this is a mainnet MVP. It demonstrates the product experience, wallet connection, backend integration, Stellar/DeFindex investment flows and ramp architecture limitations in the current mainnet environment. It is not a production financial product.
 
 ---
 
@@ -42,29 +42,8 @@ In the current hackathon version, PigFi demonstrates:
 - preparing investment/deposit flows;
 - preparing withdrawal flows;
 - communicating with the backend API;
-- using Stellar testnet infrastructure;
+- using Stellar mainnet infrastructure;
 - showing how a Pix-to-dollar investment flow would work in the product experience.
-
----
-
-## Important testnet limitation: Etherfuse on/off ramp
-
-PigFi uses **Etherfuse** in the current ramp architecture to represent the on/off ramp layer.
-
-However, in the current hackathon/testnet environment, **Etherfuse does not execute on-ramp or off-ramp operations to third-party DeFi protocols such as DeFindex**.
-
-Because of that, the app does **not** complete a full real-money Pix → USDC → DeFindex → USDC → Pix cycle in testnet.
-
-What the MVP demonstrates instead:
-
-1. the intended user experience for a Pix-based dollar investment app;
-2. the mobile/backend architecture required for the flow;
-3. Stellar wallet interaction in testnet;
-4. DeFindex vault integration through backend-generated unsigned XDRs;
-5. the separation between a user-friendly app experience and the blockchain/DeFi infrastructure underneath;
-6. the current external limitation of the ramp provider in testnet.
-
-This limitation is not a UX or app logic decision. It is an infrastructure constraint of the ramp environment available during the hackathon.
 
 ---
 
