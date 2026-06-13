@@ -19,6 +19,14 @@ export const useWithdrawals = () => {
     queryKey: withdrawalKeys.all(contractId ?? ''),
     queryFn: () => listWithdrawals(contractId!),
     enabled: !!contractId,
+    refetchInterval: (query) =>
+      query.state.data?.some((withdrawal) =>
+        ['CREATED', 'XDR_GENERATED', 'SIGNED_XDR_RECEIVED', 'SUBMITTED'].includes(
+          withdrawal.status,
+        ),
+      )
+        ? 5_000
+        : false,
   });
 };
 
@@ -28,7 +36,9 @@ export const useWithdrawal = (id: string) =>
     queryFn: () => getWithdrawal(id),
     enabled: !!id,
     refetchInterval: (query) =>
-      query.state.data?.status === 'PENDING' ? 5_000 : false,
+      query.state.data && query.state.data.status !== 'CONFIRMED' && query.state.data.status !== 'FAILED'
+        ? 5_000
+        : false,
   });
 
 export const useCreateWithdrawal = () => {
@@ -51,8 +61,14 @@ export const useCreateWithdrawal = () => {
   });
 };
 
-export const useSubmitWithdrawal = () =>
-  useMutation({
+export const useSubmitWithdrawal = () => {
+  const qc = useQueryClient();
+  return useMutation({
     mutationFn: ({ withdrawalId, signedXdr }: { withdrawalId: string; signedXdr: string }) =>
       submitSignedWithdrawal(withdrawalId, signedXdr),
+    onSuccess: () => {
+      const { contractId } = useAuthStore.getState();
+      qc.invalidateQueries({ queryKey: withdrawalKeys.all(contractId ?? '') });
+    },
   });
+};

@@ -8,10 +8,16 @@ export const apiClient = axios.create({
   timeout: 15_000,
 });
 
+const PUBLIC_ENDPOINTS = ['/auth/wallet'];
+
 apiClient.interceptors.request.use(async (config) => {
-  const token = await getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const isPublic = PUBLIC_ENDPOINTS.some(e => (config.url ?? '').includes(e));
+
+  if (!isPublic) {
+    const token = await getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
 
   const contractId = useAuthStore.getState().contractId;
@@ -26,9 +32,9 @@ apiClient.interceptors.request.use(async (config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      useAuthStore.getState().clearAuth();
-    }
+    // A request can race Privy's session restoration during app startup. A 401
+    // must not erase the persisted session; AppGate reconciles explicit logout
+    // using Privy's restored user state.
     return Promise.reject(error);
   },
 );

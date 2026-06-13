@@ -1,9 +1,9 @@
-import { IconSymbol, StarryBackground } from '@/components/ui';
+import { IconSymbol, PressableScale, StarryBackground } from '@/components/ui';
 import { FlashcardSwiper } from '@/components/ui/FlashcardSwiper';
 import { Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 export default function EducationScreen() {
   return (
@@ -18,9 +18,11 @@ export default function EducationScreen() {
 
         <View style={styles.headerContent}>
           <View style={styles.headerRow}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn}>
-              <IconSymbol name="chevron.right" size={24} color={Colors.foreground} style={{ transform: [{ rotate: '180deg' }] }} />
-            </Pressable>
+            <PressableScale onPress={() => router.back()}>
+              <View style={styles.backBtn}>
+                <IconSymbol name="chevron.right" size={24} color={Colors.foreground} style={{ transform: [{ rotate: '180deg' }] }} />
+              </View>
+            </PressableScale>
             <Text style={styles.headerTitle}>Educação DeFi</Text>
           </View>
           <Text style={styles.headerSub}>

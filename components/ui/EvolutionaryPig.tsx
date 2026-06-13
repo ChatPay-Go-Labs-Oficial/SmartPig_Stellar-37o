@@ -1,4 +1,13 @@
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 
 interface PigLevel {
   label: string;
@@ -29,18 +38,172 @@ export function getProgress(balance: number, level: PigLevel): number {
   return Math.min(100, ((balance - level.minBalance) / (next.minBalance - level.minBalance)) * 100);
 }
 
+function FloatingParticle({ color, size, index }: { color: string; size: number; index: number }) {
+  const translateY = useSharedValue(0);
+  const opacity = useSharedValue(0.3);
+  const scale = useSharedValue(0.8);
+
+  useEffect(() => {
+    translateY.value = withRepeat(
+      withSequence(
+        withTiming(-15 - Math.random() * 15, { duration: 1800 + Math.random() * 1000 }),
+        withTiming(0, { duration: 1800 + Math.random() * 1000 })
+      ),
+      -1,
+      true
+    );
+
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.9, { duration: 1200 + Math.random() * 800 }),
+        withTiming(0.3, { duration: 1200 + Math.random() * 800 })
+      ),
+      -1,
+      true
+    );
+
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.2, { duration: 1500 + Math.random() * 800 }),
+        withTiming(0.8, { duration: 1500 + Math.random() * 800 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const angle = (index * 2 * Math.PI) / 8;
+  const radius = size * 0.46;
+
+  const style = useAnimatedStyle(() => ({
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: color,
+    opacity: opacity.value,
+    left: size / 2 + radius * Math.cos(angle) - 3,
+    top: size / 2 + radius * Math.sin(angle) - 3,
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value }
+    ],
+  }));
+
+  return <Animated.View style={style} />;
+}
+
+export function FloatingParticles({ count = 8, color, size }: { count?: number; color: string; size: number }) {
+  return (
+    <View style={[StyleSheet.absoluteFill, { zIndex: 0 }]} pointerEvents="none">
+      {Array.from({ length: count }).map((_, i) => (
+        <FloatingParticle key={i} color={color} size={size} index={i} />
+      ))}
+    </View>
+  );
+}
+
 export function PigSVG({ level }: { level: PigLevel }) {
   const s = level.size;
   const cx = s / 2;
   const cy = s / 2;
   const r = s * 0.38;
 
+  // Animation values
+  const translateY = useSharedValue(0);
+  const rotation = useSharedValue(0);
+  const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.5);
+
+  const isCute = level.label === 'Porquinho Bebê' || level.label === 'Porquinho Esperto';
+  const isFierce = level.label === 'Porquinho Forte';
+  const isRoyal = level.label === 'Porquinho Dourado' || level.label === 'Porquinho Rei';
+
+  useEffect(() => {
+    const floatDist = isCute ? -6 : isFierce ? -4 : isRoyal ? -10 : -8;
+    const floatDuration = isRoyal ? 3000 : 2500;
+
+    // 1. Floating Animation
+    translateY.value = withRepeat(
+      withSequence(
+        withTiming(floatDist, { duration: floatDuration, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: floatDuration, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+
+    // 2. Wiggle/Scale Pulsing based on level
+    if (isCute) {
+      rotation.value = withRepeat(
+        withSequence(
+          withTiming(2, { duration: floatDuration, easing: Easing.inOut(Easing.ease) }),
+          withTiming(-2, { duration: floatDuration, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+      scale.value = 1;
+    } else if (isFierce) {
+      rotation.value = 0;
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(1.04, { duration: floatDuration, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: floatDuration, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    } else if (isRoyal) {
+      rotation.value = 0;
+      scale.value = withRepeat(
+        withSequence(
+          withTiming(1.02, { duration: floatDuration, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: floatDuration, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+
+      // Glow pulsing
+      glowOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.8, { duration: 1500, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.4, { duration: 1500, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    } else {
+      rotation.value = 0;
+      scale.value = 1;
+    }
+  }, [level, isCute, isFierce, isRoyal]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const transforms: any[] = [{ translateY: translateY.value }];
+    if (isCute) {
+      transforms.push({ rotate: `${rotation.value}deg` });
+    }
+    if (isFierce || isRoyal) {
+      transforms.push({ scale: scale.value });
+    }
+    return {
+      transform: transforms,
+    };
+  });
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
   return (
-    <View style={[styles.container, { width: s, height: s }]}>
+    <Animated.View style={[styles.container, { width: s, height: s }, animatedStyle]}>
       {level.minBalance >= 1000 && (
-        <View
+        <Animated.View
           style={[
             styles.glowRing,
+            glowStyle,
             {
               width: s * 1.2,
               height: s * 1.2,
@@ -51,6 +214,10 @@ export function PigSVG({ level }: { level: PigLevel }) {
             },
           ]}
         />
+      )}
+
+      {level.minBalance >= 1000 && (
+        <FloatingParticles color="#FFD700" size={s} />
       )}
 
       <View
@@ -307,7 +474,7 @@ export function PigSVG({ level }: { level: PigLevel }) {
           borderColor: 'rgba(255,255,255,0.2)',
         }}
       />
-    </View>
+    </Animated.View>
   );
 }
 

@@ -58,7 +58,8 @@
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -67,8 +68,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7d89858e-72fb-4da7-a855-141d7f46957b"
+        "projectId": "f5e62e9c-3e1f-4498-b7e7-8ee5367aeb03"
       }
-    }
+    },
+    "owner": "matheusbrasilaguiar"
   }
 }

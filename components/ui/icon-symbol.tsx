@@ -21,6 +21,16 @@ const MAPPING = {
   'chart.bar.fill': 'bar-chart',
   'clock.fill': 'history',
   'person.fill': 'person',
+  // Vault detail icons
+  'info.circle': 'info',
+  'info.circle.fill': 'info',
+  'chart.line.uptrend.xyaxis': 'trending-up',
+  'wallet.pass': 'account-balance-wallet',
+  'tag': 'label',
+  'percent': 'percent',
+  'arrow.up.forward.circle': 'open-in-new',
+  'exclamationmark.triangle': 'warning',
+  'plus.circle': 'add-circle-outline',
 } as IconMapping;
 
 /**

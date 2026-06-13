@@ -15,6 +15,7 @@ export interface AuthResponse {
     isActive: boolean;
   };
   isNewUser: boolean;
+  needsActivation: boolean;
 }
 
 export const walletLogin = async (stellarAddress: string): Promise<AuthResponse> => {

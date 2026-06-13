@@ -8,7 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   Keyboard,
+  Animated,
+  Image,
 } from "react-native";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,7 +22,6 @@ import {
   Gradients,
   Radius,
   Spacing,
-  Glow,
 } from "@/constants/theme";
 import {
   useCreateDeposit,
@@ -27,15 +29,32 @@ import {
 } from "@/lib/queries/deposits.queries";
 import { vaultKeys } from "@/lib/queries/vaults.queries";
 import { signXdr } from "@/lib/stellar/kit";
-import { PigSVG, getPigLevel } from "./EvolutionaryPig";
+import { useSound } from "@/hooks/use-sound";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useWalletBalance } from "@/lib/queries/wallets.queries";
+import { findUsdcBalance } from "@/lib/api/wallets";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
-const QUICK_VALUES = [10, 50, 100, 500];
+const QUICK_VALUES = [10, 50, 100];
+
+function friendlyError(raw: string): string {
+  const s = raw.toLowerCase();
+  if (s.includes('insufficient') || s.includes('balance') || s.includes('saldo') || s.includes('funds'))
+    return 'Saldo insuficiente na carteira. Deposite USDC via "Depositar Fundos" antes de investir.';
+  if (s.includes('network') || s.includes('timeout') || s.includes('econnrefused') || s.includes('fetch'))
+    return 'Erro de conexao. Verifique sua internet e tente novamente.';
+  if (s.includes('unauthorized') || s.includes('401') || s.includes('forbidden'))
+    return 'Sessao expirada. Saia e entre novamente no app.';
+  if (s.includes('minimum') || s.includes('minimo') || s.includes('min amount'))
+    return 'Valor abaixo do minimo permitido.';
+  return 'Nao foi possivel processar o investimento. Tente novamente em instantes.';
+}
 
 interface DepositModalProps {
   visible: boolean;
   vaultId: string;
   assetSymbol: string;
+  apyValue?: number;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -46,6 +65,7 @@ export function DepositModal({
   visible,
   vaultId,
   assetSymbol,
+  apyValue = 0,
   onClose,
   onSuccess,
 }: DepositModalProps) {
@@ -56,9 +76,15 @@ export function DepositModal({
   const createDeposit = useCreateDeposit();
   const submitDeposit = useSubmitDeposit();
   const qc = useQueryClient();
+  const { data: walletBalances } = useWalletBalance(walletAddress);
+  const usdcBalance = walletBalances ? findUsdcBalance(walletBalances) : "0";
 
-  const [showConfetti, setShowConfetti] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const { playClick, playInvestirConfirmacao, playInvestirCoin } = useSound();
+
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const floatLoop = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     const onShow = (e: any) => setKeyboardHeight(e.endCoordinates.height);
@@ -72,7 +98,35 @@ export function DepositModal({
     return () => subs.forEach((s) => s.remove());
   }, []);
 
-  const bottomPadding = keyboardHeight;
+  useEffect(() => {
+    if (step === "success") {
+      scaleAnim.setValue(0);
+      floatAnim.setValue(0);
+
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 7,
+        mass: 0.7,
+        stiffness: 130,
+      }).start();
+
+      floatLoop.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(floatAnim, { toValue: -12, duration: 1400, useNativeDriver: true }),
+          Animated.timing(floatAnim, { toValue: 0,   duration: 1400, useNativeDriver: true }),
+        ])
+      );
+      floatLoop.current.start();
+
+      playInvestirConfirmacao();
+      setTimeout(() => playInvestirCoin(), 350);
+      setTimeout(() => playInvestirCoin(), 800);
+      setTimeout(() => playInvestirCoin(), 1200);
+    } else {
+      floatLoop.current?.stop();
+    }
+  }, [step]);
 
   const handleConfirm = async () => {
     const value = parseFloat(amount);
@@ -80,11 +134,7 @@ export function DepositModal({
     setError("");
     setStep("processing");
     try {
-      const result = await createDeposit.mutateAsync({
-        vaultId,
-        amount: value,
-        assetSymbol,
-      });
+      const result = await createDeposit.mutateAsync({ vaultId, amount: value, assetSymbol });
 
       if (!result.unsignedXdr) {
         setError("Falha ao gerar transação. Tente novamente.");
@@ -99,31 +149,28 @@ export function DepositModal({
       await submitDeposit.mutateAsync({ depositId: result.id, signedXdr });
 
       setStep("success");
-      setShowConfetti(true);
       qc.invalidateQueries({ queryKey: vaultKeys.all });
       if (walletAddress) {
-        qc.invalidateQueries({
-          queryKey: vaultKeys.balance(vaultId, walletAddress),
-        });
+        qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, walletAddress) });
       }
-      setTimeout(() => {
-        setShowConfetti(false);
-        setStep("input");
-        setAmount("");
-        onClose();
-        onSuccess?.();
-      }, 2500);
     } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          e?.message ||
-          "Erro ao processar depósito",
-      );
+      setError(e?.response?.data?.message || e?.message || "Erro ao processar depósito");
       setStep("input");
     }
   };
 
-  const level = getPigLevel(parseFloat(amount || "0"));
+  const handleClose = () => {
+    setStep("input");
+    setAmount("");
+    setError("");
+    onClose();
+    onSuccess?.();
+  };
+
+  const amountNum = parseFloat(amount || "0");
+  const annualYield = amountNum * (apyValue / 100);
+  const isConfirmEnabled = !!amount && amountNum > 0;
+  const isBlocked = step === "processing" || step === "signing" || step === "submitting";
 
   return (
     <Modal
@@ -131,82 +178,74 @@ export function DepositModal({
       transparent
       animationType="slide"
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={isBlocked ? undefined : handleClose}
     >
-      <Pressable
-        style={styles.backdrop}
-        onPress={
-          step !== "processing" && step !== "signing" && step !== "submitting"
-            ? onClose
-            : undefined
-        }
-      >
-        <View style={{ paddingBottom: bottomPadding }}>
+      <Pressable style={styles.backdrop} onPress={isBlocked ? undefined : handleClose}>
+        <View style={{ paddingBottom: keyboardHeight }}>
           <Pressable style={styles.sheet} onPress={() => {}}>
-            {showConfetti && (
-              <View style={styles.confettiLayer} pointerEvents="none">
-                {["🎉", "✨", "⭐", "💫", "🌟"].map((e, i) => (
-                  <Text
-                    key={i}
-                    style={[
-                      styles.confetti,
-                      { left: 20 + i * 60, top: 10 + Math.random() * 40 },
-                    ]}
-                  >
-                    {e}
-                  </Text>
-                ))}
-              </View>
-            )}
-
             <View style={styles.handle} />
+
+            {/* ── Header ── */}
             <View style={styles.headerRow}>
-              <View
-                style={[
-                  styles.headerIcon,
-                  { backgroundColor: "hsla(320, 90%, 58%, 0.15)" },
-                ]}
-              >
-                <Text style={styles.headerIconText}>↓</Text>
+              <View style={styles.headerIcon}>
+                <MaterialIcons name="arrow-downward" size={20} color={Accent.primary} />
               </View>
-              <Text style={styles.headerTitle}>Depositar via Stellar</Text>
+              <View style={styles.headerTextBlock}>
+                <Text style={styles.headerTitle}>Investir no porquinho</Text>
+                {apyValue > 0 && (
+                  <Text style={styles.headerSub}>
+                    Porquinho do PigFi · {apyValue.toFixed(2).replace(".", ",")}%/ano
+                  </Text>
+                )}
+              </View>
+              {!isBlocked && (
+                <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
+                  <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
+                </Pressable>
+              )}
             </View>
 
+            {/* ── Input step ── */}
             {step === "input" && (
               <View style={styles.body}>
-                <Text style={styles.label}>Valor em {assetSymbol}</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="0,00"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                  cursorColor="transparent"
-                />
+                <Text style={styles.availableLabel}>
+                  Disponível na carteira:{" "}
+                  <Text style={styles.availableValue}>${usdcBalance}</Text>
+                </Text>
 
+                {/* Big amount */}
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountDollar}>$</Text>
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="0,00"
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    value={amount}
+                    onChangeText={setAmount}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                    cursorColor={Accent.primary}
+                  />
+                </View>
+
+                {/* Quick chips */}
                 <View style={styles.quickRow}>
                   {QUICK_VALUES.map((v) => {
                     const isActive = amount === String(v);
                     return (
                       <Pressable
                         key={v}
-                        onPress={() => setAmount(String(v))}
+                        onPress={() => { playClick(); setAmount(String(v)); }}
                         style={{ flex: 1 }}
                       >
                         {isActive ? (
                           <LinearGradient
-                            colors={Gradients.hot}
+                            colors={Gradients.primary}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={[styles.quickBtn, styles.quickBtnActive]}
                           >
-                            <Text
-                              style={[styles.quickText, styles.quickTextActive]}
-                            >
-                              ${v}
-                            </Text>
+                            <Text style={[styles.quickText, styles.quickTextActive]}>${v}</Text>
                           </LinearGradient>
                         ) : (
                           <View style={styles.quickBtn}>
@@ -216,36 +255,65 @@ export function DepositModal({
                       </Pressable>
                     );
                   })}
+                  {/* Tudo */}
+                  <Pressable
+                    onPress={() => { playClick(); setAmount(usdcBalance); }}
+                    style={{ flex: 1 }}
+                  >
+                    {amount === usdcBalance && usdcBalance !== "0" ? (
+                      <LinearGradient
+                        colors={Gradients.primary}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.quickBtn, styles.quickBtnActive]}
+                      >
+                        <Text style={[styles.quickText, styles.quickTextActive]}>Tudo</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={styles.quickBtn}>
+                        <Text style={styles.quickText}>Tudo</Text>
+                      </View>
+                    )}
+                  </Pressable>
                 </View>
 
-                {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+                {/* Yield estimate */}
+                <Text style={styles.yieldLabel}>
+                  Rende cerca de{" "}
+                  <Text style={styles.yieldValue}>${annualYield.toFixed(2)}</Text>
+                  {" "}por ano
+                </Text>
 
+                {errorMsg ? (
+                  <View style={styles.errorCard}>
+                    <MaterialIcons name="error-outline" size={18} color={Accent.destructive} />
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.errorCardTitle}>Ops, algo deu errado</Text>
+                      <Text style={styles.errorCardMsg}>{friendlyError(errorMsg)}</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Confirm */}
                 <Pressable
-                  onPress={handleConfirm}
-                  disabled={!amount || parseFloat(amount) <= 0}
+                  onPress={() => { playClick(); handleConfirm(); }}
+                  disabled={!isConfirmEnabled}
                   style={{ alignSelf: "stretch" }}
                 >
                   <LinearGradient
-                    colors={Gradients.hot}
+                    colors={Gradients.primary}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.confirmBtn,
-                      (!amount || parseFloat(amount) <= 0) &&
-                        styles.btnDisabled,
-                    ]}
+                    style={[styles.confirmBtn, !isConfirmEnabled && styles.btnDisabled]}
                   >
-                    <Text style={styles.confirmBtnText}>
-                      Confirmar Depósito
-                    </Text>
+                    <Text style={styles.confirmBtnText}>Confirmar investimento</Text>
                   </LinearGradient>
                 </Pressable>
               </View>
             )}
 
-            {(step === "processing" ||
-              step === "signing" ||
-              step === "submitting") && (
+            {/* ── Processing / signing / submitting ── */}
+            {isBlocked && (
               <View style={styles.centerBody}>
                 <ActivityIndicator color={Accent.primary} size="large" />
                 <Text style={styles.statusTitle}>
@@ -255,23 +323,44 @@ export function DepositModal({
                 </Text>
                 <Text style={styles.statusSub}>
                   {step === "processing" && "Preparando depósito no vault"}
-                  {step === "signing" &&
-                    "Use Face ID / Touch ID para autorizar"}
+                  {step === "signing" && "Use Face ID / Touch ID para autorizar"}
                   {step === "submitting" && "Transação em menos de 1s ⚡"}
                 </Text>
               </View>
             )}
 
+            {/* ── Success ── */}
             {step === "success" && (
               <View style={styles.centerBody}>
-                <View style={styles.checkCircle}>
-                  <Text style={styles.checkMark}>✓</Text>
-                </View>
-                <Text style={styles.statusTitle}>Confirmado na Stellar ⚡</Text>
+                <Animated.View style={{
+                  transform: [
+                    { scale: scaleAnim },
+                    { translateY: floatAnim },
+                  ],
+                }}>
+                  <Image
+                    source={require("@/assets/images/pigfi_investir_porquinho.png")}
+                    style={styles.successPig}
+                    resizeMode="contain"
+                  />
+                </Animated.View>
+                <Text style={styles.successTitle}>Investimento feito!</Text>
                 <Text style={styles.statusSub}>
-                  ${amount} adicionados ao vault
+                  ${amount} já estão no seu porquinho,{"\n"}rendendo todo dia.
                 </Text>
-                <PigSVG level={level} />
+                <Pressable
+                  onPress={() => { handleClose(); router.navigate("/(tabs)"); }}
+                  style={{ alignSelf: "stretch" }}
+                >
+                  <LinearGradient
+                    colors={Gradients.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.confirmBtn}
+                  >
+                    <Text style={styles.confirmBtnText}>Ir para início</Text>
+                  </LinearGradient>
+                </Pressable>
               </View>
             )}
           </Pressable>
@@ -284,13 +373,13 @@ export function DepositModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.65)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "flex-end",
   },
   sheet: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     paddingHorizontal: Spacing[6],
     paddingTop: Spacing[3],
     paddingBottom: Spacing[8],
@@ -305,14 +394,6 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: Spacing[4],
   },
-  confettiLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 100,
-  },
-  confetti: {
-    position: "absolute",
-    fontSize: 16,
-  },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -320,49 +401,78 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[6],
   },
   headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "rgba(244,52,180,0.15)",
     justifyContent: "center",
     alignItems: "center",
+    flexShrink: 0,
   },
-  headerIconText: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: Accent.primary,
-    fontFamily: Font.black,
+  headerTextBlock: {
+    flex: 1,
+    gap: 3,
   },
   headerTitle: {
-    fontSize: FontSize.subheading,
+    fontSize: FontSize.body,
     fontFamily: Font.black,
     color: Colors.foreground,
+  },
+  headerSub: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.muted,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
   body: {
     gap: Spacing[4],
   },
-  label: {
+  availableLabel: {
     fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
+    fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
+    textAlign: "center",
+  },
+  availableValue: {
+    fontFamily: Font.bold,
+    color: Colors.foreground,
+  },
+  amountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    paddingVertical: Spacing[2],
+  },
+  amountDollar: {
+    fontSize: 38,
+    fontFamily: Font.black,
+    color: Colors.foreground,
+    lineHeight: 48,
   },
   amountInput: {
-    height: 56,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.muted,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    color: Colors.foreground,
+    minWidth: 60,
+    maxWidth: 240,
     fontFamily: Font.black,
-    fontSize: 28,
-    textAlign: "center",
-    paddingHorizontal: 16,
+    fontSize: 48,
+    color: Colors.foreground,
+    padding: 0,
+    lineHeight: 56,
   },
   quickRow: {
     flexDirection: "row",
     gap: 8,
   },
   quickBtn: {
-    height: 40,
+    height: 42,
     borderRadius: Radius.md,
     backgroundColor: Colors.muted,
     borderWidth: 1,
@@ -382,30 +492,54 @@ const styles = StyleSheet.create({
   quickTextActive: {
     color: "#fff",
   },
+  yieldLabel: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    textAlign: "center",
+  },
+  yieldValue: {
+    fontFamily: Font.black,
+    color: Accent.success,
+  },
   confirmBtn: {
-    height: 52,
+    height: 54,
     borderRadius: Radius.lg,
     justifyContent: "center",
     alignItems: "center",
   },
   btnDisabled: {
-    opacity: 0.5,
+    opacity: 0.35,
   },
   confirmBtnText: {
     color: "#fff",
     fontSize: FontSize.body,
     fontFamily: Font.black,
-    fontWeight: "900",
   },
-  errorText: {
+  errorCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "rgba(220,38,38,0.08)",
+    borderRadius: Radius.md,
+    padding: Spacing[3],
+    borderWidth: 1,
+    borderColor: "rgba(220,38,38,0.2)",
+  },
+  errorCardTitle: {
     fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
     color: Accent.destructive,
-    fontFamily: Font.regular,
-    textAlign: "center",
+  },
+  errorCardMsg: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    lineHeight: 18,
   },
   centerBody: {
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     paddingVertical: Spacing[8],
   },
   statusTitle: {
@@ -414,24 +548,21 @@ const styles = StyleSheet.create({
     color: Colors.foreground,
     textAlign: "center",
   },
-  statusSub: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
+  successTitle: {
+    fontSize: FontSize.heading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
     textAlign: "center",
   },
-  checkCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Accent.success,
-    justifyContent: "center",
-    alignItems: "center",
-    ...Glow.green,
+  statusSub: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    textAlign: "center",
+    lineHeight: 22,
   },
-  checkMark: {
-    fontSize: 32,
-    color: "#fff",
-    fontFamily: Font.black,
+  successPig: {
+    width: 200,
+    height: 200,
   },
 });

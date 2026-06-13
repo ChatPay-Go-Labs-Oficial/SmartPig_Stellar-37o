@@ -1,55 +1,99 @@
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useWithdrawals } from '@/lib/queries/withdrawals.queries';
+import { useAuthStore } from '@/lib/stores/auth.store';
+import { useUsdcTransfers } from '@/lib/queries/wallets.queries';
 
-type TxType = 'deposit' | 'withdrawal';
+type TxType = 'deposit' | 'withdrawal' | 'transfer-sent' | 'transfer-received';
 
 interface TxItem {
   id: string;
   type: TxType;
-  amount: string;
+  amount: number;
   status: string;
   createdAt: string;
-}
-
-function iconConfig(type: TxType) {
-  if (type === 'deposit') {
-    return { icon: '↓', color: Accent.success, bg: 'rgba(25,213,96,0.15)', label: 'Depósito' };
-  }
-  return { icon: '↑', color: Accent.destructive, bg: 'rgba(239,68,68,0.15)', label: 'Saque' };
+  counterparty?: string;
+  hash?: string;
 }
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (isNaN(d.getTime())) return '-';
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-function statusText(status: string): string {
-  if (status === 'CONFIRMED') return '✓ Concluído';
-  if (status === 'PENDING') return '⏳ Pendente';
-  if (status === 'FAILED') return '✗ Falhou';
-  return status;
+function statusConfig(status: string) {
+  const s = (status ?? '').toUpperCase();
+  if (s === 'CONFIRMED' || s === 'COMPLETED' || s === 'SUCCESS' || s === 'APPROVED')
+    return { icon: 'check-circle' as const, color: Accent.success,      label: 'Concluído' };
+  if (s === 'PENDING' || s === 'PROCESSING' || s === 'IN_PROGRESS' || s === 'SUBMITTED' || s === 'XDR_GENERATED')
+    return { icon: 'schedule' as const,     color: Accent.accent,        label: 'Pendente'  };
+  if (s === 'FAILED' || s === 'ERROR' || s === 'CANCELLED' || s === 'CANCELED' || s === 'REJECTED')
+    return { icon: 'cancel' as const,       color: Accent.destructive,   label: 'Falhou'    };
+  // desconhecido — mostra o valor bruto para debug
+  return   { icon: 'help-outline' as const, color: Colors.mutedForeground, label: status || '?' };
 }
 
 function TxRow({ item }: { item: TxItem }) {
-  const cfg = iconConfig(item.type);
+  const isIncoming = item.type === 'deposit' || item.type === 'transfer-received';
+  const isTransfer = item.type === 'transfer-sent' || item.type === 'transfer-received';
+  const amountColor = isIncoming ? Accent.success : Accent.destructive;
+  const iconBg = isIncoming ? 'rgba(25,213,96,0.12)' : 'rgba(239,68,68,0.12)';
+  const iconColor = amountColor;
+  const status = statusConfig(item.status);
+  const amountDisplay = isFinite(item.amount) ? item.amount.toFixed(2) : '0.00';
+  const title = item.type === 'deposit'
+    ? 'Investimento'
+    : item.type === 'withdrawal'
+      ? 'Saque'
+      : item.type === 'transfer-sent'
+        ? 'USDC enviado'
+        : 'USDC recebido';
+  const subtitle = isTransfer && item.counterparty
+    ? `${item.counterparty.slice(0, 6)}...${item.counterparty.slice(-6)} · ${formatDate(item.createdAt)}`
+    : formatDate(item.createdAt);
+
   return (
     <View style={styles.txCard}>
       <View style={styles.txRow}>
-        <View style={[styles.txIcon, { backgroundColor: cfg.bg }]}>
-          <Text style={[styles.txIconText, { color: cfg.color }]}>{cfg.icon}</Text>
+        {/* Icon */}
+        <View style={[styles.txIconWrap, { backgroundColor: iconBg }]}>
+          <MaterialIcons
+            name={isIncoming ? 'arrow-downward' : 'arrow-upward'}
+            size={20}
+            color={iconColor}
+          />
         </View>
+
+        {/* Info */}
         <View style={styles.txInfo}>
-          <Text style={styles.txType}>{cfg.label}</Text>
-          <Text style={styles.txDate}>{formatDate(item.createdAt)}</Text>
+          <Text style={styles.txType}>{title}</Text>
+          <Text style={styles.txDate} numberOfLines={1}>{subtitle}</Text>
+          {isTransfer && item.hash ? (
+            <Text style={styles.txHash} numberOfLines={1}>
+              Tx: {item.hash.slice(0, 8)}...{item.hash.slice(-6)}
+            </Text>
+          ) : null}
         </View>
+
+        {/* Amount + Status */}
         <View style={styles.txRight}>
-          <Text style={[styles.txAmount, { color: item.type === 'withdrawal' ? Accent.destructive : Accent.success }]}>
-            {item.type === 'withdrawal' ? '-' : '+'}R$ {parseFloat(item.amount || '0').toFixed(2)}
+          <Text style={[styles.txAmount, { color: amountColor }]}>
+            {isIncoming ? '+' : '-'}${amountDisplay}
           </Text>
-          <Text style={styles.txStatus}>{statusText(item.status)}</Text>
+          <View style={styles.txStatusRow}>
+            <MaterialIcons name={status.icon} size={11} color={status.color} />
+            <Text style={[styles.txStatusText, { color: status.color }]}>{status.label}</Text>
+          </View>
         </View>
       </View>
     </View>
@@ -57,8 +101,10 @@ function TxRow({ item }: { item: TxItem }) {
 }
 
 export default function HistoryScreen() {
+  const walletAddress = useAuthStore((s) => s.walletAddress);
   const { data: deposits, isLoading: dLoading } = useDeposits();
   const { data: withdrawals, isLoading: wLoading } = useWithdrawals();
+  const { data: transfers } = useUsdcTransfers(walletAddress);
 
   const isLoading = dLoading || wLoading;
 
@@ -66,31 +112,38 @@ export default function HistoryScreen() {
     ...(deposits ?? []).map((d) => ({
       id: d.id,
       type: 'deposit' as TxType,
-      amount: String(d.amount),
+      amount: typeof d.amount === 'number' ? d.amount : parseFloat(String(d.amount ?? 0)),
       status: d.status,
       createdAt: d.createdAt,
     })),
     ...(withdrawals ?? []).map((w) => ({
       id: w.id,
       type: 'withdrawal' as TxType,
-      amount: String(w.shares),
+      amount: typeof w.shares === 'number' ? w.shares : parseFloat(String(w.shares ?? 0)),
       status: w.status,
       createdAt: w.createdAt,
+    })),
+    ...(transfers ?? []).map((transfer) => ({
+      id: transfer.id,
+      type: (transfer.direction === 'sent' ? 'transfer-sent' : 'transfer-received') as TxType,
+      amount: transfer.amount,
+      status: 'CONFIRMED',
+      createdAt: transfer.createdAt,
+      counterparty: transfer.counterparty,
+      hash: transfer.hash,
     })),
   ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
     <View style={styles.screen}>
+      {/* Header */}
       <LinearGradient
-        colors={['hsla(320, 90%, 58%, 0.2)', 'hsla(270, 80%, 60%, 0.2)']}
+        colors={Gradients.primary}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
       >
-        <View style={styles.headerRow}>
-          <Text style={styles.headerIcon}>🕐</Text>
-          <Text style={styles.headerTitle}>Histórico</Text>
-        </View>
+        <Text style={styles.headerTitle}>Histórico</Text>
         <Text style={styles.headerSub}>Suas transações recentes</Text>
       </LinearGradient>
 
@@ -98,13 +151,17 @@ export default function HistoryScreen() {
         {isLoading && (
           <View style={styles.centered}>
             <ActivityIndicator color={Accent.primary} size="large" />
+            <Text style={styles.loadingText}>Carregando transações...</Text>
           </View>
         )}
 
         {!isLoading && txList.length === 0 && (
           <View style={styles.centered}>
+            <View style={styles.emptyIconWrap}>
+              <MaterialIcons name="inbox" size={36} color={Colors.mutedForeground} />
+            </View>
             <Text style={styles.emptyTitle}>Nenhuma transação ainda</Text>
-            <Text style={styles.emptySub}>Faça seu primeiro depósito!</Text>
+            <Text style={styles.emptySub}>Faça seu primeiro investimento!</Text>
           </View>
         )}
 
@@ -127,41 +184,40 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+
+  // Header
   header: {
-    paddingHorizontal: Spacing[6],
-    paddingTop: 56,
-    paddingBottom: Spacing[6],
+    paddingHorizontal: 24,
+    paddingTop: 48,
+    paddingBottom: 32,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerIcon: {
-    fontSize: 24,
+    marginBottom: Spacing[4],
   },
   headerTitle: {
-    fontSize: FontSize.heading,
+    fontSize: FontSize.displaySm,
     fontFamily: Font.black,
-    color: Colors.foreground,
+    color: '#fff',
   },
   headerSub: {
-    fontSize: FontSize.bodySmall,
-    color: Colors.mutedForeground,
+    fontSize: FontSize.body,
     fontFamily: Font.semiBold,
-    marginTop: 4,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: Spacing[1],
   },
+
+  // Body
   body: {
     flex: 1,
     paddingHorizontal: Spacing[4],
     paddingTop: Spacing[4],
   },
   list: {
-    gap: 10,
+    gap: 8,
     paddingBottom: 100,
   },
+
+  // Transaction card
   txCard: {
     backgroundColor: Colors.card,
     borderRadius: Radius.lg,
@@ -174,20 +230,17 @@ const styles = StyleSheet.create({
     padding: Spacing[4],
     gap: 12,
   },
-  txIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  txIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  txIconText: {
-    fontSize: 20,
-    fontFamily: Font.black,
+    flexShrink: 0,
   },
   txInfo: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   txType: {
     fontSize: FontSize.bodySmall,
@@ -196,36 +249,61 @@ const styles = StyleSheet.create({
   },
   txDate: {
     fontSize: FontSize.label,
-    fontFamily: Font.regular,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+  },
+  txHash: {
+    fontSize: 10,
+    fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
   },
   txRight: {
     alignItems: 'flex-end',
-    gap: 2,
+    gap: 4,
   },
   txAmount: {
     fontSize: FontSize.bodySmall,
     fontFamily: Font.black,
   },
-  txStatus: {
-    fontSize: 10,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
+  txStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
+  txStatusText: {
+    fontSize: 10,
+    fontFamily: Font.bold,
+  },
+
+  // Empty / loading states
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+  },
+  emptyIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.muted,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   emptyTitle: {
     fontSize: FontSize.body,
     fontFamily: Font.bold,
-    color: Colors.mutedForeground,
+    color: Colors.foreground,
   },
   emptySub: {
     fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
+    fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
   },
 });
