@@ -19,6 +19,14 @@ export const useDeposits = () => {
     queryKey: depositKeys.all(contractId ?? ''),
     queryFn: () => listDeposits(contractId!),
     enabled: !!contractId,
+    refetchInterval: (query) =>
+      query.state.data?.some((deposit) =>
+        ['CREATED', 'XDR_GENERATED', 'SIGNED_XDR_RECEIVED', 'SUBMITTED'].includes(
+          deposit.status,
+        ),
+      )
+        ? 5_000
+        : false,
   });
 };
 
@@ -28,7 +36,9 @@ export const useDeposit = (id: string) =>
     queryFn: () => getDeposit(id),
     enabled: !!id,
     refetchInterval: (query) =>
-      query.state.data?.status === 'PENDING' ? 5_000 : false,
+      query.state.data && query.state.data.status !== 'CONFIRMED' && query.state.data.status !== 'FAILED'
+        ? 5_000
+        : false,
   });
 
 export const useCreateDeposit = () => {
@@ -55,8 +65,14 @@ export const useCreateDeposit = () => {
   });
 };
 
-export const useSubmitDeposit = () =>
-  useMutation({
+export const useSubmitDeposit = () => {
+  const qc = useQueryClient();
+  return useMutation({
     mutationFn: ({ depositId, signedXdr }: { depositId: string; signedXdr: string }) =>
       submitSignedDeposit(depositId, signedXdr),
+    onSuccess: () => {
+      const { contractId } = useAuthStore.getState();
+      qc.invalidateQueries({ queryKey: depositKeys.all(contractId ?? '') });
+    },
   });
+};

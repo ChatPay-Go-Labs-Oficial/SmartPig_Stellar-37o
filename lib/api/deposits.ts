@@ -4,7 +4,13 @@ export interface Deposit {
   id: string;
   vaultId: string;
   amount: number;
-  status: 'PENDING' | 'CONFIRMED' | 'FAILED';
+  status:
+    | 'CREATED'
+    | 'XDR_GENERATED'
+    | 'SIGNED_XDR_RECEIVED'
+    | 'SUBMITTED'
+    | 'CONFIRMED'
+    | 'FAILED';
   unsignedXdr?: string;
   createdAt: string;
 }

@@ -1,6 +1,7 @@
 import { ScreenContainer } from '@/components/layout';
 import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, PressableScale } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Glow, Spacing } from '@/constants/theme';
+import { normalizeStellarAmount } from '@/lib/api/vaults';
 import { useVault, useVaultApy, useVaultBalance, vaultKeys } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useQueryClient } from '@tanstack/react-query';
@@ -146,7 +147,7 @@ export default function VaultDetailScreen() {
     );
   }
 
-  const vaultBalance = balanceData?.underlyingBalance?.[0] ?? balanceData?.dfTokens ?? '0';
+  const vaultBalance = balanceData?.underlyingBalance?.[0] ?? '0';
   const hasInvestment = parseFloat(vaultBalance) > 0;
 
   return (
@@ -211,7 +212,7 @@ export default function VaultDetailScreen() {
                 <View style={styles.sharesRow}>
                   <IconSymbol name="tag" size={12} color={Colors.mutedForeground} />
                   <Text style={styles.sharesHint}>
-                    {balanceData.dfTokens} cotas do fundo
+                    {formatFriendlyAmount(normalizeStellarAmount(balanceData.dfTokens))} cotas do fundo
                   </Text>
                 </View>
               )}

@@ -194,7 +194,7 @@ function VaultFeatured({ vault }: { vault: Vault }) {
   const { data: balanceData } = useVaultBalance(vault.id, walletAddress);
   const { data: apyData } = useVaultApy(vault.id);
   const apyValue = apyData?.apy ?? (vault.apy ? parseFloat(vault.apy) : 0);
-  const vaultBalance = balanceData?.underlyingBalance?.[0] ?? balanceData?.dfTokens ?? '0';
+  const vaultBalance = balanceData?.underlyingBalance?.[0] ?? '0';
   const hasBalance = parseFloat(vaultBalance) > 0;
   const walletBalance = useWalletBalance(walletAddress);
   const dailyEarnings = hasBalance ? parseFloat(vaultBalance) * (apyValue / 100) / 365 : 0;
