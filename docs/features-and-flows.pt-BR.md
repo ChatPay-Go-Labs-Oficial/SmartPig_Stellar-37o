@@ -33,6 +33,7 @@ As telas antigas de criacao/conexao de carteira continuam no grupo de autenticac
 - A aba **Investir** lista vaults retornados pelo backend.
 - O detalhe consulta informacoes, APY e saldo da carteira.
 - Depositos e saques criam intencoes idempotentes no backend.
+- Saques exigem biometria local antes de criar a intencao quando o aparelho possui biometria cadastrada.
 - XDRs retornados sao assinados no cliente sem compartilhar chave privada.
 - Operacoes intermediarias recebem polling enquanto aguardam confirmacao.
 - Saldos subjacentes sao convertidos de unidades atomicas Stellar; shares de saque permanecem brutas.

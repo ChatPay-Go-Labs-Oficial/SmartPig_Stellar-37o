@@ -13,12 +13,12 @@ setAudioModeAsync({
 import { PrivyProvider, usePrivy } from '@privy-io/expo';
 import { useSignRawHash } from '@privy-io/expo/extended-chains';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as LocalAuthentication from 'expo-local-authentication';
 
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { setTokenProvider } from '@/lib/api/token';
 import { setSignRawHashProvider } from '@/lib/stellar/signer';
+import { authenticateWithDeviceBiometrics } from '@/lib/security/biometrics';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Nunito_400Regular,
@@ -110,31 +110,17 @@ function AppGate() {
     setBiometricMessage('');
 
     try {
-      const [hasHardware, isEnrolled] = await Promise.all([
-        LocalAuthentication.hasHardwareAsync(),
-        LocalAuthentication.isEnrolledAsync(),
-      ]);
-
-      if (!hasHardware || !isEnrolled) {
-        setBiometricLocked(false);
-        return;
-      }
-
-      const result = await LocalAuthentication.authenticateAsync({
+      const result = await authenticateWithDeviceBiometrics({
         promptMessage: 'Confirme que é você',
         promptSubtitle: 'Acesse sua conta PigFi',
         promptDescription: 'Use a biometria configurada neste aparelho.',
-        cancelLabel: 'Cancelar',
-        fallbackLabel: '',
-        disableDeviceFallback: true,
-        biometricsSecurityLevel: 'weak',
       });
 
       if (result.success) {
         setBiometricLocked(false);
       } else {
         setBiometricLocked(true);
-        setBiometricMessage('Não foi possível confirmar sua identidade. Tente novamente.');
+        setBiometricMessage(result.message ?? 'Não foi possível confirmar sua identidade. Tente novamente.');
       }
     } catch {
       setBiometricLocked(false);

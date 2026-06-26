@@ -40,6 +40,8 @@ Before requesting a signature, the UI must provide enough operation context: ass
 
 Automatically restored sessions must pass local biometric authentication when opening the app and when returning from the background if the device has enrolled biometrics. If biometrics are unavailable or not enrolled, the app may continue to preserve device compatibility.
 
+Sensitive actions, such as vault withdrawals, must also request local biometrics before creating intents or requesting signatures.
+
 Biometric failures or cancellations keep the app on a locked screen with no financial data visible. The screen must allow retrying or signing out.
 
 ## KYC and ramp

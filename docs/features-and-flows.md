@@ -33,6 +33,7 @@ Legacy wallet creation and connection screens remain in the authentication group
 - The **Invest** tab lists vaults returned by the backend.
 - The detail screen reads vault information, APY and wallet balance.
 - Deposits and withdrawals create idempotent intents on the backend.
+- Withdrawals require local biometrics before creating the intent when the device has enrolled biometrics.
 - Returned XDRs are signed on the client without sharing a private key.
 - Intermediate operations are polled while awaiting confirmation.
 - Underlying balances are converted from Stellar atomic units; withdrawal shares remain raw.

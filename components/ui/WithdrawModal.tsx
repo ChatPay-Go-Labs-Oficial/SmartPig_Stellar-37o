@@ -28,6 +28,7 @@ import {
 } from "@/lib/queries/withdrawals.queries";
 import { vaultKeys } from "@/lib/queries/vaults.queries";
 import { signXdr } from "@/lib/stellar/kit";
+import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -43,6 +44,8 @@ function friendlyError(raw: string): string {
     return 'Erro de conexao. Verifique sua internet e tente novamente.';
   if (s.includes('unauthorized') || s.includes('401') || s.includes('forbidden'))
     return 'Sessao expirada. Saia e entre novamente no app.';
+  if (s.includes('biometria') || s.includes('identidade'))
+    return raw;
   if (s.includes('minimum') || s.includes('minimo') || s.includes('min amount'))
     return 'Valor abaixo do minimo permitido para saque.';
   return 'Nao foi possivel processar o saque. Tente novamente em instantes.';
@@ -58,7 +61,7 @@ interface WithdrawModalProps {
   onClose: () => void;
 }
 
-type Step = "input" | "processing" | "signing" | "submitting" | "success";
+type Step = "input" | "authenticating" | "processing" | "signing" | "submitting" | "success";
 
 export function WithdrawModal({
   visible,
@@ -153,8 +156,21 @@ export function WithdrawModal({
   const handleWithdraw = async () => {
     if (parsedAmount <= 0 || parsedAmount > parsedUnderlying) return;
     setError("");
-    setStep("processing");
+    setStep("authenticating");
     try {
+      const biometricResult = await authenticateWithDeviceBiometrics({
+        promptMessage: "Confirme o saque",
+        promptSubtitle: "Saque do porquinho PigFi",
+        promptDescription: `Autorize o saque de $${parsedAmount.toFixed(2)} ${assetSymbol}.`,
+      });
+
+      if (!biometricResult.success) {
+        setError(biometricResult.message ?? "Biometria não confirmada. Tente novamente.");
+        setStep("input");
+        return;
+      }
+
+      setStep("processing");
       const result = await createWithdrawal.mutateAsync({ vaultId, shares: shareAmount });
 
       if (!result.unsignedXdr) throw new Error("XDR não gerado");
@@ -186,7 +202,11 @@ export function WithdrawModal({
   };
 
   const isConfirmEnabled = !!amount && parsedAmount > 0 && parsedAmount <= parsedUnderlying;
-  const isBlocked = step === "processing" || step === "signing" || step === "submitting";
+  const isBlocked =
+    step === "authenticating" ||
+    step === "processing" ||
+    step === "signing" ||
+    step === "submitting";
 
   return (
     <Modal
@@ -334,11 +354,13 @@ export function WithdrawModal({
               <View style={styles.centerBody}>
                 <ActivityIndicator color={WITHDRAW_GRADIENT[0]} size="large" />
                 <Text style={styles.statusTitle}>
+                  {step === "authenticating" && "Confirme com sua biometria..."}
                   {step === "processing" && "Gerando transação..."}
                   {step === "signing" && "Assine com sua biometria..."}
                   {step === "submitting" && "Processando na Stellar..."}
                 </Text>
                 <Text style={styles.statusSub}>
+                  {step === "authenticating" && "Protegendo seu saque antes de continuar"}
                   {step === "processing" && "Preparando saque do vault"}
                   {step === "signing" && "Use Face ID / Touch ID para autorizar"}
                   {step === "submitting" && "Enviando para sua carteira ⚡"}
