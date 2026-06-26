@@ -1,60 +1,59 @@
 # PigFi 🐷💸
 
-**Small investments. A universe of possibilities.**
+**Small investments, a universe of possibilities.**
 
-DEMO: https://smartpigstellar.netlify.app/
+Website: https://use.pigfi.app
 
-APP: https://expo.dev/artifacts/eas/2Xi-gvL4wtYjelSX1W-p6gQHXxyU8mQKxpTejxNdaqk.apk
+Android App: https://expo.dev/accounts/maykro/projects/pigfi/builds/a6466392-4a48-4a49-911d-2841875b7238
 
-PigFi is a mobile investment app built for Brazilian first-time investors. It lets users start with small amounts, use a familiar Pix-based flow, and access dollar-denominated opportunities through an interface that feels simple, playful and safe instead of technical or intimidating.
+PigFi is a Brazilian dollar-investment app with a gamified experience. Anyone can start investing from R$50 via Pix, without needing to understand foreign exchange, cryptocurrencies, or financial markets.
 
-This repository contains the **mobile app** built with **Expo / React Native** and integrated with the PigFi backend, Stellar mainnet infrastructure, wallet flows.
+This repository contains the **mobile app** built with **Expo / React Native**, integrated with the PigFi backend, Stellar mainnet infrastructure, and wallet flows.
 
-> **Status:** this is a mainnet MVP. It demonstrates the product experience, wallet connection, backend integration, Stellar/DeFindex investment flows and ramp architecture limitations in the current mainnet environment. It is not a production financial product.
-
----
-
-## Product overview
-
-PigFi exists to make dollar investment feel as simple as saving coins in a piggy bank.
-
-The product is designed for people who usually believe investing is too complex, too expensive or “not for them”. Instead of exposing users to crypto vocabulary, wallets, DeFi, yield protocols or blockchain mechanics, PigFi translates the experience into familiar language:
-
-- start with a small amount;
-- use a Pix-like entry point;
-- see the digital piggy bank grow;
-- understand progress visually;
-- avoid financial and crypto jargon.
-
-The brand direction is intentionally **tech-affectionate**: a modern financial app with a friendly pig character, dark UI, neon accents and a simple tone of voice.
+> **Status:** MVP on mainnet. Demonstrates the product experience, wallet connection, backend integration, Stellar/DeFindex investment flows, and ramp architecture. The app is operational on Android. Submission to the Apple App Store and Google Play is in progress, pending approval.
 
 ---
 
-## What this app does
+## Product Overview
 
-In the current hackathon version, PigFi demonstrates:
+PigFi exists to make investing in dollars as simple as putting coins into a piggy bank.
 
-- mobile onboarding;
-- Stellar wallet creation / connection flow;
-- persistent local wallet/user state;
-- listing available investment vaults from the backend;
-- viewing portfolio and vault information;
-- preparing investment/deposit flows;
-- preparing withdrawal flows;
-- communicating with the backend API;
-- using Stellar mainnet infrastructure;
-- showing how a Pix-to-dollar investment flow would work in the product experience.
+The product is designed for people who believe investing is complicated, expensive, or “not for me” — and for those who want to offer their families a different kind of financial habit and education. Instead of exposing users to crypto vocabulary, wallets, DeFi, yield protocols, or blockchain mechanics, PigFi translates the experience into familiar language:
+
+* start with a small amount;
+* use a flow similar to Pix;
+* watch the piggy bank grow;
+* understand progress visually;
+* no financial or crypto jargon.
+
+The brand direction is intentionally **tech-emotional**: a modern financial app with an astronaut piggy character, dark UI, neon elements, and a simple tone of voice. It is designed for families and financial education.
 
 ---
 
-## Related repositories
+## What the App Does
+
+In its current version, PigFi demonstrates:
+
+* mobile onboarding;
+* Stellar wallet creation and connection;
+* persistent wallet and user state;
+* listing of available investment vaults via backend;
+* portfolio and vault information visualization;
+* deposit and withdrawal flows;
+* communication with the backend API;
+* Stellar mainnet infrastructure;
+* the product experience for the Pix → dollar investment flow.
+
+---
+
+## Related Repositories
 
 PigFi is split into two main repositories:
 
-| Repository             | Purpose                                                                            |
-| ---------------------- | ---------------------------------------------------------------------------------- |
-| `SmartPig_Stellar-37o` | Mobile app built with Expo / React Native                                          |
-| `smartpig-backend`     | Backend API built with NestJS, Prisma/PostgreSQL, Stellar and DeFindex integration |
+| Repository             | Purpose                                                                 |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `SmartPig_Stellar-37o` | Mobile app built with Expo / React Native                               |
+| `smartpig-backend`     | Backend API built with NestJS, Prisma/PostgreSQL, Stellar, and DeFindex |
 
 The backend is responsible for API orchestration, vault data, deposit/withdrawal intents, XDR generation, background jobs, and communication with Stellar/DeFindex.
 
@@ -78,23 +77,22 @@ PigFi Backend API
 NestJS + Prisma + PostgreSQL
         │
         ├── Wallet login / user persistence
-        ├── Vault catalog and APY sync
+        ├── Vault catalog and synchronization
         ├── Deposit and withdrawal intents
         ├── Unsigned XDR generation
         ├── Signed XDR submission
         └── Background reconciliation jobs
         │
         ▼
-Stellar Testnet + DeFindex
+Stellar Mainnet + DeFindex
         │
         ▼
-Ramp layer: Etherfuse
-Current limitation: no third-party DeFindex on/off ramp execution in testnet
+Ramp layer: regulated on/off-ramp partner
 ```
 
 ---
 
-## Mobile stack
+## Mobile Stack
 
 | Layer          | Technology                                  |
 | -------------- | ------------------------------------------- |
@@ -103,13 +101,13 @@ Current limitation: no third-party DeFindex on/off ramp execution in testnet
 | Routing        | Expo Router                                 |
 | State          | Zustand + AsyncStorage                      |
 | Remote data    | TanStack Query + Axios                      |
-| Wallet         | Stellar Wallets Kit + WalletConnect         |
+| Wallet         | Privy embedded wallets + WebAuthn           |
 | UI / animation | Expo Linear Gradient + Reanimated           |
 | Storage        | AsyncStorage / SecureStore where applicable |
 
 ---
 
-## Backend stack
+## Backend Stack
 
 | Layer            | Technology                          |
 | ---------------- | ----------------------------------- |
@@ -118,31 +116,31 @@ Current limitation: no third-party DeFindex on/off ramp execution in testnet
 | ORM              | Prisma                              |
 | Database         | PostgreSQL                          |
 | Blockchain       | Stellar                             |
-| DeFi integration | DeFindex SDK / API                  |
+| DeFi Integration | DeFindex SDK / API                  |
 | Background jobs  | NestJS Schedule / cron jobs         |
 | Validation       | class-validator / class-transformer |
 
 ---
 
-## Core backend flows
+## Main Backend Flows
 
 The backend supports:
 
-- wallet login using the user’s Stellar address;
-- vault discovery and synchronization;
-- APY and portfolio snapshot jobs;
-- deposit intent creation;
-- unsigned XDR generation for the mobile app to sign;
-- signed XDR submission;
-- withdrawal intent creation;
-- reconciliation jobs for transaction status.
+* wallet login using the user’s Stellar address;
+* vault discovery and synchronization;
+* APY and portfolio snapshot jobs;
+* deposit intent creation;
+* unsigned XDR generation for signing in the mobile app;
+* signed XDR submission;
+* withdrawal intent creation;
+* reconciliation jobs for transaction status updates.
 
-The backend never needs to store the user’s private key. The expected pattern is:
+The backend does not store the user’s private key. The expected pattern is:
 
-1. backend prepares the operation;
-2. backend returns an unsigned XDR;
-3. user signs through the mobile wallet flow;
-4. backend submits or reconciles the signed transaction.
+1. the backend prepares the operation;
+2. the backend returns an unsigned XDR;
+3. the user signs it through the mobile wallet flow;
+4. the backend submits or reconciles the signed transaction.
 
 ---
 
@@ -150,31 +148,33 @@ The backend never needs to store the user’s private key. The expected pattern 
 
 To run the mobile app locally:
 
-- Node.js 20+
-- npm
-- Expo CLI / Expo tooling
-- Android Studio or a physical Android device
-- Backend API running locally or deployed
-- Stellar testnet configuration
-- WalletConnect Project ID
+* Node.js 20+
+* npm
+* Expo CLI / Expo tooling
+* Android Studio or a physical Android device
+* Backend API running locally or deployed
+* Stellar mainnet configuration
+* Privy App ID
+* WalletConnect Project ID
 
-To run the backend locally, follow the backend repository documentation.
+To run the backend locally, follow the documentation in the backend repository.
 
 ---
 
-## Environment variables
+## Environment Variables
 
 Create a `.env` file in the mobile repository using the example below:
 
 ```env
 EXPO_PUBLIC_API_URL=http://localhost:3000
-EXPO_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
+EXPO_PUBLIC_STELLAR_RPC_URL=https://soroban-mainnet.stellar.org
+EXPO_PUBLIC_STELLAR_NETWORK_PASSPHRASE=Public Global Stellar Network ; September 2015
 EXPO_PUBLIC_ACCOUNT_WASM_HASH=
+EXPO_PUBLIC_PRIVY_APP_ID=
 EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID=
 ```
 
-For local testing on a physical Android device, `localhost` points to the phone itself, not the computer. Use your machine’s local network IP or a tunnel URL for `EXPO_PUBLIC_API_URL`.
+For local testing on a physical Android device, `localhost` points to the phone itself, not to your computer. Use your machine’s local IP address or a tunnel URL for `EXPO_PUBLIC_API_URL`.
 
 Example:
 
@@ -184,7 +184,7 @@ EXPO_PUBLIC_API_URL=http://192.168.0.10:3000
 
 ---
 
-## Installation and local run
+## Installation and Local Execution
 
 ```bash
 # Clone the repository
@@ -216,7 +216,7 @@ npm run lint
 
 ---
 
-## Running with the backend
+## Running with the Backend
 
 Clone and run the backend separately:
 
@@ -227,107 +227,66 @@ npm install
 npm run start:dev
 ```
 
-The mobile app must point to the backend through `EXPO_PUBLIC_API_URL`.
+The mobile app must point to the backend via `EXPO_PUBLIC_API_URL`.
 
-The backend repository contains the technical documentation for:
+The backend repository contains technical documentation for:
 
-- architecture;
-- database schema;
-- REST API;
-- deposit and withdrawal flows;
-- DeFindex integration;
-- jobs;
-- deployment.
+* architecture;
+* database schema;
+* REST API;
+* deposit and withdrawal flows;
+* DeFindex integration;
+* jobs;
+* deployment.
 
 ---
 
-## APK installation for hackathon evaluators
+## Android APK Installation
 
-PigFi is a React Native mobile application. For Android testing, evaluators should use the APK generated from this repository.
+PigFi is a React Native application. For Android testing, use the APK generated in this repository.
 
-### Recommended delivery for the hackathon
+### How to Install the APK
 
-The APK should be attached to a GitHub Release in this repository, for example:
-
-```txt
-Release name: PigFi Hackathon APK
-Asset name: pigfi-hackathon.apk
-```
-
-The hackathon submission should include:
-
-```txt
-Mobile repository: https://github.com/ChatPay-Go-Labs-Oficial/SmartPig_Stellar-37o
-Backend repository: https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend
-APK: https://expo.dev/accounts/matheusbrasilaguiar/projects/stellarpig-app/builds/90bb14e9-7484-4c57-8ba6-55d548f0acdd
-```
-
-### How to install the APK on Android
-
-1. Download the APK from https://expo.dev/accounts/matheusbrasilaguiar/projects/stellarpig-app/builds/90bb14e9-7484-4c57-8ba6-55d548f0acdd.
-2. Open the APK file on an Android device.
-3. If Android blocks the installation, enable installation from unknown apps for the browser or file manager being used.
+1. Download the APK at https://expo.dev/accounts/maykro/projects/pigfi/builds/a6466392-4a48-4a49-911d-2841875b7238
+2. Open the APK file on your Android device.
+3. If Android blocks the installation, enable installation from unknown sources for the browser or file manager being used.
 4. Confirm the installation.
 5. Open PigFi.
-6. Use the testnet flow demonstrated in the app.
 
-### Important evaluator note
+### Store Availability
 
-The APK demonstrates the mobile app and testnet investment architecture. The complete Pix/on-off ramp execution into third-party DeFindex vaults is not available in the current Etherfuse testnet environment.
-
----
-
-## Current hackathon scope
-
-Implemented / demonstrated:
-
-- React Native mobile app;
-- PigFi user experience and branding direction;
-- wallet-oriented onboarding;
-- backend API integration;
-- Stellar testnet configuration;
-- DeFindex-oriented vault architecture;
-- deposit/withdrawal intent architecture;
-- XDR-based blockchain transaction pattern;
-- ramp flow architecture;
-- APK-based Android evaluation path.
-
-Not executed in testnet due to external infrastructure limitation:
-
-- full Pix → USDC → DeFindex third-party vault investment;
-- full DeFindex → USDC → Pix off-ramp;
-- production money movement.
+Submissions to the Apple App Store and Google Play have been made and are awaiting approval.
 
 ---
 
-## Security and custody model
+## Security and Custody Model
 
-- The app is designed so that users do not need to understand blockchain terminology.
-- The backend should not store private keys.
-- Blockchain operations are prepared as unsigned XDRs where applicable.
-- User-side signing is part of the wallet interaction flow.
-- This hackathon version runs on testnet and must not be used with real funds.
+* The app is designed so users do not need to understand blockchain terminology.
+* Authentication and key protection are managed by Privy.
+* The backend does not store private keys.
+* Blockchain operations are prepared as unsigned XDRs where applicable.
+* User signing is part of the wallet interaction flow.
 
 ---
 
-## Brand and UX principles
+## Brand and UX Principles
 
 PigFi should feel:
 
-- simple;
-- friendly;
-- transparent;
-- playful;
-- financially responsible;
-- non-technical for the end user.
+* simple;
+* friendly;
+* transparent;
+* fun;
+* financially responsible;
+* non-technical for the end user.
 
 PigFi should avoid:
 
-- crypto jargon in the user interface;
-- complex financial language;
-- unrealistic return promises;
-- “get rich quick” messaging;
-- presenting the product as a bank or traditional broker.
+* crypto jargon in the user interface;
+* complex financial language;
+* unrealistic return promises;
+* “get rich quick” messaging;
+* presenting the product as a traditional bank or brokerage.
 
 The blockchain and DeFi layers are infrastructure, not the user-facing story.
 
@@ -339,7 +298,7 @@ The blockchain and DeFi layers are infrastructure, not the user-facing story.
 | ----------------- | ---------------------------------- |
 | `npm start`       | Starts the Expo development server |
 | `npm run android` | Opens the Android build target     |
-| `npm run ios`     | Opens the iOS simulator target     |
+| `npm run ios`     | Opens the iOS simulator            |
 | `npm run web`     | Opens the web preview              |
 | `npm run lint`    | Runs Expo lint                     |
 
@@ -347,16 +306,4 @@ The blockchain and DeFi layers are infrastructure, not the user-facing story.
 
 ## Disclaimer
 
-## PigFi is currently a hackathon MVP running in a testnet environment. It is not a regulated production investment product and must not be used as financial advice. Any production release would require additional compliance, custody, risk, legal, security and infrastructure reviews.
-
-## Current project status
-
-This version represents the current state of the product for the hackathon submission.
-
-> **Evaluation branch note**
->
-> For this hackathon submission, we are using the `feat/build-mvp` branch because it contains the mock data and temporary behaviors needed to demonstrate the current MVP flow in a testnet environment.
->
-> This was done intentionally to avoid polluting the `main` branch with hackathon-specific mocks. The `main` branch remains the cleaner project baseline, while `feat/build-mvp` concentrates the demo, testing and validation adjustments required for this submission.
-
-...
+PigFi is an MVP on mainnet. It is not a regulated investment product in production and should not be used as financial advice. Any production launch will require additional compliance, custody, risk, legal, security, and infrastructure reviews.
