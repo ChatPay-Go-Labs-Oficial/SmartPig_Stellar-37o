@@ -36,6 +36,12 @@ The current flow delegates authentication and signing to the Privy embedded wall
 
 Before requesting a signature, the UI must provide enough operation context: asset, amount, destination and purpose. Submission must use the configured network and verify that the signature matches the source address.
 
+## Local lock
+
+Automatically restored sessions must pass local biometric authentication when opening the app and when returning from the background if the device has enrolled biometrics. If biometrics are unavailable or not enrolled, the app may continue to preserve device compatibility.
+
+Biometric failures or cancellations keep the app on a locked screen with no financial data visible. The screen must allow retrying or signing out.
+
 ## KYC and ramp
 
 - Collect only fields required by the provider.

@@ -36,6 +36,12 @@ O fluxo atual delega autenticacao e assinatura a carteira embarcada do Privy. O 
 
 Antes de solicitar assinatura, a interface deve mostrar contexto suficiente da operacao: ativo, valor, destino e finalidade. A submissao deve usar a rede configurada e validar que a assinatura corresponde ao endereco de origem.
 
+## Bloqueio local
+
+Sessoes restauradas automaticamente devem passar por biometria local ao abrir o app e ao retornar do segundo plano quando o aparelho possuir biometria cadastrada. Se a biometria nao estiver disponivel ou cadastrada, o app pode continuar para preservar compatibilidade com o dispositivo.
+
+Falhas ou cancelamentos de biometria mantem o app em uma tela bloqueada sem dados financeiros visiveis. A tela deve permitir tentar novamente ou sair da conta.
+
 ## KYC e ramp
 
 - Colete somente os campos exigidos pelo provedor.

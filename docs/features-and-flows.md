@@ -4,9 +4,10 @@
 
 ## Recent evolution
 
-The latest implementations incorporated through June 12, 2026 include:
+The latest implementations incorporated through June 26, 2026 include:
 
 - social login with Google, email OTP and passkey through Privy;
+- local biometric lock when opening the app and returning from the background;
 - persistent learning progress per user;
 - direct USDC transfers with account and trustline validation;
 - history containing Stellar transfers and deposit/withdrawal states;
@@ -14,7 +15,7 @@ The latest implementations incorporated through June 12, 2026 include:
 - audio migration to `expo-audio`;
 - redesigned profile, history and financial modals;
 - polling and cache invalidation for pending operations;
-- Stellar balance normalization and daily yield display.
+- Stellar balance normalization and invested-value display.
 
 ## Authentication and wallet
 
@@ -22,7 +23,8 @@ The latest implementations incorporated through June 12, 2026 include:
 2. Privy restores or creates the embedded Stellar wallet.
 3. The app authenticates the public address with the backend.
 4. Public session and account IDs are persisted locally.
-5. When required, the app requests and signs smart-account activation.
+5. For already-authenticated sessions, the app requires local biometrics on launch and when returning from the background when the device has enrolled biometrics.
+6. When required, the app requests and signs smart-account activation.
 
 Legacy wallet creation and connection screens remain in the authentication group for compatibility, but the current primary flow is Privy-based.
 
