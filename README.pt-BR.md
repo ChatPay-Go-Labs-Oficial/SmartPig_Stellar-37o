@@ -4,7 +4,7 @@
 
 Site: https://use.pigfi.app
 
-APP Android: https://expo.dev/accounts/maykro/projects/pigfi/builds/a6466392-4a48-4a49-911d-2841875b7238
+APK Android: https://expo.dev/accounts/maykro/projects/pigfi/builds/89f321cb-e249-4f68-8be5-c5582e3ba6ac
 
 O PigFi é um aplicativo brasileiro de investimentos em dólar com experiência gamificada. Qualquer pessoa pode investir a partir de R$50 via Pix, sem entender de câmbio, criptomoedas ou mercados financeiros.
 
