@@ -31,14 +31,22 @@ import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passke
 const SHOW_PASSKEY_LOGIN = false;
 const GOOGLE_OAUTH_REDIRECT_PATH = '/oauth/callback';
 const RELYING_PARTY = process.env.EXPO_PUBLIC_RELYING_PARTY;
+const PRIVY_APP_ID = process.env.EXPO_PUBLIC_PRIVY_APP_ID;
+const PRIVY_CLIENT_ID = process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID;
+const PRIVY_CONFIGURED = Boolean(
+  PRIVY_APP_ID &&
+  PRIVY_CLIENT_ID,
+);
 
 function getErrorDetail(err: unknown) {
   if (err && typeof err === 'object') {
     const error = err as {
+      code?: string;
+      error?: string;
       message?: string;
       response?: { data?: { message?: string } };
     };
-    return error.response?.data?.message ?? error.message;
+    return error.response?.data?.message ?? error.error ?? error.message ?? error.code;
   }
 
   return undefined;
@@ -59,12 +67,22 @@ export default function OnboardingScreen() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const authPromiseRef = useRef<Promise<void> | null>(null);
   const reconciledUserIdRef = useRef<string | null>(null);
+  const pendingOAuthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { createWallet } = useCreateWallet();
   const { loginWithPasskey } = useLoginWithPasskey();
   const { signupWithPasskey } = useSignupWithPasskey();
   const { sendCode, loginWithCode } = useLoginWithEmail();
   const { login: loginWithOAuth } = useLoginWithOAuth();
-  const { isReady, user, logout } = usePrivy();
+  const { error: privyError, isReady, user, logout } = usePrivy();
+  const canUsePrivy = PRIVY_CONFIGURED && isReady && !privyError;
+  const privyErrorDetail = getErrorDetail(privyError);
+  const authStatusMessage = !PRIVY_CONFIGURED
+    ? 'Login indisponível: configuração Privy ausente neste build.'
+    : privyError
+      ? `Login indisponível: ${privyErrorDetail ?? 'não foi possível inicializar o Privy.'}`
+      : !isReady
+        ? 'Preparando login seguro...'
+        : null;
 
   const createAndAuth = useCallback(async (privyUser?: NonNullable<typeof user>) => {
     const effectiveUser = privyUser ?? user;
@@ -152,6 +170,13 @@ export default function OnboardingScreen() {
     return authPromiseRef.current;
   }, [createAndAuth]);
 
+  const clearPendingOAuthTimer = useCallback(() => {
+    if (pendingOAuthTimerRef.current) {
+      clearTimeout(pendingOAuthTimerRef.current);
+      pendingOAuthTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (
       !isReady ||
@@ -162,6 +187,7 @@ export default function OnboardingScreen() {
     ) return;
 
     reconciledUserIdRef.current = user.id;
+    clearPendingOAuthTimer();
     setLoading('google');
     setError(null);
     void completePrivyLogin(user)
@@ -170,12 +196,20 @@ export default function OnboardingScreen() {
         console.error('[privy:restore-session]', getErrorDetail(restoreErr) ?? restoreErr);
       })
       .finally(() => setLoading(null));
-  }, [completePrivyLogin, isAuthenticated, isReady, user]);
+  }, [clearPendingOAuthTimer, completePrivyLogin, isAuthenticated, isReady, user]);
+
+  useEffect(() => clearPendingOAuthTimer, [clearPendingOAuthTimer]);
 
   async function handleGoogleLogin() {
+    if (!canUsePrivy) {
+      setError(authStatusMessage ?? 'Login indisponível no momento.');
+      return;
+    }
+
     setLoading('google');
     setError(null);
     setDebugInfo(null);
+    clearPendingOAuthTimer();
 
     let loggedInUser: NonNullable<typeof user> | undefined;
     let redirectUrl: string | undefined;
@@ -194,7 +228,13 @@ export default function OnboardingScreen() {
       if (!loggedInUser) {
         // Some Android browsers resume the app before the hook returns the user.
         // The reconciliation effect above completes login when Privy updates.
-        setLoading(null);
+        pendingOAuthTimerRef.current = setTimeout(() => {
+          pendingOAuthTimerRef.current = null;
+          if (!authPromiseRef.current) {
+            setLoading(null);
+            setError('Google conectado, mas a sessão ainda não foi restaurada. Tente novamente.');
+          }
+        }, 15_000);
         return;
       }
     } catch (oauthErr) {
@@ -223,6 +263,7 @@ export default function OnboardingScreen() {
     }
 
     try {
+      clearPendingOAuthTimer();
       await completePrivyLogin(loggedInUser);
     } catch (backendErr) {
       setError('Login com Google realizado, mas não foi possível conectar com a API.');
@@ -233,6 +274,11 @@ export default function OnboardingScreen() {
   }
 
   async function handleConnectPrivy() {
+    if (!canUsePrivy) {
+      setError(authStatusMessage ?? 'Login indisponível no momento.');
+      return;
+    }
+
     if (!RELYING_PARTY) {
       setError('Login com passkey indisponível nesta versão.');
       return;
@@ -275,6 +321,11 @@ export default function OnboardingScreen() {
   }
 
   async function handleSendCode() {
+    if (!canUsePrivy) {
+      setError(authStatusMessage ?? 'Login indisponível no momento.');
+      return;
+    }
+
     if (!email.trim()) return;
     setLoading('email');
     setError(null);
@@ -294,6 +345,11 @@ export default function OnboardingScreen() {
   }
 
   async function handleLoginWithCode() {
+    if (!canUsePrivy) {
+      setError(authStatusMessage ?? 'Login indisponível no momento.');
+      return;
+    }
+
     if (!code.trim()) return;
     setLoading('email');
     setError(null);
@@ -353,13 +409,17 @@ export default function OnboardingScreen() {
           />
 
           <View style={styles.actions}>
+            {authStatusMessage ? (
+              <Text style={styles.authStatusText}>{authStatusMessage}</Text>
+            ) : null}
+
             <Pressable
               onPress={handleGoogleLogin}
-              disabled={!isReady || loading !== null}
+              disabled={!canUsePrivy || loading !== null}
               style={({ pressed }) => [
                 styles.googleButtonShell,
                 pressed && loading === null && styles.btnPressed,
-                (!isReady || loading !== null) && styles.btnDisabled,
+                (!canUsePrivy || loading !== null) && styles.btnDisabled,
               ]}
             >
               <LinearGradient
@@ -391,11 +451,11 @@ export default function OnboardingScreen() {
             {SHOW_PASSKEY_LOGIN ? (
               <Pressable
                 onPress={handleConnectPrivy}
-                disabled={!isReady || loading !== null}
+                disabled={!canUsePrivy || loading !== null}
                 style={[
                   styles.authButton,
                   styles.authButtonMuted,
-                  loading === 'passkey' && styles.btnDisabled,
+                  (!canUsePrivy || loading === 'passkey') && styles.btnDisabled,
                 ]}
               >
                 <MaterialIcons name="fingerprint" size={22} color={Colors.foreground} />
@@ -415,10 +475,11 @@ export default function OnboardingScreen() {
             {!showEmailForm && !codeSent ? (
               <Pressable
                 onPress={() => setShowEmailForm(true)}
-                disabled={loading !== null}
+                disabled={!canUsePrivy || loading !== null}
                 style={({ pressed }) => [
                   styles.emailToggle,
                   pressed && loading === null && styles.btnPressed,
+                  (!canUsePrivy || loading !== null) && styles.btnDisabled,
                 ]}
               >
                 <FontAwesome name="envelope-o" size={15} color="rgba(255,255,255,0.68)" />
@@ -434,14 +495,14 @@ export default function OnboardingScreen() {
                   onChangeText={setEmail}
                   inputMode="email"
                   autoCapitalize="none"
-                  editable={loading === null}
+                  editable={canUsePrivy && loading === null}
                 />
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
                 <Pressable
                   onPress={handleSendCode}
-                  disabled={loading !== null || !email.trim()}
-                  style={[styles.emailSubmit, loading === 'email' && styles.btnDisabled]}
+                  disabled={!canUsePrivy || loading !== null || !email.trim()}
+                  style={[styles.emailSubmit, (!canUsePrivy || loading === 'email') && styles.btnDisabled]}
                 >
                   <Text style={styles.emailSubmitText}>
                     {loading === 'email' ? 'Enviando...' : 'Enviar código'}
@@ -459,14 +520,14 @@ export default function OnboardingScreen() {
                   onChangeText={setCode}
                   inputMode="numeric"
                   maxLength={6}
-                  editable={loading === null}
+                  editable={canUsePrivy && loading === null}
                 />
                 {error ? <Text style={styles.errorText}>{error}</Text> : null}
                 {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
                 <Pressable
                   onPress={handleLoginWithCode}
-                  disabled={loading !== null || !code.trim()}
-                  style={[styles.emailSubmit, loading === 'email' && styles.btnDisabled]}
+                  disabled={!canUsePrivy || loading !== null || !code.trim()}
+                  style={[styles.emailSubmit, (!canUsePrivy || loading === 'email') && styles.btnDisabled]}
                 >
                   <Text style={styles.emailSubmitText}>
                     {loading === 'email' ? 'Verificando...' : 'Verificar código'}
@@ -532,6 +593,13 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: Spacing[3],
     zIndex: 10,
+  },
+  authStatusText: {
+    color: Colors.mutedForeground,
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.semiBold,
+    lineHeight: 19,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: FontSize.body,

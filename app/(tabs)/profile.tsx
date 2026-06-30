@@ -257,18 +257,6 @@ export default function ProfileScreen() {
             </LinearGradient>
           </Pressable>
 
-          <View style={styles.divider} />
-          <Pressable onPress={() => { playClick(); setShowSwapModal(true); setSwapStep("input"); setSwapError(""); setSwapResult(null); setSwapLoading(false); }}>
-            <LinearGradient
-              colors={['hsl(150, 80%, 45%)', 'hsl(190, 80%, 50%)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.transferBtn}
-            >
-              <MaterialIcons name="swap-horiz" size={16} color="#fff" />
-              <Text style={styles.transferBtnText}>Swap XLM → USDC</Text>
-            </LinearGradient>
-          </Pressable>
         </Card>
 
         {/* ── Chave PIX ── */}

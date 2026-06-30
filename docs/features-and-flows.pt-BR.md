@@ -4,9 +4,10 @@
 
 ## Evolucao recente
 
-As implementacoes mais recentes incorporadas ate 12 de junho de 2026 incluem:
+As implementacoes mais recentes incorporadas ate 26 de junho de 2026 incluem:
 
 - login social com Google, e-mail OTP e passkey via Privy;
+- bloqueio local por biometria ao abrir o app e ao retornar do segundo plano;
 - persistencia do progresso educacional por usuario;
 - transferencia direta de USDC com validacao de conta e trustline;
 - historico com transferencias Stellar e estados de deposito/saque;
@@ -14,7 +15,7 @@ As implementacoes mais recentes incorporadas ate 12 de junho de 2026 incluem:
 - migracao de audio para `expo-audio`;
 - redesign de perfil, historico e modais financeiros;
 - polling e invalidacao de cache para operacoes pendentes;
-- normalizacao de saldos Stellar e exibicao de rendimento diario.
+- normalizacao de saldos Stellar e exibicao de valores investidos.
 
 ## Autenticacao e carteira
 
@@ -22,7 +23,8 @@ As implementacoes mais recentes incorporadas ate 12 de junho de 2026 incluem:
 2. O Privy restaura ou cria a carteira Stellar embarcada.
 3. O app autentica o endereco publico no backend.
 4. IDs publicos da sessao e da conta sao persistidos localmente.
-5. Quando necessario, o app solicita e assina a ativacao da smart account.
+5. Em sessoes ja autenticadas, o app exige biometria local ao abrir e ao retornar do segundo plano quando o aparelho possui biometria cadastrada.
+6. Quando necessario, o app solicita e assina a ativacao da smart account.
 
 As telas antigas de criacao/conexao de carteira continuam no grupo de autenticacao para compatibilidade, mas o fluxo principal atual e orientado pelo Privy.
 
@@ -31,6 +33,7 @@ As telas antigas de criacao/conexao de carteira continuam no grupo de autenticac
 - A aba **Investir** lista vaults retornados pelo backend.
 - O detalhe consulta informacoes, APY e saldo da carteira.
 - Depositos e saques criam intencoes idempotentes no backend.
+- Saques exigem biometria local antes de criar a intencao quando o aparelho possui biometria cadastrada.
 - XDRs retornados sao assinados no cliente sem compartilhar chave privada.
 - Operacoes intermediarias recebem polling enquanto aguardam confirmacao.
 - Saldos subjacentes sao convertidos de unidades atomicas Stellar; shares de saque permanecem brutas.

@@ -1,5 +1,5 @@
 import { Card, DepositModal, StarryBackground, WithdrawModal, RampMethodSelector, EtherfuseOnrampModal, EtherfuseOfframpModal, getPigLevel, PressableScale, LevelUpAnimation } from '@/components/ui';
-import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import { Accent, Colors, Font, FontSize, Gradients, Radius } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useVaults, useAllVaultBalances } from '@/lib/queries/vaults.queries';
 import { useWalletBalance } from '@/lib/queries/wallets.queries';
@@ -9,7 +9,7 @@ import { useSound } from '@/hooks/use-sound';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 const PIG_LEVELS = [
@@ -19,6 +19,12 @@ const PIG_LEVELS = [
   { label: 'Porquinho Dourado', minBalance: 1000, image: require('@/assets/images/pig-gold.png') },
   { label: 'Porquinho Rei', minBalance: 5000, image: require('@/assets/images/pig-king.png') },
 ];
+
+const BALANCE_ANIMATION_STEPS = 20;
+const BALANCE_ANIMATION_INTERVAL_MS = 30;
+const INVESTED_GROWTH_TICK_MS = 500;
+const REAL_BALANCE_REFETCH_INTERVAL_MS = 30_000;
+const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 function ActiveVaultRow({ vault, underlying }: { vault: Vault; underlying?: number }) {
   return (
@@ -57,6 +63,20 @@ function ActiveVaultRow({ vault, underlying }: { vault: Vault; underlying?: numb
   );
 }
 
+function formatInvestedBalanceParts(value: number) {
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+  const [integerPart, fractionPart = ''] = safeValue.toFixed(7).split('.');
+  const meaningfulFraction = fractionPart.replace(/0+$/, '');
+  const decimals = meaningfulFraction.length >= 2
+    ? meaningfulFraction
+    : fractionPart.slice(0, 2);
+
+  return {
+    integer: integerPart,
+    decimals,
+  };
+}
+
 export default function HomeScreen() {
   const { data: vaults, refetch: refetchVaults } = useVaults();
   const walletAddress = useAuthStore((s) => s.walletAddress);
@@ -91,9 +111,6 @@ export default function HomeScreen() {
   const firstBalance = balances[0]?.data;
   const walletBalance = firstBalance ? parseFloat(firstBalance.underlyingBalance?.[0] ?? '0') : 0;
 
-  const displayApy = firstVault?.apy ? parseFloat(firstVault.apy) : 0;
-  const dailyYield = displayApy > 0 ? (totalInvested * (displayApy / 100)) / 365 : 0;
-
   const level = getPigLevel(totalInvested);
   const levelIndex = PIG_LEVELS.findIndex((item) => item.label === level.label);
   const currentLevel = levelIndex >= 0 ? PIG_LEVELS[levelIndex] : PIG_LEVELS[0];
@@ -120,16 +137,27 @@ export default function HomeScreen() {
         .filter((item): item is NonNullable<typeof item> => item !== null && item.underlying > 0);
     }, [vaults, balances]);
 
+  const weightedApy = useMemo(() => {
+    if (totalInvested <= 0) return 0;
+
+    return vaultsWithBalance.reduce((sum, item) => {
+      const apy = parseFloat(item.vault.apy ?? '0');
+      if (!Number.isFinite(apy)) return sum;
+
+      return sum + (item.underlying / totalInvested) * apy;
+    }, 0);
+  }, [totalInvested, vaultsWithBalance]);
+
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [showDepositMethod, setShowDepositMethod] = useState(false);
   const [showWithdrawMethod, setShowWithdrawMethod] = useState(false);
   const [onrampOpen, setOnrampOpen] = useState(false);
   const [offrampOpen, setOfframpOpen] = useState(false);
-  const [showApyInfo, setShowApyInfo] = useState(false);
 
   const [refreshing, setRefreshing] = useState(false);
   const [displayBalance, setDisplayBalance] = useState(0);
+  const displayBalanceRef = useRef(0);
   const isAnimating = useRef(false);
 
   const { playClick, muted, toggleMute } = useSound();
@@ -171,34 +199,83 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const target = totalInvested;
-    if (Math.abs(target - displayBalance) < 0.001 || isAnimating.current) return;
+    const currentDisplayBalance = displayBalanceRef.current;
+
+    if (Math.abs(target - currentDisplayBalance) < 0.001 || isAnimating.current) return;
+
     isAnimating.current = true;
-    const steps = 20;
-    const increment = (target - displayBalance) / steps;
+    const increment = (target - currentDisplayBalance) / BALANCE_ANIMATION_STEPS;
     let step = 0;
+
     const interval = setInterval(() => {
       step++;
-      if (step >= steps) {
+      if (step >= BALANCE_ANIMATION_STEPS) {
+        displayBalanceRef.current = target;
         setDisplayBalance(target);
         clearInterval(interval);
         isAnimating.current = false;
       } else {
-        setDisplayBalance((prev) => prev + increment);
+        setDisplayBalance((prev) => {
+          const next = prev + increment;
+          displayBalanceRef.current = next;
+          return next;
+        });
       }
-    }, 30);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, BALANCE_ANIMATION_INTERVAL_MS);
+
+    return () => {
+      clearInterval(interval);
+      isAnimating.current = false;
+    };
   }, [totalInvested]);
+
+  useEffect(() => {
+    if (totalInvested <= 0 || weightedApy <= 0) return;
+
+    const interval = setInterval(() => {
+      if (isAnimating.current) return;
+
+      setDisplayBalance((prev) => {
+        const current = Math.max(prev, totalInvested);
+        const growth = current * (weightedApy / 100) * (INVESTED_GROWTH_TICK_MS / 1000) / SECONDS_PER_YEAR;
+        const next = current + growth;
+        displayBalanceRef.current = next;
+        return next;
+      });
+    }, INVESTED_GROWTH_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, [totalInvested, weightedApy]);
+
+  const refetchRealBalances = useCallback(async () => {
+    if (!walletAddress) return;
+
+    await Promise.allSettled([
+      refetchVaults(),
+      refetchWallet(),
+      ...balances.map((balance) => balance.refetch()),
+    ]);
+  }, [balances, refetchVaults, refetchWallet, walletAddress]);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+
+    const interval = setInterval(() => {
+      void refetchRealBalances();
+    }, REAL_BALANCE_REFETCH_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [refetchRealBalances, walletAddress]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.allSettled([refetchVaults(), refetchWallet()]);
+    await refetchRealBalances();
     setRefreshing(false);
-  }, [refetchVaults, refetchWallet]);
+  }, [refetchRealBalances]);
 
   const handleDepositSuccess = useCallback(() => { }, []);
 
-  const balanceParts = displayBalance.toFixed(2).split('.');
+  const balanceParts = formatInvestedBalanceParts(displayBalance);
 
   return (
     <View style={styles.screen}>
@@ -280,34 +357,26 @@ export default function HomeScreen() {
         <View style={styles.content}>
           {/* ── Card 1: Saldo ── */}
           <Card style={styles.balanceCard}>
-            <View style={styles.balanceCardHeader}>
-              <Text style={styles.balanceLabelText}>Investido nos porquinhos</Text>
-              <Pressable onPress={() => { playClick(); setShowApyInfo(true); }} hitSlop={8}>
-                <MaterialIcons name="info-outline" size={16} color={Colors.mutedForeground} />
-              </Pressable>
-            </View>
+            <Text style={styles.balanceLabelText}>Investido nos porquinhos</Text>
 
-            <View style={styles.balanceSplit}>
-              {/* Left: big value */}
-              <View style={styles.balanceLeft}>
-                <View style={styles.balanceValueRow}>
-                  <Text style={styles.balanceValueText}>${balanceParts[0]}</Text>
-                  <Text style={styles.balanceValueDecimals}>.{balanceParts[1]}</Text>
-                </View>
-              </View>
-
-              <View style={styles.balanceVertDivider} />
-
-              {/* Right: rates */}
-              <View style={styles.balanceRight}>
-                <Pressable
-                  onPress={() => { playClick(); setShowApyInfo(true); }}
-                  style={styles.apyBadge}
+            <View style={styles.balanceValueWrap}>
+              <View style={styles.balanceValueRow}>
+                <Text
+                  style={styles.balanceValueText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.78}
                 >
-                  <MaterialIcons name="trending-up" size={13} color={Accent.success} />
-                  <Text style={styles.apyBadgeText}>{displayApy.toFixed(2)}% a.a</Text>
-                </Pressable>
-                <Text style={styles.apyDailyText}>+${dailyYield.toFixed(4)} por dia</Text>
+                  ${balanceParts.integer}
+                </Text>
+                <Text
+                  style={styles.balanceValueDecimals}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  .{balanceParts.decimals}
+                </Text>
               </View>
             </View>
           </Card>
@@ -437,38 +506,6 @@ export default function HomeScreen() {
         onClose={() => setLevelUpModalVisible(false)}
         onDeposit={() => setDepositOpen(true)}
       />
-
-      {/* ── APY Info Modal ── */}
-      <Modal
-        visible={showApyInfo}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowApyInfo(false)}
-      >
-        <Pressable style={styles.infoBackdrop} onPress={() => setShowApyInfo(false)}>
-          <Pressable style={styles.infoSheet} onPress={() => {}}>
-            <View style={styles.infoHandle} />
-            <View style={styles.infoTitleRow}>
-              <View style={styles.infoIconWrap}>
-                <MaterialIcons name="trending-up" size={20} color={Accent.secondary} />
-              </View>
-              <Text style={styles.infoTitle}>O que é "rende ao ano"</Text>
-            </View>
-            <Text style={styles.infoText}>
-              É o quanto o seu dinheiro cresce ao longo de um ano, sozinho — sem você precisar fazer nada.
-              Quanto mais tempo ele fica investido, mais ele rende.
-            </Text>
-            <Text style={styles.infoFoot}>No mundo financeiro, esse percentual é chamado de "APY".</Text>
-            <Pressable
-              style={styles.infoCloseBtn}
-              onPress={() => { playClick(); setShowApyInfo(false); }}
-            >
-              <Text style={styles.infoCloseBtnText}>Entendi</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -607,83 +644,41 @@ const styles = StyleSheet.create({
   // ── Balance Card ──
   balanceCard: {
     marginBottom: 14,
-    paddingVertical: 18,
+    paddingVertical: 22,
     paddingHorizontal: 20,
     borderRadius: 18,
-    gap: 14,
+    gap: 12,
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
-  },
-  balanceCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   balanceLabelText: {
     fontSize: FontSize.bodySmall,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
-    flex: 1,
+    textAlign: 'center',
   },
-  balanceSplit: {
-    flexDirection: 'row',
+  balanceValueWrap: {
     alignItems: 'center',
-    gap: 16,
-  },
-  balanceLeft: {
-    flex: 1,
     justifyContent: 'center',
   },
   balanceValueRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   balanceValueText: {
-    fontSize: 42,
+    fontSize: 52,
     fontFamily: Font.extraBold,
     color: Colors.foreground,
-    letterSpacing: -1,
-    lineHeight: 48,
+    lineHeight: 58,
   },
   balanceValueDecimals: {
-    fontSize: 20,
+    fontSize: 24,
     fontFamily: Font.bold,
     color: Colors.foreground,
     marginLeft: 2,
-    marginBottom: 5,
-  },
-  balanceVertDivider: {
-    width: 1,
-    height: 52,
-    backgroundColor: Colors.border,
-  },
-  balanceRight: {
-    alignItems: 'flex-start',
-    gap: 6,
-    flexShrink: 0,
-  },
-  apyBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(21,128,61,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(21,128,61,0.22)',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-  },
-  apyBadgeText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.extraBold,
-    color: Accent.success,
-  },
-  apyDailyText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-    paddingLeft: 2,
+    marginBottom: 7,
   },
 
   // ── Wallet Card ──
@@ -903,72 +898,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: Font.extraBold,
     fontSize: FontSize.bodySmall,
-  },
-
-  // ── APY Info Modal ──
-  infoBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  infoSheet: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: Spacing[6],
-    paddingTop: Spacing[3],
-    paddingBottom: Spacing[8],
-    borderTopWidth: 1,
-    borderColor: Colors.border,
-    gap: 12,
-  },
-  infoHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.muted,
-    alignSelf: 'center',
-  },
-  infoTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  infoIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    backgroundColor: 'rgba(124,58,237,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoTitle: {
-    fontSize: FontSize.subheading,
-    fontFamily: Font.extraBold,
-    color: Colors.foreground,
-  },
-  infoText: {
-    fontSize: FontSize.body,
-    fontFamily: Font.regular,
-    color: Colors.foreground,
-    lineHeight: 22,
-  },
-  infoFoot: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-  },
-  infoCloseBtn: {
-    backgroundColor: Colors.surface2,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.sm,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  infoCloseBtnText: {
-    fontSize: FontSize.body,
-    fontFamily: Font.bold,
-    color: Colors.foreground,
   },
 });

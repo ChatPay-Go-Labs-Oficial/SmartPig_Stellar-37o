@@ -76,9 +76,9 @@ const infoRowStyles = StyleSheet.create({
   },
 });
 
-function formatApy(apy: string | null): string {
+function formatApy(apy: number | string | null): string {
   if (!apy) return '—';
-  return `${parseFloat(apy).toFixed(2)}%`;
+  return `${parseFloat(String(apy)).toFixed(2)}%`;
 }
 
 function formatVaultName(name: string): string {

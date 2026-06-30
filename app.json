@@ -59,6 +59,12 @@
         }
       ],
       "expo-web-browser",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Use Face ID para proteger o acesso ao PigFi."
+        }
+      ],
       "expo-audio"
     ],
     "experiments": {
