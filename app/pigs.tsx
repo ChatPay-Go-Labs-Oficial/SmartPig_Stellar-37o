@@ -5,7 +5,7 @@ import { useAuthStore } from '@/lib/stores/auth.store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, Image, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, FlatList, Image, StyleSheet, Text, View, ViewToken } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 const PIG_LEVELS = [
@@ -36,9 +36,9 @@ export default function PigEvolutionScreen() {
   const level = getPigLevel(totalInvested);
   const [activeIndex, setActiveIndex] = useState(0);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index?: number }> }) => {
-    if (viewableItems[0]?.index !== undefined) {
-      setActiveIndex(viewableItems[0].index ?? 0);
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems[0]?.index != null) {
+      setActiveIndex(viewableItems[0].index);
     }
   }).current;
 

@@ -20,6 +20,12 @@ const PIG_LEVELS = [
   { label: 'Porquinho Rei', minBalance: 5000, image: require('@/assets/images/pig-king.png') },
 ];
 
+const BALANCE_ANIMATION_STEPS = 20;
+const BALANCE_ANIMATION_INTERVAL_MS = 30;
+const INVESTED_GROWTH_TICK_MS = 500;
+const REAL_BALANCE_REFETCH_INTERVAL_MS = 30_000;
+const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
+
 function ActiveVaultRow({ vault, underlying }: { vault: Vault; underlying?: number }) {
   return (
     <View style={styles.activeVaultRow}>
@@ -55,6 +61,20 @@ function ActiveVaultRow({ vault, underlying }: { vault: Vault; underlying?: numb
       </PressableScale>
     </View>
   );
+}
+
+function formatInvestedBalanceParts(value: number) {
+  const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+  const [integerPart, fractionPart = ''] = safeValue.toFixed(7).split('.');
+  const meaningfulFraction = fractionPart.replace(/0+$/, '');
+  const decimals = meaningfulFraction.length >= 2
+    ? meaningfulFraction
+    : fractionPart.slice(0, 2);
+
+  return {
+    integer: integerPart,
+    decimals,
+  };
 }
 
 export default function HomeScreen() {
@@ -117,6 +137,17 @@ export default function HomeScreen() {
         .filter((item): item is NonNullable<typeof item> => item !== null && item.underlying > 0);
     }, [vaults, balances]);
 
+  const weightedApy = useMemo(() => {
+    if (totalInvested <= 0) return 0;
+
+    return vaultsWithBalance.reduce((sum, item) => {
+      const apy = parseFloat(item.vault.apy ?? '0');
+      if (!Number.isFinite(apy)) return sum;
+
+      return sum + (item.underlying / totalInvested) * apy;
+    }, 0);
+  }, [totalInvested, vaultsWithBalance]);
+
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [showDepositMethod, setShowDepositMethod] = useState(false);
@@ -126,6 +157,7 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [displayBalance, setDisplayBalance] = useState(0);
+  const displayBalanceRef = useRef(0);
   const isAnimating = useRef(false);
 
   const { playClick, muted, toggleMute } = useSound();
@@ -167,34 +199,83 @@ export default function HomeScreen() {
 
   useEffect(() => {
     const target = totalInvested;
-    if (Math.abs(target - displayBalance) < 0.001 || isAnimating.current) return;
+    const currentDisplayBalance = displayBalanceRef.current;
+
+    if (Math.abs(target - currentDisplayBalance) < 0.001 || isAnimating.current) return;
+
     isAnimating.current = true;
-    const steps = 20;
-    const increment = (target - displayBalance) / steps;
+    const increment = (target - currentDisplayBalance) / BALANCE_ANIMATION_STEPS;
     let step = 0;
+
     const interval = setInterval(() => {
       step++;
-      if (step >= steps) {
+      if (step >= BALANCE_ANIMATION_STEPS) {
+        displayBalanceRef.current = target;
         setDisplayBalance(target);
         clearInterval(interval);
         isAnimating.current = false;
       } else {
-        setDisplayBalance((prev) => prev + increment);
+        setDisplayBalance((prev) => {
+          const next = prev + increment;
+          displayBalanceRef.current = next;
+          return next;
+        });
       }
-    }, 30);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, BALANCE_ANIMATION_INTERVAL_MS);
+
+    return () => {
+      clearInterval(interval);
+      isAnimating.current = false;
+    };
   }, [totalInvested]);
+
+  useEffect(() => {
+    if (totalInvested <= 0 || weightedApy <= 0) return;
+
+    const interval = setInterval(() => {
+      if (isAnimating.current) return;
+
+      setDisplayBalance((prev) => {
+        const current = Math.max(prev, totalInvested);
+        const growth = current * (weightedApy / 100) * (INVESTED_GROWTH_TICK_MS / 1000) / SECONDS_PER_YEAR;
+        const next = current + growth;
+        displayBalanceRef.current = next;
+        return next;
+      });
+    }, INVESTED_GROWTH_TICK_MS);
+
+    return () => clearInterval(interval);
+  }, [totalInvested, weightedApy]);
+
+  const refetchRealBalances = useCallback(async () => {
+    if (!walletAddress) return;
+
+    await Promise.allSettled([
+      refetchVaults(),
+      refetchWallet(),
+      ...balances.map((balance) => balance.refetch()),
+    ]);
+  }, [balances, refetchVaults, refetchWallet, walletAddress]);
+
+  useEffect(() => {
+    if (!walletAddress) return;
+
+    const interval = setInterval(() => {
+      void refetchRealBalances();
+    }, REAL_BALANCE_REFETCH_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [refetchRealBalances, walletAddress]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.allSettled([refetchVaults(), refetchWallet()]);
+    await refetchRealBalances();
     setRefreshing(false);
-  }, [refetchVaults, refetchWallet]);
+  }, [refetchRealBalances]);
 
   const handleDepositSuccess = useCallback(() => { }, []);
 
-  const balanceParts = displayBalance.toFixed(2).split('.');
+  const balanceParts = formatInvestedBalanceParts(displayBalance);
 
   return (
     <View style={styles.screen}>
@@ -280,8 +361,22 @@ export default function HomeScreen() {
 
             <View style={styles.balanceValueWrap}>
               <View style={styles.balanceValueRow}>
-                <Text style={styles.balanceValueText}>${balanceParts[0]}</Text>
-                <Text style={styles.balanceValueDecimals}>.{balanceParts[1]}</Text>
+                <Text
+                  style={styles.balanceValueText}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.78}
+                >
+                  ${balanceParts.integer}
+                </Text>
+                <Text
+                  style={styles.balanceValueDecimals}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.72}
+                >
+                  .{balanceParts.decimals}
+                </Text>
               </View>
             </View>
           </Card>
