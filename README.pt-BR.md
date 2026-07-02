@@ -6,7 +6,7 @@ Site: https://use.pigfi.app
 
 APK Android: https://expo.dev/accounts/maykro/projects/pigfi/builds/89f321cb-e249-4f68-8be5-c5582e3ba6ac
 
-O PigFi é um aplicativo brasileiro de investimentos em dólar com experiência gamificada. Qualquer pessoa pode investir a partir de R$50 via Pix, sem entender de câmbio, criptomoedas ou mercados financeiros.
+O PigFi é um aplicativo brasileiro de educação financeira gamificada que ajuda adultos e famílias a criarem o hábito de guardar em dólar, a partir de pequenos valores via Pix. A tecnologia Stellar, a carteira não custodial e os parceiros de infraestrutura operam nos bastidores, para que o usuário tenha uma experiência simples, visual e sem precisar entender câmbio, criptomoedas ou mercados financeiros.
 
 Este repositório contém o **app mobile** construído com **Expo / React Native**, integrado ao backend PigFi, infraestrutura Stellar mainnet e fluxos de wallet.
 
