@@ -1,12 +1,12 @@
 # PigFi 🐷💸
 
-**Small investments, a universe of possibilities.**
+**Small values, a universe of possibilities.**
 
 Website: https://use.pigfi.app
 
 Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/89f321cb-e249-4f68-8be5-c5582e3ba6ac
 
-PigFi is a Brazilian dollar-investment app with a gamified experience. Anyone can start investing from R$50 via Pix, without needing to understand foreign exchange, cryptocurrencies, or financial markets.
+PigFi is a mobile-first financial education and habit-building app for Brazilian families, using Stellar infrastructure to turn small Pix-based contributions into a simple, visual and gamified dollar-denominated experience.
 
 This repository contains the **mobile app** built with **Expo / React Native**, integrated with the PigFi backend, Stellar mainnet infrastructure, and wallet flows.
 
