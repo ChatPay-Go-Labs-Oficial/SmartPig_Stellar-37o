@@ -52,6 +52,57 @@ function getErrorDetail(err: unknown) {
   return undefined;
 }
 
+interface StellarLinkedAccount {
+  address?: string;
+  chain_type?: string;
+  first_verified_at?: number | null;
+  verified_at?: number | null;
+  wallet_index?: number | null;
+}
+
+// Privy pode manter mais de uma embedded wallet Stellar para o mesmo usuário e
+// não garante a ordem de `linked_accounts` entre sessões. Sempre resolve para a
+// primeira wallet criada (menor wallet_index) para o login ser determinístico.
+function selectPrimaryStellarAddress(linkedAccounts: unknown[]): string | null {
+  const stellarWallets = (linkedAccounts as StellarLinkedAccount[]).filter(
+    (account) => account?.chain_type === 'stellar' && Boolean(account?.address),
+  );
+
+  if (stellarWallets.length === 0) return null;
+
+  const [primary] = [...stellarWallets].sort((a, b) => {
+    const indexDiff = (a.wallet_index ?? 0) - (b.wallet_index ?? 0);
+    if (indexDiff !== 0) return indexDiff;
+    return (a.first_verified_at ?? a.verified_at ?? 0) - (b.first_verified_at ?? b.verified_at ?? 0);
+  });
+
+  if (stellarWallets.length > 1) {
+    console.warn('[auth:multiple-stellar-wallets]', {
+      selected: primary.address,
+      wallets: stellarWallets.map((w) => `${w.wallet_index ?? '?'}:${w.address}`),
+    });
+  }
+
+  return primary.address ?? null;
+}
+
+// Se `createWallet` tem sucesso mas o login no backend falha, uma nova tentativa
+// precisa reutilizar a wallet já criada para este usuário Privy — nunca criar outra.
+const stellarWalletCreationByUser = new Map<string, Promise<string>>();
+
+function createStellarWalletOnce(
+  privyUserId: string,
+  createWallet: (args: { chainType: 'stellar' }) => Promise<{ wallet: { address: string } }>,
+): Promise<string> {
+  const pending = stellarWalletCreationByUser.get(privyUserId);
+  if (pending) return pending;
+
+  const creation = createWallet({ chainType: 'stellar' }).then(({ wallet }) => wallet.address);
+  creation.catch(() => stellarWalletCreationByUser.delete(privyUserId));
+  stellarWalletCreationByUser.set(privyUserId, creation);
+  return creation;
+}
+
 export default function OnboardingScreen() {
   const [loading, setLoading] = useState<'google' | 'passkey' | 'email' | null>(null);
   const [email, setEmail] = useState('');
@@ -86,23 +137,13 @@ export default function OnboardingScreen() {
 
   const createAndAuth = useCallback(async (privyUser?: NonNullable<typeof user>) => {
     const effectiveUser = privyUser ?? user;
-    let address: string;
 
-    if (effectiveUser) {
-      const existingWallet = (effectiveUser.linked_accounts as any[]).find(
-        (account) =>
-          account.chain_type === 'stellar' && account.address,
-      );
-      if (existingWallet?.address) {
-        address = existingWallet.address;
-      } else {
-        const { wallet } = await createWallet({ chainType: 'stellar' });
-        address = wallet.address;
-      }
-    } else {
-      const { wallet } = await createWallet({ chainType: 'stellar' });
-      address = wallet.address;
-    }
+    const existingAddress = effectiveUser
+      ? selectPrimaryStellarAddress(effectiveUser.linked_accounts as unknown[])
+      : null;
+
+    const address = existingAddress
+      ?? await createStellarWalletOnce(effectiveUser?.id ?? 'pending-user', createWallet);
 
     let loginResult: Awaited<ReturnType<typeof walletLogin>>;
     try {
