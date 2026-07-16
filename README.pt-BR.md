@@ -4,7 +4,7 @@
 
 Site: https://use.pigfi.app
 
-APK Android: https://expo.dev/accounts/maykro/projects/pigfi/builds/89f321cb-e249-4f68-8be5-c5582e3ba6ac
+APK Android: https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
 
 O PigFi é um aplicativo brasileiro de investimentos em dólar com experiência gamificada. Qualquer pessoa pode investir a partir de R$50 via Pix, sem entender de câmbio, criptomoedas ou mercados financeiros.
 
@@ -247,7 +247,7 @@ O PigFi é uma aplicação React Native. Para testes em Android, use o APK gerad
 
 ### Como instalar o APK
 
-1. Baixe o APK em https://expo.dev/accounts/maykro/projects/pigfi/builds/a6466392-4a48-4a49-911d-2841875b7238
+1. Baixe o APK em https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
 2. Abra o arquivo APK no dispositivo Android.
 3. Se o Android bloquear a instalação, habilite a instalação de fontes desconhecidas no navegador ou gerenciador de arquivos utilizado.
 4. Confirme a instalação.
