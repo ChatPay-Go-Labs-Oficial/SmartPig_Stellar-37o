@@ -4,7 +4,7 @@
 
 Website: https://use.pigfi.app
 
-Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/89f321cb-e249-4f68-8be5-c5582e3ba6ac
+Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
 
 PigFi is a mobile-first financial education and habit-building app for Brazilian families, using Stellar infrastructure to turn small Pix-based contributions into a simple, visual and gamified dollar-denominated experience.
 
@@ -247,7 +247,7 @@ PigFi is a React Native application. For Android testing, use the APK generated 
 
 ### How to Install the APK
 
-1. Download the APK at https://expo.dev/accounts/maykro/projects/pigfi/builds/a6466392-4a48-4a49-911d-2841875b7238
+1. Download the APK at https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
 2. Open the APK file on your Android device.
 3. If Android blocks the installation, enable installation from unknown sources for the browser or file manager being used.
 4. Confirm the installation.
