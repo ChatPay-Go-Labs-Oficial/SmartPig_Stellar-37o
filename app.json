@@ -11,9 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.pigfi.app",
-      "associatedDomains": [
-        "webcredentials:pigfi.app"
-      ]
+      "associatedDomains": ["webcredentials:pigfi.app"]
     },
     "android": {
       "package": "com.pigfi.app",
@@ -74,9 +72,8 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "f5e62e9c-3e1f-4498-b7e7-8ee5367aeb03"
+        "projectId": "7f293d38-a08f-4020-8544-2f7e3f6e8655"
       }
-    },
-    "owner": "matheusbrasilaguiar"
+    }
   }
 }

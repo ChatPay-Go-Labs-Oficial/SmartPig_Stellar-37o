@@ -1,24 +1,26 @@
-import { Buffer } from 'buffer';
-import 'react-native-get-random-values';
-import 'react-native-url-polyfill/auto';
-import { setAudioModeAsync } from 'expo-audio';
+import { Buffer } from "buffer";
+import "react-native-get-random-values";
+import "react-native-url-polyfill/auto";
+import { setAudioModeAsync } from "expo-audio";
 
-setAudioModeAsync({
-  playsInSilentMode: true,
-  allowsRecording: false,
-  shouldPlayInBackground: false,
-});
+import { PrivyProvider, usePrivy } from "@privy-io/expo";
+import { useSignRawHash } from "@privy-io/expo/extended-chains";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
-import { PrivyProvider, usePrivy } from '@privy-io/expo';
-import { useSignRawHash } from '@privy-io/expo/extended-chains';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-
-import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { useAuthStore } from '@/lib/stores/auth.store';
-import { setTokenProvider } from '@/lib/api/token';
-import { setSignRawHashProvider } from '@/lib/stellar/signer';
-import { authenticateWithDeviceBiometrics } from '@/lib/security/biometrics';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  Accent,
+  Colors,
+  Font,
+  FontSize,
+  Gradients,
+  Radius,
+  Spacing,
+} from "@/constants/theme";
+import { useAuthStore } from "@/lib/stores/auth.store";
+import { setTokenProvider } from "@/lib/api/token";
+import { setSignRawHashProvider } from "@/lib/stellar/signer";
+import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -26,11 +28,11 @@ import {
   Nunito_800ExtraBold,
   Nunito_900Black,
   useFonts,
-} from '@expo-google-fonts/nunito';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack, router, useSegments } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef, useState } from 'react';
+} from "@expo-google-fonts/nunito";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack, router, useSegments } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -40,10 +42,17 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import 'react-native-reanimated';
+} from "react-native";
+import "react-native-reanimated";
+import { GiftClaimGate } from "@/components/ui";
 
-if (typeof global.Buffer === 'undefined') {
+setAudioModeAsync({
+  playsInSilentMode: true,
+  allowsRecording: false,
+  shouldPlayInBackground: false,
+});
+
+if (typeof global.Buffer === "undefined") {
   global.Buffer = Buffer;
 }
 
@@ -54,9 +63,9 @@ const PRIVY_READY_TIMEOUT_MS = 8_000;
 function getPrivyErrorDetail(error: unknown): string | null {
   if (!error) return null;
 
-  if (typeof error === 'string') return error;
+  if (typeof error === "string") return error;
 
-  if (error && typeof error === 'object') {
+  if (error && typeof error === "object") {
     const privyError = error as {
       code?: string;
       error?: string;
@@ -70,14 +79,14 @@ function getPrivyErrorDetail(error: unknown): string | null {
       privyError.name,
     ].filter(Boolean);
 
-    return parts.length ? Array.from(new Set(parts)).join(' | ') : null;
+    return parts.length ? Array.from(new Set(parts)).join(" | ") : null;
   }
 
   return null;
 }
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
 const queryClient = new QueryClient({
@@ -108,10 +117,7 @@ export default function RootLayout() {
 
   return (
     <View style={styles.root}>
-      <PrivyProvider
-        appId={PRIVY_APP_ID}
-        clientId={PRIVY_CLIENT_ID}
-      >
+      <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
         <QueryClientProvider client={queryClient}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" />
@@ -122,6 +128,7 @@ export default function RootLayout() {
             <Stack.Screen name="pigs" />
           </Stack>
           <StatusBar style="light" />
+          <GiftClaimGate />
         </QueryClientProvider>
         <AppGate />
       </PrivyProvider>
@@ -131,7 +138,13 @@ export default function RootLayout() {
 
 function AppGate() {
   const segments = useSegments();
-  const { error: privyError, getAccessToken, isReady, logout, user } = usePrivy();
+  const {
+    error: privyError,
+    getAccessToken,
+    isReady,
+    logout,
+    user,
+  } = usePrivy();
   const { signRawHash } = useSignRawHash();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hydrated = useAuthStore((s) => s._hydrated);
@@ -142,33 +155,36 @@ function AppGate() {
   const [privyRetryCount, setPrivyRetryCount] = useState(0);
   const [biometricLocked, setBiometricLocked] = useState(false);
   const [biometricChecking, setBiometricChecking] = useState(false);
-  const [biometricMessage, setBiometricMessage] = useState('');
+  const [biometricMessage, setBiometricMessage] = useState("");
   const authenticatingRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const initialPromptScheduledRef = useRef(false);
   const restoredSessionRequiresBiometricsRef = useRef(false);
   const hydrationCapturedRef = useRef(false);
-  const inAuthFlow = segments[0] === '(auth)';
+  const inAuthFlow = segments[0] === "(auth)";
 
   const unlockWithBiometrics = useCallback(async () => {
     if (authenticatingRef.current) return;
 
     authenticatingRef.current = true;
     setBiometricChecking(true);
-    setBiometricMessage('');
+    setBiometricMessage("");
 
     try {
       const result = await authenticateWithDeviceBiometrics({
-        promptMessage: 'Confirme que é você',
-        promptSubtitle: 'Acesse sua conta PigFi',
-        promptDescription: 'Use a biometria configurada neste aparelho.',
+        promptMessage: "Confirme que é você",
+        promptSubtitle: "Acesse sua conta PigFi",
+        promptDescription: "Use a biometria configurada neste aparelho.",
       });
 
       if (result.success) {
         setBiometricLocked(false);
       } else {
         setBiometricLocked(true);
-        setBiometricMessage(result.message ?? 'Não foi possível confirmar sua identidade. Tente novamente.');
+        setBiometricMessage(
+          result.message ??
+            "Não foi possível confirmar sua identidade. Tente novamente.",
+        );
       }
     } catch {
       setBiometricLocked(false);
@@ -186,11 +202,11 @@ function AppGate() {
       new Promise((resolve) => setTimeout(resolve, 1500)),
     ]);
     setBiometricLocked(true);
-    setBiometricMessage('');
+    setBiometricMessage("");
     restoredSessionRequiresBiometricsRef.current = false;
     initialPromptScheduledRef.current = false;
     setBiometricChecking(false);
-    router.replace('/(auth)');
+    router.replace("/(auth)");
   }, [clearAuth, logout]);
 
   useEffect(() => {
@@ -205,12 +221,7 @@ function AppGate() {
     setTokenProvider(getAccessToken);
     setSignRawHashProvider(signRawHash);
     setGateOpen(true);
-  }, [
-    getAccessToken,
-    hydrated,
-    isAuthenticated,
-    signRawHash,
-  ]);
+  }, [getAccessToken, hydrated, isAuthenticated, signRawHash]);
 
   useEffect(() => {
     if (!isReady || !hydrated) return;
@@ -220,13 +231,7 @@ function AppGate() {
     if (isAuthenticated && !user) {
       clearAuth();
     }
-  }, [
-    clearAuth,
-    hydrated,
-    isAuthenticated,
-    isReady,
-    user,
-  ]);
+  }, [clearAuth, hydrated, isAuthenticated, isReady, user]);
 
   useEffect(() => {
     if (!gateOpen || !isAuthenticated || isReady) {
@@ -240,20 +245,15 @@ function AppGate() {
     }, PRIVY_READY_TIMEOUT_MS);
 
     return () => clearTimeout(timer);
-  }, [
-    gateOpen,
-    isAuthenticated,
-    isReady,
-    privyRetryCount,
-  ]);
+  }, [gateOpen, isAuthenticated, isReady, privyRetryCount]);
 
   useEffect(() => {
     if (!gateOpen) return;
 
     if (!isAuthenticated) {
-      router.replace('/(auth)');
+      router.replace("/(auth)");
       setBiometricLocked(false);
-      setBiometricMessage('');
+      setBiometricMessage("");
       restoredSessionRequiresBiometricsRef.current = false;
       initialPromptScheduledRef.current = false;
       requestAnimationFrame(() => setSplashDone(true));
@@ -267,16 +267,17 @@ function AppGate() {
       return;
     }
 
-    const shouldRequireBiometrics = restoredSessionRequiresBiometricsRef.current;
+    const shouldRequireBiometrics =
+      restoredSessionRequiresBiometricsRef.current;
 
     if (!shouldRequireBiometrics) {
       setBiometricLocked(false);
-      setBiometricMessage('');
+      setBiometricMessage("");
       initialPromptScheduledRef.current = false;
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
       requestAnimationFrame(() => setSplashDone(true));
     } else if (!biometricLocked) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
       requestAnimationFrame(() => setSplashDone(true));
     } else {
       requestAnimationFrame(() => setSplashDone(true));
@@ -298,13 +299,14 @@ function AppGate() {
       !isAuthenticated ||
       !biometricLocked ||
       !restoredSessionRequiresBiometricsRef.current
-    ) return;
+    )
+      return;
     if (initialPromptScheduledRef.current) return;
 
     initialPromptScheduledRef.current = true;
     const interaction = InteractionManager.runAfterInteractions(() => {
       setTimeout(() => {
-        if (appStateRef.current === 'active') {
+        if (appStateRef.current === "active") {
           unlockWithBiometrics();
         }
       }, 350);
@@ -321,7 +323,7 @@ function AppGate() {
   ]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
       const previousAppState = appStateRef.current;
       appStateRef.current = nextAppState;
 
@@ -331,7 +333,7 @@ function AppGate() {
         !biometricLocked &&
         !authenticatingRef.current &&
         previousAppState.match(/inactive|background/) &&
-        nextAppState === 'active'
+        nextAppState === "active"
       ) {
         setBiometricLocked(true);
         restoredSessionRequiresBiometricsRef.current = true;
@@ -343,14 +345,22 @@ function AppGate() {
   }, [biometricLocked, inAuthFlow, isAuthenticated, unlockWithBiometrics]);
 
   if (!splashDone) {
-    return <GateLoadingModal message={hydrated ? 'Preparando acesso...' : 'Restaurando sessão...'} />;
+    return (
+      <GateLoadingModal
+        message={hydrated ? "Preparando acesso..." : "Restaurando sessão..."}
+      />
+    );
   }
 
   if (isAuthenticated && !isReady && (privyError || privyReadyTimedOut)) {
     const detail = getPrivyErrorDetail(privyError);
     return (
       <PrivyRecoveryModal
-        errorMessage={privyError ? 'Não foi possível inicializar a sessão Privy.' : 'A sessão Privy demorou para responder.'}
+        errorMessage={
+          privyError
+            ? "Não foi possível inicializar a sessão Privy."
+            : "A sessão Privy demorou para responder."
+        }
         errorDetail={detail}
         onRetry={() => {
           setPrivyReadyTimedOut(false);
@@ -398,10 +408,13 @@ function AppGate() {
           <Pressable
             onPress={unlockWithBiometrics}
             disabled={biometricChecking}
-            style={[styles.lockPrimaryBtn, biometricChecking && styles.lockBtnDisabled]}
+            style={[
+              styles.lockPrimaryBtn,
+              biometricChecking && styles.lockBtnDisabled,
+            ]}
           >
             <Text style={styles.lockPrimaryText}>
-              {biometricChecking ? 'Verificando...' : 'Desbloquear'}
+              {biometricChecking ? "Verificando..." : "Desbloquear"}
             </Text>
           </Pressable>
 
@@ -422,7 +435,12 @@ function AppGate() {
 
 function GateLoadingModal({ message }: { message: string }) {
   return (
-    <Modal visible animationType="none" transparent={false} statusBarTranslucent>
+    <Modal
+      visible
+      animationType="none"
+      transparent={false}
+      statusBarTranslucent
+    >
       <View style={styles.gateLoading}>
         <ActivityIndicator color={Accent.primary} size="large" />
         <Text style={styles.gateLoadingText}>{message}</Text>
@@ -434,10 +452,15 @@ function GateLoadingModal({ message }: { message: string }) {
 function MissingPrivyConfigScreen() {
   return (
     <View style={styles.configError}>
-      <MaterialIcons name="error-outline" size={34} color={Accent.destructive} />
+      <MaterialIcons
+        name="error-outline"
+        size={34}
+        color={Accent.destructive}
+      />
       <Text style={styles.configTitle}>Configuração Privy ausente</Text>
       <Text style={styles.configText}>
-        Defina EXPO_PUBLIC_PRIVY_APP_ID e EXPO_PUBLIC_PRIVY_CLIENT_ID no ambiente do build.
+        Defina EXPO_PUBLIC_PRIVY_APP_ID e EXPO_PUBLIC_PRIVY_CLIENT_ID no
+        ambiente do build.
       </Text>
     </View>
   );
@@ -457,15 +480,25 @@ function PrivyRecoveryModal({
   onRetry: () => void;
 }) {
   return (
-    <Modal visible animationType="none" transparent={false} statusBarTranslucent>
+    <Modal
+      visible
+      animationType="none"
+      transparent={false}
+      statusBarTranslucent
+    >
       <View style={styles.lockOverlay}>
         <View style={styles.recoveryIconWrap}>
-          <MaterialIcons name="sync-problem" size={34} color={Accent.destructive} />
+          <MaterialIcons
+            name="sync-problem"
+            size={34}
+            color={Accent.destructive}
+          />
         </View>
         <Text style={styles.lockTitle}>Sessão não carregou</Text>
         <Text style={styles.lockText}>{errorMessage}</Text>
         <Text style={styles.lockMessage}>
-          Seus dados financeiros continuam bloqueados. Tente novamente ou saia da conta.
+          Seus dados financeiros continuam bloqueados. Tente novamente ou saia
+          da conta.
         </Text>
         {errorDetail ? (
           <Text style={styles.diagnosticText}>{errorDetail}</Text>
@@ -485,7 +518,7 @@ function PrivyRecoveryModal({
           style={styles.lockSecondaryBtn}
         >
           <Text style={styles.lockSecondaryText}>
-            {loading ? 'Saindo...' : 'Sair da conta'}
+            {loading ? "Saindo..." : "Sair da conta"}
           </Text>
         </Pressable>
       </View>
@@ -499,8 +532,8 @@ const styles = StyleSheet.create({
   gateLoading: {
     flex: 1,
     backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 12,
   },
   gateLoadingText: {
@@ -511,8 +544,8 @@ const styles = StyleSheet.create({
   lockOverlay: {
     flex: 1,
     backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: Spacing[6],
     gap: 14,
   },
@@ -520,49 +553,49 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 6,
   },
   recoveryIconWrap: {
     width: 76,
     height: 76,
     borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    backgroundColor: "rgba(239, 68, 68, 0.12)",
     borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.28)',
+    borderColor: "rgba(239, 68, 68, 0.28)",
   },
   lockTitle: {
     fontSize: FontSize.heading,
     fontFamily: Font.black,
     color: Colors.foreground,
-    textAlign: 'center',
+    textAlign: "center",
   },
   lockText: {
     fontSize: FontSize.body,
     fontFamily: Font.regular,
     color: Colors.mutedForeground,
     lineHeight: 22,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 300,
   },
   lockMessage: {
     fontSize: FontSize.bodySmall,
     fontFamily: Font.semiBold,
     color: Accent.destructive,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 300,
   },
   lockPrimaryBtn: {
-    width: '100%',
+    width: "100%",
     maxWidth: 320,
     borderRadius: Radius.sm,
     backgroundColor: Accent.primary,
     paddingVertical: 15,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 8,
   },
   lockBtnDisabled: {
@@ -571,7 +604,7 @@ const styles = StyleSheet.create({
   lockPrimaryText: {
     fontSize: FontSize.body,
     fontFamily: Font.black,
-    color: '#fff',
+    color: "#fff",
   },
   lockSecondaryBtn: {
     paddingVertical: 12,
@@ -585,8 +618,8 @@ const styles = StyleSheet.create({
   configError: {
     flex: 1,
     backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: Spacing[6],
     gap: 12,
   },
@@ -594,14 +627,14 @@ const styles = StyleSheet.create({
     fontSize: FontSize.subheading,
     fontFamily: Font.black,
     color: Colors.foreground,
-    textAlign: 'center',
+    textAlign: "center",
   },
   configText: {
     fontSize: FontSize.bodySmall,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
     lineHeight: 20,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 320,
   },
   diagnosticText: {
@@ -609,7 +642,7 @@ const styles = StyleSheet.create({
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
     lineHeight: 17,
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 340,
   },
 });

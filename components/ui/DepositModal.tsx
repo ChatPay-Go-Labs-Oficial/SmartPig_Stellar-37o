@@ -55,6 +55,8 @@ interface DepositModalProps {
   vaultId: string;
   assetSymbol: string;
   apyValue?: number;
+  /** Pre-fills the amount when the modal opens (e.g. chained from a gift claim). */
+  initialAmount?: string;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -66,6 +68,7 @@ export function DepositModal({
   vaultId,
   assetSymbol,
   apyValue = 0,
+  initialAmount,
   onClose,
   onSuccess,
 }: DepositModalProps) {
@@ -85,6 +88,10 @@ export function DepositModal({
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
   const floatLoop = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (visible && initialAmount) setAmount(initialAmount);
+  }, [visible, initialAmount]);
 
   useEffect(() => {
     const onShow = (e: any) => setKeyboardHeight(e.endCoordinates.height);
