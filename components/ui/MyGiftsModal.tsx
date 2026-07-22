@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -46,8 +47,22 @@ export function MyGiftsModal({ visible, onClose }: MyGiftsModalProps) {
   const [feedback, setFeedback] = useState('');
   const [isFeedbackError, setIsFeedbackError] = useState(false);
   const [reclaimingId, setReclaimingId] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const { playClick, playInvestirConfirmacao, playQuestaoErrada } = useSound();
+
+  useEffect(() => {
+    const onShow = (e: { endCoordinates: { height: number } }) =>
+      setKeyboardHeight(e.endCoordinates.height);
+    const onHide = () => setKeyboardHeight(0);
+    const subs = [
+      Keyboard.addListener('keyboardWillShow', onShow),
+      Keyboard.addListener('keyboardWillHide', onHide),
+      Keyboard.addListener('keyboardDidShow', onShow),
+      Keyboard.addListener('keyboardDidHide', onHide),
+    ];
+    return () => subs.forEach((s) => s.remove());
+  }, []);
 
   const handleRedeemCode = () => {
     playClick();
@@ -106,6 +121,7 @@ export function MyGiftsModal({ visible, onClose }: MyGiftsModalProps) {
       onRequestClose={handleClose}
     >
       <Pressable style={styles.backdrop} onPress={handleClose}>
+        <View style={{ paddingBottom: keyboardHeight }}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
 
@@ -213,6 +229,7 @@ export function MyGiftsModal({ visible, onClose }: MyGiftsModalProps) {
             </View>
           </ScrollView>
         </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );

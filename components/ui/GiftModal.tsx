@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Share,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -78,8 +79,22 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
   const [step, setStep] = useState<Step>('input');
   const [errorMsg, setErrorMsg] = useState('');
   const [gift, setGift] = useState<CreatedGift | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const { playClick, playInvestirConfirmacao, playQuestaoErrada } = useSound();
+
+  useEffect(() => {
+    const onShow = (e: { endCoordinates: { height: number } }) =>
+      setKeyboardHeight(e.endCoordinates.height);
+    const onHide = () => setKeyboardHeight(0);
+    const subs = [
+      Keyboard.addListener('keyboardWillShow', onShow),
+      Keyboard.addListener('keyboardWillHide', onHide),
+      Keyboard.addListener('keyboardDidShow', onShow),
+      Keyboard.addListener('keyboardDidHide', onHide),
+    ];
+    return () => subs.forEach((s) => s.remove());
+  }, []);
 
   const handleSend = async () => {
     if (!walletAddress) return;
@@ -179,6 +194,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
       onRequestClose={isBusy ? undefined : handleClose}
     >
       <Pressable style={styles.backdrop} onPress={isBusy ? undefined : handleClose}>
+        <View style={{ paddingBottom: keyboardHeight }}>
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
 
@@ -325,6 +341,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
             </View>
           )}
         </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );
