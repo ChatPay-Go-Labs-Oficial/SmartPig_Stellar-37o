@@ -4,7 +4,7 @@
 
 Website: https://use.pigfi.app
 
-Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
+Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/08fc0c0e-990f-4442-b970-eb6fb989b68a
 
 PigFi is a mobile-first financial education and habit-building app for Brazilian families, using Stellar infrastructure to turn small Pix-based contributions into a simple, visual and gamified dollar-denominated experience.
 
@@ -20,11 +20,11 @@ PigFi exists to make investing in dollars as simple as putting coins into a pigg
 
 The product is designed for people who believe investing is complicated, expensive, or “not for me” — and for those who want to offer their families a different kind of financial habit and education. Instead of exposing users to crypto vocabulary, wallets, DeFi, yield protocols, or blockchain mechanics, PigFi translates the experience into familiar language:
 
-* start with a small amount;
-* use a flow similar to Pix;
-* watch the piggy bank grow;
-* understand progress visually;
-* no financial or crypto jargon.
+- start with a small amount;
+- use a flow similar to Pix;
+- watch the piggy bank grow;
+- understand progress visually;
+- no financial or crypto jargon.
 
 The brand direction is intentionally **tech-emotional**: a modern financial app with an astronaut piggy character, dark UI, neon elements, and a simple tone of voice. It is designed for families and financial education.
 
@@ -34,15 +34,15 @@ The brand direction is intentionally **tech-emotional**: a modern financial app 
 
 In its current version, PigFi demonstrates:
 
-* mobile onboarding;
-* Stellar wallet creation and connection;
-* persistent wallet and user state;
-* listing of available investment vaults via backend;
-* portfolio and vault information visualization;
-* deposit and withdrawal flows;
-* communication with the backend API;
-* Stellar mainnet infrastructure;
-* the product experience for the Pix → dollar investment flow.
+- mobile onboarding;
+- Stellar wallet creation and connection;
+- persistent wallet and user state;
+- listing of available investment vaults via backend;
+- portfolio and vault information visualization;
+- deposit and withdrawal flows;
+- communication with the backend API;
+- Stellar mainnet infrastructure;
+- the product experience for the Pix → dollar investment flow.
 
 ---
 
@@ -126,14 +126,14 @@ Ramp layer: regulated on/off-ramp partner
 
 The backend supports:
 
-* wallet login using the user’s Stellar address;
-* vault discovery and synchronization;
-* APY and portfolio snapshot jobs;
-* deposit intent creation;
-* unsigned XDR generation for signing in the mobile app;
-* signed XDR submission;
-* withdrawal intent creation;
-* reconciliation jobs for transaction status updates.
+- wallet login using the user’s Stellar address;
+- vault discovery and synchronization;
+- APY and portfolio snapshot jobs;
+- deposit intent creation;
+- unsigned XDR generation for signing in the mobile app;
+- signed XDR submission;
+- withdrawal intent creation;
+- reconciliation jobs for transaction status updates.
 
 The backend does not store the user’s private key. The expected pattern is:
 
@@ -148,14 +148,14 @@ The backend does not store the user’s private key. The expected pattern is:
 
 To run the mobile app locally:
 
-* Node.js 20+
-* npm
-* Expo CLI / Expo tooling
-* Android Studio or a physical Android device
-* Backend API running locally or deployed
-* Stellar mainnet configuration
-* Privy App ID
-* WalletConnect Project ID
+- Node.js 20+
+- npm
+- Expo CLI / Expo tooling
+- Android Studio or a physical Android device
+- Backend API running locally or deployed
+- Stellar mainnet configuration
+- Privy App ID
+- WalletConnect Project ID
 
 To run the backend locally, follow the documentation in the backend repository.
 
@@ -231,13 +231,13 @@ The mobile app must point to the backend via `EXPO_PUBLIC_API_URL`.
 
 The backend repository contains technical documentation for:
 
-* architecture;
-* database schema;
-* REST API;
-* deposit and withdrawal flows;
-* DeFindex integration;
-* jobs;
-* deployment.
+- architecture;
+- database schema;
+- REST API;
+- deposit and withdrawal flows;
+- DeFindex integration;
+- jobs;
+- deployment.
 
 ---
 
@@ -261,11 +261,11 @@ Submissions to the Apple App Store and Google Play have been made and are awaiti
 
 ## Security and Custody Model
 
-* The app is designed so users do not need to understand blockchain terminology.
-* Authentication and key protection are managed by Privy.
-* The backend does not store private keys.
-* Blockchain operations are prepared as unsigned XDRs where applicable.
-* User signing is part of the wallet interaction flow.
+- The app is designed so users do not need to understand blockchain terminology.
+- Authentication and key protection are managed by Privy.
+- The backend does not store private keys.
+- Blockchain operations are prepared as unsigned XDRs where applicable.
+- User signing is part of the wallet interaction flow.
 
 ---
 
@@ -273,20 +273,20 @@ Submissions to the Apple App Store and Google Play have been made and are awaiti
 
 PigFi should feel:
 
-* simple;
-* friendly;
-* transparent;
-* fun;
-* financially responsible;
-* non-technical for the end user.
+- simple;
+- friendly;
+- transparent;
+- fun;
+- financially responsible;
+- non-technical for the end user.
 
 PigFi should avoid:
 
-* crypto jargon in the user interface;
-* complex financial language;
-* unrealistic return promises;
-* “get rich quick” messaging;
-* presenting the product as a traditional bank or brokerage.
+- crypto jargon in the user interface;
+- complex financial language;
+- unrealistic return promises;
+- “get rich quick” messaging;
+- presenting the product as a traditional bank or brokerage.
 
 The blockchain and DeFi layers are infrastructure, not the user-facing story.
 
