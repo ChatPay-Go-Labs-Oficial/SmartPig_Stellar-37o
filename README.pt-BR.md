@@ -4,7 +4,7 @@
 
 Site: https://use.pigfi.app
 
-APK Android: https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
+Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/08fc0c0e-990f-4442-b970-eb6fb989b68a
 
 O PigFi é um aplicativo brasileiro de educação financeira gamificada que ajuda adultos e famílias a criarem o hábito de guardar em dólar, a partir de pequenos valores via Pix. A tecnologia Stellar, a carteira não custodial e os parceiros de infraestrutura operam nos bastidores, para que o usuário tenha uma experiência simples, visual e sem precisar entender câmbio, criptomoedas ou mercados financeiros.
 
@@ -50,10 +50,10 @@ Na versão atual, o PigFi demonstra:
 
 O PigFi é dividido em dois repositórios principais:
 
-| Repositório            | Propósito                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------- |
-| `SmartPig_Stellar-37o` | App mobile construído com Expo / React Native                                      |
-| `smartpig-backend`     | Backend API construído com NestJS, Prisma/PostgreSQL, Stellar e DeFindex           |
+| Repositório            | Propósito                                                                |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `SmartPig_Stellar-37o` | App mobile construído com Expo / React Native                            |
+| `smartpig-backend`     | Backend API construído com NestJS, Prisma/PostgreSQL, Stellar e DeFindex |
 
 O backend é responsável por orquestração de API, dados de vault, intenções de depósito/saque, geração de XDR, jobs em background e comunicação com Stellar/DeFindex.
 
@@ -94,31 +94,31 @@ Camada de ramp: parceiro de on/off ramp regulamentado
 
 ## Stack mobile
 
-| Camada         | Tecnologia                                  |
-| -------------- | ------------------------------------------- |
-| Framework      | Expo SDK 54 + React Native 0.81             |
-| Linguagem      | TypeScript                                  |
-| Roteamento     | Expo Router                                 |
-| Estado         | Zustand + AsyncStorage                      |
-| Dados remotos  | TanStack Query + Axios                      |
-| Wallet         | Privy (embedded wallets) + WebAuthn         |
-| UI / animação  | Expo Linear Gradient + Reanimated           |
-| Storage        | AsyncStorage / SecureStore onde aplicável   |
+| Camada        | Tecnologia                                |
+| ------------- | ----------------------------------------- |
+| Framework     | Expo SDK 54 + React Native 0.81           |
+| Linguagem     | TypeScript                                |
+| Roteamento    | Expo Router                               |
+| Estado        | Zustand + AsyncStorage                    |
+| Dados remotos | TanStack Query + Axios                    |
+| Wallet        | Privy (embedded wallets) + WebAuthn       |
+| UI / animação | Expo Linear Gradient + Reanimated         |
+| Storage       | AsyncStorage / SecureStore onde aplicável |
 
 ---
 
 ## Stack backend
 
-| Camada           | Tecnologia                          |
-| ---------------- | ----------------------------------- |
-| Runtime          | Node.js 20+                         |
-| Framework        | NestJS                              |
-| ORM              | Prisma                              |
-| Banco de dados   | PostgreSQL                          |
-| Blockchain       | Stellar                             |
-| Integração DeFi  | DeFindex SDK / API                  |
-| Jobs em background | NestJS Schedule / cron jobs       |
-| Validação        | class-validator / class-transformer |
+| Camada             | Tecnologia                          |
+| ------------------ | ----------------------------------- |
+| Runtime            | Node.js 20+                         |
+| Framework          | NestJS                              |
+| ORM                | Prisma                              |
+| Banco de dados     | PostgreSQL                          |
+| Blockchain         | Stellar                             |
+| Integração DeFi    | DeFindex SDK / API                  |
+| Jobs em background | NestJS Schedule / cron jobs         |
+| Validação          | class-validator / class-transformer |
 
 ---
 
@@ -294,13 +294,13 @@ As camadas de blockchain e DeFi são infraestrutura, não a história voltada ao
 
 ## Scripts
 
-| Comando           | Descrição                              |
-| ----------------- | -------------------------------------- |
+| Comando           | Descrição                                 |
+| ----------------- | ----------------------------------------- |
 | `npm start`       | Inicia o servidor de desenvolvimento Expo |
-| `npm run android` | Abre o target de build Android         |
-| `npm run ios`     | Abre o simulador iOS                   |
-| `npm run web`     | Abre o preview web                     |
-| `npm run lint`    | Executa o lint do Expo                 |
+| `npm run android` | Abre o target de build Android            |
+| `npm run ios`     | Abre o simulador iOS                      |
+| `npm run web`     | Abre o preview web                        |
+| `npm run lint`    | Executa o lint do Expo                    |
 
 ---
 

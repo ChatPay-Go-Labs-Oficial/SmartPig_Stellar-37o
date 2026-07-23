@@ -20,4 +20,7 @@ export { LevelUpAnimation } from './LevelUpAnimation';
 export { LessonPlayer } from './LessonPlayer';
 export { Confetti } from './Confetti';
 export { TransferModal } from './TransferModal';
+export { GiftModal } from './GiftModal';
+export { GiftClaimGate } from './GiftClaimSheet';
+export { MyGiftsModal } from './MyGiftsModal';
 

@@ -226,7 +226,7 @@ export async function listUsdcTransfers(
   }
 }
 
-async function submitTransactionEnvelope(envelopeXdr: Uint8Array | string): Promise<{ hash: string }> {
+export async function submitTransactionEnvelope(envelopeXdr: Uint8Array | string): Promise<{ hash: string }> {
   const base64 = typeof envelopeXdr === 'string'
     ? envelopeXdr
     : Buffer.from(envelopeXdr).toString('base64');
@@ -249,7 +249,7 @@ async function submitTransactionEnvelope(envelopeXdr: Uint8Array | string): Prom
   return { hash: body.hash };
 }
 
-function mapTransferError(error: unknown, fallback?: TransferErrorCode): TransferError {
+export function mapTransferError(error: unknown, fallback?: TransferErrorCode): TransferError {
   if (error instanceof TransferError) return error;
 
   const candidate = error as {
