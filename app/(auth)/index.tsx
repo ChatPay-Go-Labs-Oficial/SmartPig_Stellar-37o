@@ -418,6 +418,34 @@ export default function OnboardingScreen() {
     }
   }
 
+  // After OAuth/passkey returns, Privy has a user but the backend session is
+  // still being reconciled (wallet + auth). Show a full-screen loader during
+  // that window so the sign-in UI doesn't flicker until navigation to home.
+  const isRestoringSession = !!user && !isAuthenticated && !error;
+
+  if (isRestoringSession) {
+    return (
+      <View style={styles.loadingScreen}>
+        <StarryBackground />
+        <View style={styles.brand}>
+          <Image
+            source={require('@/assets/images/PigFi-porquinho.png')}
+            style={styles.brandIcon}
+          />
+          <Text style={styles.brandText}>PigFi</Text>
+        </View>
+        <Image
+          source={require('@/assets/images/pig1.png')}
+          style={styles.image}
+        />
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color="#fff" />
+          <Text style={styles.loadingText}>Entrando...</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -589,6 +617,16 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingScreen: {
+    flex: 1,
+    backgroundColor: '#080113',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    paddingHorizontal: 24,
+  },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  loadingText: { color: '#fff', fontSize: 16 },
   container: {
     flexGrow: 1,
     backgroundColor: Colors.background,

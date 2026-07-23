@@ -119,9 +119,20 @@ export default function RootLayout() {
     <View style={styles.root}>
       <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
         <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: Colors.background },
+            }}
+          >
+            <Stack.Screen
+              name="(auth)"
+              options={{ gestureEnabled: false, animation: "fade" }}
+            />
+            <Stack.Screen
+              name="(tabs)"
+              options={{ gestureEnabled: false, animation: "fade" }}
+            />
             <Stack.Screen name="vault/[id]" />
             <Stack.Screen name="(etherfuse-onboarding)" />
             <Stack.Screen name="education" />
