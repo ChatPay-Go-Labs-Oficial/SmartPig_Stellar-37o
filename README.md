@@ -4,7 +4,7 @@
 
 Website: https://use.pigfi.app
 
-Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/08fc0c0e-990f-4442-b970-eb6fb989b68a
+Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
 
 PigFi is a mobile-first financial education and habit-building app for Brazilian families, using Stellar infrastructure to turn small Pix-based contributions into a simple, visual and gamified dollar-denominated experience.
 
