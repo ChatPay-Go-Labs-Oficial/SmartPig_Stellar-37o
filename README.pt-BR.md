@@ -4,7 +4,7 @@
 
 Site: https://use.pigfi.app
 
-Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/08fc0c0e-990f-4442-b970-eb6fb989b68a
+Android Apk: https://expo.dev/accounts/maykro/projects/pigfi/builds/d5b83ae2-c2a6-48f5-a79e-ac4d3b8960cf
 
 O PigFi é um aplicativo brasileiro de educação financeira gamificada que ajuda adultos e famílias a criarem o hábito de guardar em dólar, a partir de pequenos valores via Pix. A tecnologia Stellar, a carteira não custodial e os parceiros de infraestrutura operam nos bastidores, para que o usuário tenha uma experiência simples, visual e sem precisar entender câmbio, criptomoedas ou mercados financeiros.
 
