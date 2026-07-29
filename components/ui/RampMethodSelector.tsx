@@ -1,4 +1,5 @@
 import { Modal, View, Text, StyleSheet, Pressable } from "react-native";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
@@ -11,6 +12,8 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { PressableScale } from "./PressableScale";
+import { useAuthStore } from "@/lib/stores/auth.store";
+import { useBlindPayReceiver } from "@/lib/queries/blindpay.queries";
 
 interface RampMethodSelectorProps {
   visible: boolean;
@@ -24,9 +27,26 @@ export function RampMethodSelector({
   visible,
   type,
   onSelectStellar,
+  onSelectRamp,
   onClose,
 }: RampMethodSelectorProps) {
   const isDeposit = type === "deposit";
+  const contractId = useAuthStore((s) => s.contractId);
+  const { data: receiver } = useBlindPayReceiver(visible ? contractId : null);
+
+  function handlePixPress() {
+    onClose();
+    const isOnboarded =
+      receiver &&
+      (receiver.bankAccounts?.length ?? 0) > 0 &&
+      (receiver.blockchainWallets?.length ?? 0) > 0;
+
+    if (!isOnboarded) {
+      router.replace("/(blindpay-onboarding)" as any);
+      return;
+    }
+    onSelectRamp();
+  }
 
   return (
     <Modal
@@ -83,25 +103,23 @@ export function RampMethodSelector({
               </View>
             </PressableScale>
 
-            {/* PIX — em breve */}
-            <View style={[styles.optionCard, styles.optionCardDisabled]}>
-              <View style={[styles.optionIconWrap, styles.optionIconWrapDisabled]}>
-                <MaterialIcons name="pix" size={22} color={Colors.mutedForeground} />
-              </View>
-              <View style={styles.optionText}>
-                <View style={styles.optionLabelRow}>
-                  <Text style={styles.optionLabelDisabled}>PIX (BRL)</Text>
-                  <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>Em breve</Text>
-                  </View>
+            {/* PIX */}
+            <PressableScale onPress={handlePixPress}>
+              <View style={styles.optionCard}>
+                <View style={styles.optionIconWrap}>
+                  <MaterialIcons name="pix" size={22} color={Accent.primary} />
                 </View>
-                <Text style={styles.optionDesc}>
-                  {isDeposit
-                    ? "Deposito via Pix em reais"
-                    : "Receba na sua conta bancaria"}
-                </Text>
+                <View style={styles.optionText}>
+                  <Text style={styles.optionLabel}>PIX (BRL)</Text>
+                  <Text style={styles.optionDesc}>
+                    {isDeposit
+                      ? "Deposite via Pix em reais"
+                      : "Receba na sua conta via Pix"}
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
               </View>
-            </View>
+            </PressableScale>
           </View>
         </Pressable>
       </Pressable>
@@ -178,9 +196,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing[4],
   },
-  optionCardDisabled: {
-    opacity: 0.5,
-  },
   optionIconWrap: {
     width: 46,
     height: 46,
@@ -190,48 +205,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexShrink: 0,
   },
-  optionIconWrapDisabled: {
-    backgroundColor: Colors.muted,
-  },
   optionText: {
     flex: 1,
     gap: 3,
-  },
-  optionLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
   },
   optionLabel: {
     fontSize: FontSize.body,
     fontFamily: Font.bold,
     color: Colors.foreground,
   },
-  optionLabelDisabled: {
-    fontSize: FontSize.body,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-  },
   optionDesc: {
     fontSize: FontSize.label,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
     lineHeight: 18,
-  },
-
-  // Em breve badge
-  comingSoonBadge: {
-    backgroundColor: Colors.muted,
-    borderRadius: Radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  comingSoonText: {
-    fontSize: 10,
-    fontFamily: Font.black,
-    color: Colors.mutedForeground,
-    letterSpacing: 0.3,
   },
 });

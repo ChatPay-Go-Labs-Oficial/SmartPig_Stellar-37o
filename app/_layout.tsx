@@ -135,6 +135,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="vault/[id]" />
             <Stack.Screen name="(etherfuse-onboarding)" />
+            <Stack.Screen name="(blindpay-onboarding)" />
             <Stack.Screen name="education" />
             <Stack.Screen name="pigs" />
           </Stack>

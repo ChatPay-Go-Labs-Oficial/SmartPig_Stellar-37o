@@ -4,8 +4,8 @@ import {
   StarryBackground,
   WithdrawModal,
   RampMethodSelector,
-  EtherfuseOnrampModal,
-  EtherfuseOfframpModal,
+  BlindPayOnrampModal,
+  BlindPayOfframpModal,
   getPigLevel,
   PressableScale,
   LevelUpAnimation,
@@ -705,11 +705,11 @@ export default function HomeScreen() {
         onClose={() => setWithdrawOpen(false)}
       />
       <GiftModal visible={giftOpen} onClose={() => setGiftOpen(false)} />
-      <EtherfuseOnrampModal
+      <BlindPayOnrampModal
         visible={onrampOpen}
         onClose={() => setOnrampOpen(false)}
       />
-      <EtherfuseOfframpModal
+      <BlindPayOfframpModal
         visible={offrampOpen}
         maxAmount={walletBalance}
         onClose={() => setOfframpOpen(false)}

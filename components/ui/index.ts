@@ -15,6 +15,8 @@ export { PigSVG, getPigLevel, getProgress } from './EvolutionaryPig';
 export { RampMethodSelector } from './RampMethodSelector';
 export { EtherfuseOnrampModal } from './EtherfuseOnrampModal';
 export { EtherfuseOfframpModal } from './EtherfuseOfframpModal';
+export { BlindPayOnrampModal } from './BlindPayOnrampModal';
+export { BlindPayOfframpModal } from './BlindPayOfframpModal';
 export { OnboardingBackButton } from './OnboardingBackButton';
 export { LevelUpAnimation } from './LevelUpAnimation';
 export { LessonPlayer } from './LessonPlayer';
