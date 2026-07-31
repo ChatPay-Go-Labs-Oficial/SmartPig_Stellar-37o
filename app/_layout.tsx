@@ -20,6 +20,7 @@ import { useAuthStore } from "@/lib/stores/auth.store";
 import { setTokenProvider } from "@/lib/api/token";
 import { setSignRawHashProvider } from "@/lib/stellar/signer";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
+import { isNativePickerActive } from "@/lib/security/native-picker-guard";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Nunito_400Regular,
@@ -29,7 +30,7 @@ import {
   Nunito_900Black,
   useFonts,
 } from "@expo-google-fonts/nunito";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -90,6 +91,29 @@ export const unstable_settings = {
 };
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: any, query) => {
+      // Nenhum sistema de toast/log de erro existia antes — sem isso, falhas de
+      // rede em queries somem silenciosamente (nenhum console.error, nenhum
+      // erro vermelho, nada). Log aqui é só para depuração durante o teste.
+      console.error(
+        `[query:${JSON.stringify(query.queryKey)}]`,
+        error?.response?.status,
+        error?.response?.data ?? error?.message ?? error,
+      );
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: any, _vars, _ctx, mutation) => {
+      // Mesmo motivo do QueryCache acima: sem isso, erros de mutation (ex.:
+      // upload de arquivo, criação de receiver) somem silenciosamente.
+      console.error(
+        `[mutation:${mutation.options.mutationKey ? JSON.stringify(mutation.options.mutationKey) : "unknown"}]`,
+        error?.response?.status,
+        error?.response?.data ?? error?.message ?? error,
+      );
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 min
@@ -344,6 +368,7 @@ function AppGate() {
         !inAuthFlow &&
         !biometricLocked &&
         !authenticatingRef.current &&
+        !isNativePickerActive() &&
         previousAppState.match(/inactive|background/) &&
         nextAppState === "active"
       ) {
