@@ -50,14 +50,14 @@ export function useInitiateTos() {
 export function useUploadKycFile() {
   return useMutation({
     mutationFn: ({
-      fileBlob,
+      fileUri,
       fileName,
       mimeType,
     }: {
-      fileBlob: Blob;
+      fileUri: string;
       fileName: string;
       mimeType: string;
-    }) => uploadKycFile(fileBlob, fileName, mimeType),
+    }) => uploadKycFile(fileUri, fileName, mimeType),
   });
 }
 

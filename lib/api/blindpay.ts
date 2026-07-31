@@ -83,13 +83,27 @@ export async function initiateTos(
   return data;
 }
 
+/**
+ * Recebe a URI local do arquivo (não um Blob) e deixa o próprio FormData do
+ * React Native montar o multipart nativamente — `fetch(uri).blob()` é um
+ * padrão conhecido por falhar silenciosamente com "Network Error" em fotos
+ * maiores (ex.: fotos tiradas na câmera, ao contrário de imagens da galeria
+ * já compactadas). Também não fixamos o header Content-Type: sem o boundary
+ * correto, gerado automaticamente pelo FormData, o backend não consegue
+ * interpretar o corpo da requisição.
+ */
 export async function uploadKycFile(
-  fileBlob: Blob,
+  fileUri: string,
   fileName: string,
   mimeType: string,
 ): Promise<{ url: string }> {
   const formData = new FormData();
-  formData.append('file', fileBlob as any, fileName);
+  formData.append('file', { uri: fileUri, name: fileName, type: mimeType } as any);
+  // O apiClient usa `application/json` como Content-Type padrão da instância;
+  // sem sobrescrever aqui, a requisição sairia com esse header errado em vez
+  // de multipart. O React Native recalcula o boundary de verdade em nível
+  // nativo a partir do FormData, então não precisamos (nem devemos) informá-lo
+  // manualmente — só forçar o tipo multipart/form-data.
   const { data } = await apiClient.post('/ramp/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
