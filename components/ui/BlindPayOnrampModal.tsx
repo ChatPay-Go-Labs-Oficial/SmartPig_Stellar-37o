@@ -11,17 +11,13 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { PressableScale } from './PressableScale';
+import { RampStepIndicator } from './RampStepIndicator';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useBlindPayReceiver } from '@/lib/queries/blindpay.queries';
 import { useCreateOnramp, useOnrampOrder, useOnrampQuote } from '@/lib/queries/blindpay-ramp.queries';
-
-// Ver risco documentado no plano de implementação: o backend não retorna o
-// símbolo do ativo em nenhuma resposta de ramp — vem de configuração do
-// ambiente. USDB é o padrão em testnet (BlindPay não suporta USDC em dev).
-const RAMP_ASSET_SYMBOL = process.env.EXPO_PUBLIC_RAMP_ASSET_SYMBOL || 'USDC';
 
 interface BlindPayOnrampModalProps {
   visible: boolean;
@@ -31,7 +27,16 @@ interface BlindPayOnrampModalProps {
 
 type Step = 'input' | 'quoting' | 'quote' | 'creating' | 'pix' | 'success' | 'error';
 
+function extractAmountRange(raw: string): { min: string; max: string } | null {
+  const match = /between \$?([\d,.]+)\s*and\s*\$?([\d,.]+)/i.exec(raw);
+  return match ? { min: match[1], max: match[2] } : null;
+}
+
 function friendlyError(raw: string): string {
+  const range = extractAmountRange(raw);
+  if (range) {
+    return `O valor deve ficar entre US$ ${range.min} e US$ ${range.max} em equivalente. Tente um valor dentro dessa faixa.`;
+  }
   const s = raw.toLowerCase();
   if (s.includes('cadastro') || s.includes('not found') || s.includes('404'))
     return 'Finalize seu cadastro Pix antes de depositar.';
@@ -51,6 +56,7 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
   const [orderId, setOrderId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [amountRange, setAmountRange] = useState<{ min: string; max: string } | null>(null);
 
   const getQuote = useOnrampQuote();
   const createOnramp = useCreateOnramp();
@@ -74,6 +80,7 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
     setErrorMsg('');
     setOrderId(null);
     setCopied(false);
+    setAmountRange(null);
     getQuote.reset();
     onClose();
   }
@@ -111,7 +118,10 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
       });
       setStep('quote');
     } catch (e: any) {
-      setErrorMsg(friendlyError(e?.response?.data?.message || e?.message || ''));
+      const message = e?.response?.data?.message || e?.message || '';
+      setErrorMsg(friendlyError(message));
+      const range = extractAmountRange(message);
+      if (range) setAmountRange(range);
       setStep('input');
     }
   }
@@ -172,16 +182,31 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
 
             {(step === 'input' || step === 'quoting') && (
               <View style={styles.body}>
+                <RampStepIndicator step={1} total={3} label="Valor" />
+                <Text style={styles.stepSubtitle}>
+                  Informe quanto você quer depositar via Pix. O saldo cai automaticamente no seu
+                  porquinho assim que o pagamento for confirmado.
+                </Text>
                 <Text style={styles.label}>Valor em reais</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="0,00"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                />
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountPrefix}>R$</Text>
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="0,00"
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    value={amount}
+                    onChangeText={setAmount}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                  />
+                </View>
+
+                {amountRange && (
+                  <Text style={styles.hintText}>
+                    Valor permitido: entre US$ {amountRange.min} e US$ {amountRange.max} em
+                    equivalente
+                  </Text>
+                )}
 
                 {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
 
@@ -202,6 +227,11 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
 
             {step === 'quote' && quote && (
               <View style={styles.body}>
+                <RampStepIndicator step={2} total={3} label="Confirmar" />
+                <Text style={styles.stepSubtitle}>
+                  Confira os valores antes de continuar. Depois de gerado, o código Pix expira em
+                  alguns minutos.
+                </Text>
                 <Text style={styles.sectionTitle}>Resumo</Text>
                 <View style={styles.quoteCard}>
                   <View style={styles.quoteRow}>
@@ -212,9 +242,9 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
                   </View>
                   <View style={styles.quoteDivider} />
                   <View style={styles.quoteRow}>
-                    <Text style={styles.quoteLabel}>Você recebe</Text>
+                    <Text style={styles.quoteLabel}>Vai para o seu porquinho</Text>
                     <Text style={[styles.quoteValue, { color: Accent.success }]}>
-                      {quote.receiver_amount.toFixed(2)} {RAMP_ASSET_SYMBOL}
+                      ${(quote.receiver_amount / 100).toFixed(2)}
                     </Text>
                   </View>
                 </View>
@@ -243,6 +273,7 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
 
             {step === 'creating' && (
               <View style={styles.centerBody}>
+                <RampStepIndicator step={3} total={3} label="Pagar" />
                 <ActivityIndicator color={Accent.primary} size="large" />
                 <Text style={styles.statusTitle}>Gerando seu código Pix...</Text>
               </View>
@@ -250,6 +281,11 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
 
             {step === 'pix' && order && (
               <View style={styles.body}>
+                <RampStepIndicator step={3} total={3} label="Pagar" />
+                <Text style={styles.stepSubtitle}>
+                  Copie o código abaixo e cole no app do seu banco para concluir o pagamento. O
+                  saldo é liberado automaticamente assim que o Pix for compensado.
+                </Text>
                 <Text style={styles.sectionTitle}>Pague com Pix</Text>
                 <View style={styles.pixCodeCard}>
                   <Text style={styles.pixCodeText} numberOfLines={3}>
@@ -280,9 +316,9 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
             {step === 'success' && (
               <View style={styles.centerBody}>
                 <View style={styles.checkCircle}>
-                  <Text style={styles.checkMark}>✓</Text>
+                  <MaterialIcons name="check" size={32} color="#fff" />
                 </View>
-                <Text style={styles.statusTitle}>Depósito confirmado! 🎉</Text>
+                <Text style={styles.statusTitle}>Depósito confirmado</Text>
                 <Text style={styles.statusSub}>O valor já está na sua conta</Text>
               </View>
             )}
@@ -373,17 +409,41 @@ const styles = StyleSheet.create({
     fontFamily: Font.bold,
     color: Colors.mutedForeground,
   },
-  amountInput: {
+  stepSubtitle: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    lineHeight: 20,
+    marginBottom: Spacing[1],
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 56,
     borderRadius: Radius.lg,
     backgroundColor: Colors.muted,
     borderWidth: 1,
     borderColor: Colors.border,
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  amountPrefix: {
+    color: Colors.mutedForeground,
+    fontFamily: Font.black,
+    fontSize: 22,
+  },
+  amountInput: {
+    flex: 1,
     color: Colors.foreground,
     fontFamily: Font.black,
     fontSize: 28,
     textAlign: 'center',
-    paddingHorizontal: 16,
+  },
+  hintText: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    textAlign: 'center',
   },
   actionBtn: {
     borderRadius: Radius.lg,
@@ -511,10 +571,5 @@ const styles = StyleSheet.create({
     backgroundColor: Accent.success,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  checkMark: {
-    fontSize: 32,
-    color: '#fff',
-    fontFamily: Font.black,
   },
 });

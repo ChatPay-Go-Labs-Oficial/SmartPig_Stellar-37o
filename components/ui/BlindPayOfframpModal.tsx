@@ -10,7 +10,9 @@ import {
   Keyboard,
 } from 'react-native';
 import { PressableScale } from './PressableScale';
+import { RampStepIndicator } from './RampStepIndicator';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useBlindPayReceiver } from '@/lib/queries/blindpay.queries';
@@ -24,7 +26,6 @@ import {
   signBlindPayXdr,
 } from '@/lib/queries/blindpay-ramp.queries';
 
-const RAMP_ASSET_SYMBOL = process.env.EXPO_PUBLIC_RAMP_ASSET_SYMBOL || 'USDC';
 const MICRO_UNITS_PER_TOKEN = 1_000_000;
 
 interface BlindPayOfframpModalProps {
@@ -45,7 +46,16 @@ type Step =
   | 'success'
   | 'error';
 
+function extractAmountRange(raw: string): { min: string; max: string } | null {
+  const match = /between \$?([\d,.]+)\s*and\s*\$?([\d,.]+)/i.exec(raw);
+  return match ? { min: match[1], max: match[2] } : null;
+}
+
 function friendlyError(raw: string): string {
+  const range = extractAmountRange(raw);
+  if (range) {
+    return `O valor deve ficar entre US$ ${range.min} e US$ ${range.max} em equivalente. Tente um valor dentro dessa faixa.`;
+  }
   const s = raw.toLowerCase();
   if (s.includes('cadastro') || s.includes('not found') || s.includes('404'))
     return 'Finalize seu cadastro Pix antes de sacar.';
@@ -75,6 +85,7 @@ export function BlindPayOfframpModal({
   const [orderId, setOrderId] = useState<string | null>(null);
   const [unsignedDelegationXdr, setUnsignedDelegationXdr] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [amountRange, setAmountRange] = useState<{ min: string; max: string } | null>(null);
 
   const getQuote = useOfframpQuote();
   const createOfframp = useCreateOfframp();
@@ -101,6 +112,7 @@ export function BlindPayOfframpModal({
     setErrorMsg('');
     setOrderId(null);
     setUnsignedDelegationXdr(null);
+    setAmountRange(null);
     getQuote.reset();
     onClose();
   }
@@ -138,7 +150,10 @@ export function BlindPayOfframpModal({
       });
       setStep('quote');
     } catch (e: any) {
-      setErrorMsg(friendlyError(e?.response?.data?.message || e?.message || ''));
+      const message = e?.response?.data?.message || e?.message || '';
+      setErrorMsg(friendlyError(message));
+      const range = extractAmountRange(message);
+      if (range) setAmountRange(range);
       setStep('input');
     }
   }
@@ -213,27 +228,35 @@ export function BlindPayOfframpModal({
             <View style={styles.handle} />
             <View style={styles.headerRow}>
               <View style={[styles.headerIcon, { backgroundColor: 'hsla(270, 80%, 60%, 0.15)' }]}>
-                <Text style={[styles.headerIconText, { color: Accent.secondary }]}>↑</Text>
+                <MaterialIcons name="arrow-upward" size={18} color={Accent.secondary} />
               </View>
               <Text style={styles.headerTitle}>Sacar via Pix</Text>
             </View>
 
             {(step === 'input' || step === 'quoting') && (
               <View style={styles.body}>
-                <Text style={styles.label}>Valor em {RAMP_ASSET_SYMBOL}</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="0,00"
-                  placeholderTextColor="rgba(255,255,255,0.2)"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                />
+                <RampStepIndicator step={1} total={4} label="Valor" accentColor={Accent.secondary} />
+                <Text style={styles.stepSubtitle}>
+                  Informe quanto você quer sacar. O valor sai do seu porquinho e cai na sua chave
+                  Pix.
+                </Text>
+                <Text style={styles.label}>Valor em dólares</Text>
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountPrefix}>$</Text>
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="0,00"
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    value={amount}
+                    onChangeText={setAmount}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                  />
+                </View>
 
                 {typeof maxAmount === 'number' && maxAmount > 0 && (
                   <Text style={styles.maxHint}>
-                    Saldo disponível: {maxAmount.toFixed(2)} {RAMP_ASSET_SYMBOL}
+                    Saldo disponível: ${maxAmount.toFixed(2)}
                   </Text>
                 )}
 
@@ -242,6 +265,13 @@ export function BlindPayOfframpModal({
                     <Text style={styles.infoLabel}>Receber em</Text>
                     <Text style={styles.infoValue}>{bankAccount.pixKey ?? 'Chave Pix'}</Text>
                   </View>
+                )}
+
+                {amountRange && (
+                  <Text style={styles.hintText}>
+                    Valor permitido: entre US$ {amountRange.min} e US$ {amountRange.max} em
+                    equivalente
+                  </Text>
                 )}
 
                 {errorMsg ? <Text style={styles.errorText}>{errorMsg}</Text> : null}
@@ -263,12 +293,14 @@ export function BlindPayOfframpModal({
 
             {step === 'quote' && quote && (
               <View style={styles.body}>
+                <RampStepIndicator step={2} total={4} label="Confirmar" accentColor={Accent.secondary} />
+                <Text style={styles.stepSubtitle}>Confira os valores antes de continuar.</Text>
                 <Text style={styles.sectionTitle}>Cotação</Text>
                 <View style={styles.quoteCard}>
                   <View style={styles.quoteRow}>
                     <Text style={styles.quoteLabel}>Você envia</Text>
                     <Text style={styles.quoteValue}>
-                      {(quote.sender_amount / MICRO_UNITS_PER_TOKEN).toFixed(2)} {RAMP_ASSET_SYMBOL}
+                      ${(quote.sender_amount / MICRO_UNITS_PER_TOKEN).toFixed(2)}
                     </Text>
                   </View>
                   <View style={styles.quoteDivider} />
@@ -304,6 +336,7 @@ export function BlindPayOfframpModal({
 
             {step === 'creating' && (
               <View style={styles.centerBody}>
+                <RampStepIndicator step={3} total={4} label="Confirmar saque" accentColor={Accent.secondary} />
                 <ActivityIndicator color={Accent.secondary} size="large" />
                 <Text style={styles.statusTitle}>Preparando seu saque...</Text>
               </View>
@@ -311,6 +344,10 @@ export function BlindPayOfframpModal({
 
             {step === 'confirming' && quote && (
               <View style={styles.body}>
+                <RampStepIndicator step={3} total={4} label="Confirmar saque" accentColor={Accent.secondary} />
+                <Text style={styles.stepSubtitle}>
+                  Use a biometria do aparelho para autorizar o saque com segurança.
+                </Text>
                 <Text style={styles.sectionTitle}>Confirmar saque</Text>
                 <View style={styles.quoteCard}>
                   <View style={styles.quoteRow}>
@@ -344,6 +381,7 @@ export function BlindPayOfframpModal({
 
             {step === 'submitting' && (
               <View style={styles.centerBody}>
+                <RampStepIndicator step={3} total={4} label="Confirmar saque" accentColor={Accent.secondary} />
                 <ActivityIndicator color={Accent.secondary} size="large" />
                 <Text style={styles.statusTitle}>Confirme com sua biometria...</Text>
                 <Text style={styles.statusSub}>Estamos processando seu saque</Text>
@@ -352,6 +390,7 @@ export function BlindPayOfframpModal({
 
             {step === 'pending' && (
               <View style={styles.centerBody}>
+                <RampStepIndicator step={4} total={4} label="Processando" accentColor={Accent.secondary} />
                 <ActivityIndicator color={Accent.secondary} size="large" />
                 <Text style={styles.statusTitle}>Processando saque...</Text>
                 <Text style={styles.statusSub}>
@@ -363,9 +402,9 @@ export function BlindPayOfframpModal({
             {step === 'success' && (
               <View style={styles.centerBody}>
                 <View style={styles.checkCircle}>
-                  <Text style={styles.checkMark}>✓</Text>
+                  <MaterialIcons name="check" size={32} color="#fff" />
                 </View>
-                <Text style={styles.statusTitle}>Saque confirmado! 🎉</Text>
+                <Text style={styles.statusTitle}>Saque confirmado</Text>
                 <Text style={styles.statusSub}>O valor está a caminho da sua conta</Text>
               </View>
             )}
@@ -429,11 +468,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerIconText: {
-    fontSize: 18,
-    fontWeight: '900',
-    fontFamily: Font.black,
-  },
   headerTitle: {
     fontSize: FontSize.subheading,
     fontFamily: Font.black,
@@ -452,19 +486,43 @@ const styles = StyleSheet.create({
     fontFamily: Font.bold,
     color: Colors.mutedForeground,
   },
-  amountInput: {
+  stepSubtitle: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    lineHeight: 20,
+    marginBottom: Spacing[1],
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 56,
     borderRadius: Radius.lg,
     backgroundColor: Colors.muted,
     borderWidth: 1,
     borderColor: Colors.border,
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  amountPrefix: {
+    color: Colors.mutedForeground,
+    fontFamily: Font.black,
+    fontSize: 22,
+  },
+  amountInput: {
+    flex: 1,
     color: Colors.foreground,
     fontFamily: Font.black,
     fontSize: 28,
     textAlign: 'center',
-    paddingHorizontal: 16,
   },
   maxHint: {
+    fontSize: FontSize.label,
+    fontFamily: Font.regular,
+    color: Colors.mutedForeground,
+    textAlign: 'center',
+  },
+  hintText: {
     fontSize: FontSize.label,
     fontFamily: Font.regular,
     color: Colors.mutedForeground,
@@ -564,10 +622,5 @@ const styles = StyleSheet.create({
     backgroundColor: Accent.success,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  checkMark: {
-    fontSize: 32,
-    color: '#fff',
-    fontFamily: Font.black,
   },
 });
