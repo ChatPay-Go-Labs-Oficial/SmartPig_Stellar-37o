@@ -1,22 +1,13 @@
 import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { StarryBackground } from '@/components/ui';
-import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
+import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { usePixStore } from '@/lib/stores/pix.store';
 import { useCreateBankAccount } from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
+import { safeReplace } from '@/lib/navigation/safe-replace';
 
 export default function BankAccountScreen() {
   const contractId = useAuthStore((s) => s.contractId);
@@ -49,7 +40,7 @@ export default function BankAccountScreen() {
       setPixKey(pixKey.trim());
       setBankAccount(true);
       setCurrentStep('wallet');
-      router.replace('/(blindpay-onboarding)/wallet' as any);
+      safeReplace('/(blindpay-onboarding)/wallet');
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Não foi possível salvar sua chave Pix');
     }
@@ -57,79 +48,74 @@ export default function BankAccountScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" bounces={false}>
-        <StarryBackground />
-        <View style={styles.content}>
-          <OnboardingBackButton />
-          <Text style={styles.title}>Sua chave Pix</Text>
-          <Text style={styles.subtitle}>
-            É para onde o dinheiro vai quando você sacar do seu porquinho
-          </Text>
+      <View style={styles.container}>
+        <OnboardingBackButton />
+        <OnboardingProgress step={9} total={10} />
+        <Text style={styles.title}>Sua chave Pix</Text>
+        <Text style={styles.subtitle}>É para onde o dinheiro vai quando você sacar do seu porquinho</Text>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Nome da conta</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Minha conta Pix"
-              placeholderTextColor={Colors.mutedForeground}
-              value={name}
-              onChangeText={setName}
-            />
+        <View style={styles.form}>
+          <Text style={styles.label}>Nome da conta</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Minha conta Pix"
+            placeholderTextColor={Colors.mutedForeground}
+            value={name}
+            onChangeText={setName}
+          />
 
-            <Text style={styles.label}>Chave Pix *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="CPF, e-mail, telefone ou chave aleatória"
-              placeholderTextColor={Colors.mutedForeground}
-              value={pixKey}
-              onChangeText={setPixKeyInput}
-              autoCapitalize="none"
-            />
+          <Text style={styles.label}>Chave Pix *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="CPF, e-mail, telefone ou chave aleatória"
+            placeholderTextColor={Colors.mutedForeground}
+            value={pixKey}
+            onChangeText={setPixKeyInput}
+            autoCapitalize="none"
+          />
 
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
 
+        <View style={styles.footer}>
+          <PressableScale onPress={handleContinue} disabled={createBankAccount.isPending}>
             <LinearGradient
               colors={Gradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={[styles.btn, createBankAccount.isPending && styles.btnDisabled]}
             >
-              <Text style={styles.btnText} onPress={handleContinue}>
+              <Text style={styles.btnText}>
                 {createBankAccount.isPending ? 'Salvando...' : 'Continuar'}
               </Text>
             </LinearGradient>
-          </View>
+          </PressableScale>
         </View>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    backgroundColor: Colors.background,
-    minHeight: '100%',
-  },
-  content: {
     flex: 1,
+    backgroundColor: Colors.background,
     paddingHorizontal: Spacing[6],
-    paddingTop: 80,
-    paddingBottom: 60,
-    zIndex: 10,
+    paddingTop: 60,
+    paddingBottom: Spacing[8],
   },
   title: {
     fontSize: FontSize.heading,
     fontFamily: Font.black,
     color: Colors.foreground,
-    marginBottom: Spacing[2],
+    marginBottom: Spacing[1],
   },
   subtitle: {
     fontSize: FontSize.bodySmall,
     fontFamily: Font.regular,
     color: Colors.mutedForeground,
-    lineHeight: 22,
-    marginBottom: Spacing[8],
+    lineHeight: 20,
+    marginBottom: Spacing[6],
   },
   form: {
     gap: Spacing[3],
@@ -150,11 +136,19 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontFamily: Font.regular,
   },
+  errorText: {
+    color: Accent.destructive,
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.regular,
+  },
+  footer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
   btn: {
     paddingVertical: 14,
     borderRadius: Radius.sm,
     alignItems: 'center',
-    marginTop: Spacing[4],
   },
   btnDisabled: { opacity: 0.5 },
   btnText: {
@@ -162,10 +156,5 @@ const styles = StyleSheet.create({
     fontSize: FontSize.body,
     fontWeight: '700',
     fontFamily: Font.bold,
-  },
-  errorText: {
-    color: Accent.destructive,
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
   },
 });

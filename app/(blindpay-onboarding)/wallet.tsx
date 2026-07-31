@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
+import { OnboardingBackButton, OnboardingProgress } from '@/components/ui';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useCreateBlockchainWallet } from '@/lib/queries/blindpay.queries';
 import { useSubmitTrustlineXdr } from '@/lib/queries/etherfuse-ramp.queries';
 import { signBlindPayXdr } from '@/lib/queries/blindpay-ramp.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
+import { safeReplace } from '@/lib/navigation/safe-replace';
 
 type Step = 'preparing' | 'need-confirmation' | 'confirming' | 'done' | 'error';
 
@@ -30,7 +31,7 @@ export default function WalletScreen() {
   async function finish() {
     setWallet(true);
     setCurrentStep('pending');
-    router.replace('/(blindpay-onboarding)/pending' as any);
+    safeReplace('/(blindpay-onboarding)/pending');
   }
 
   async function prepareAccount() {
@@ -77,6 +78,7 @@ export default function WalletScreen() {
   return (
     <View style={styles.container}>
       <OnboardingBackButton />
+      <OnboardingProgress step={10} total={10} />
 
       {(step === 'preparing' || step === 'confirming') && (
         <View style={styles.centerBody}>
@@ -95,7 +97,7 @@ export default function WalletScreen() {
       {step === 'need-confirmation' && (
         <View style={styles.centerBody}>
           <View style={styles.iconWrap}>
-            <Text style={styles.icon}>🔐</Text>
+            <MaterialIcons name="fingerprint" size={34} color={Accent.primary} />
           </View>
           <Text style={styles.title}>Falta pouco</Text>
           <Text style={styles.subtitle}>
@@ -158,9 +160,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
-  },
-  icon: {
-    fontSize: 32,
   },
   title: {
     fontSize: FontSize.heading,

@@ -6,7 +6,12 @@ export type BlindPayOnboardingStep =
   | 'check-status'
   | 'tos'
   | 'kyc-form'
-  | 'kyc-documents'
+  | 'kyc-document'
+  | 'kyc-address'
+  | 'kyc-documents-intro'
+  | 'kyc-selfie'
+  | 'kyc-doc-front'
+  | 'kyc-doc-back'
   | 'bank-account'
   | 'wallet'
   | 'pending';

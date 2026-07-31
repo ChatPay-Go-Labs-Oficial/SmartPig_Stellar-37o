@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, StatusBar } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview';
-import { router } from 'expo-router';
 import { Colors, Accent, Font, FontSize, Spacing } from '@/constants/theme';
-import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
+import { OnboardingBackButton, OnboardingProgress } from '@/components/ui';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useInitiateTos } from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
+import { safeReplace } from '@/lib/navigation/safe-replace';
 
 // Não precisa resolver de verdade — a navegação é interceptada dentro da
 // própria WebView antes de chegar lá (ver onShouldStartLoadWithRequest).
@@ -58,7 +58,7 @@ export default function TosScreen() {
       hasCaptured.current = true;
       setTosId(tosId);
       setCurrentStep('kyc-form');
-      router.replace('/(blindpay-onboarding)/kyc-form' as any);
+      safeReplace('/(blindpay-onboarding)/kyc-form');
       return false;
     }
 
@@ -70,7 +70,7 @@ export default function TosScreen() {
       <View style={styles.centerContainer}>
         <OnboardingBackButton />
         <Text style={styles.errorText}>{error}</Text>
-        <PressableScale onPress={() => router.replace('/(blindpay-onboarding)' as any)}>
+        <PressableScale onPress={() => safeReplace('/(blindpay-onboarding)')}>
           <View style={styles.retryBtn}>
             <Text style={styles.retryBtnText}>Tentar novamente</Text>
           </View>
@@ -95,6 +95,9 @@ export default function TosScreen() {
         <OnboardingBackButton />
         <Text style={styles.headerTitle}>Termos de Uso</Text>
         <View style={styles.headerSpacer} />
+      </View>
+      <View style={styles.progressWrap}>
+        <OnboardingProgress step={1} total={10} />
       </View>
       <WebView
         source={{ uri: tosUrl }}
@@ -145,6 +148,11 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 36,
+  },
+  progressWrap: {
+    paddingHorizontal: Spacing[4],
+    paddingTop: Spacing[3],
+    backgroundColor: Colors.surface,
   },
   webview: {
     flex: 1,

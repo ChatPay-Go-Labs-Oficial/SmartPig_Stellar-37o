@@ -1,15 +1,31 @@
 import { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { PressableScale } from '@/components/ui/PressableScale';
-import { router } from 'expo-router';
+import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { Colors, Accent, Font, FontSize, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useBlindPayReceiver } from '@/lib/queries/blindpay.queries';
-import { useBlindPayStore } from '@/lib/stores/blindpay.store';
+import { useBlindPayStore, type BlindPayOnboardingStep } from '@/lib/stores/blindpay.store';
+import { safeReplace } from '@/lib/navigation/safe-replace';
+
+// Passos preenchidos localmente, antes do cadastro existir no backend.
+// Cada tela grava o próprio nome em setCurrentStep(...) ao avançar, então
+// esse valor reflete fielmente onde o usuário parou — reabrir o app deve
+// retomar daqui, em vez de recomeçar do zero.
+const LOCAL_STEPS: BlindPayOnboardingStep[] = [
+  'tos',
+  'kyc-form',
+  'kyc-document',
+  'kyc-address',
+  'kyc-documents-intro',
+  'kyc-selfie',
+  'kyc-doc-front',
+  'kyc-doc-back',
+];
 
 export default function BlindPayOnboardingIndex() {
   const contractId = useAuthStore((s) => s.contractId);
-  const { tosId, setReceiver, setBankAccount, setWallet, setCurrentStep } = useBlindPayStore();
+  const { tosId, currentStep, setReceiver, setBankAccount, setWallet, setCurrentStep } = useBlindPayStore();
 
   const { data: receiver, isLoading, error, refetch } = useBlindPayReceiver(contractId);
 
@@ -18,17 +34,17 @@ export default function BlindPayOnboardingIndex() {
   useEffect(() => {
     if (isLoading || hasRouted.current) return;
 
-    // Ainda sem cadastro → começa pelos Termos de Uso (ou pula direto pros
-    // dados se o usuário já aceitou antes e saiu no meio do fluxo).
+    // Ainda sem cadastro no backend → retoma no passo local onde o usuário
+    // parou (currentStep), ou começa pelos Termos de Uso se for a primeira vez.
     if (receiver === null) {
       hasRouted.current = true;
-      if (tosId) {
-        setCurrentStep('kyc-form');
-        router.replace('/(blindpay-onboarding)/kyc-form' as any);
-      } else {
-        setCurrentStep('tos');
-        router.replace('/(blindpay-onboarding)/tos' as any);
-      }
+      const resumeStep = LOCAL_STEPS.includes(currentStep)
+        ? currentStep
+        : tosId
+          ? 'kyc-form'
+          : 'tos';
+      setCurrentStep(resumeStep);
+      safeReplace(`/(blindpay-onboarding)/${resumeStep}`);
       return;
     }
 
@@ -44,23 +60,26 @@ export default function BlindPayOnboardingIndex() {
 
     if (!hasBankAccount) {
       setCurrentStep('bank-account');
-      router.replace('/(blindpay-onboarding)/bank-account' as any);
+      safeReplace('/(blindpay-onboarding)/bank-account');
       return;
     }
 
     if (!hasWallet) {
       setCurrentStep('wallet');
-      router.replace('/(blindpay-onboarding)/wallet' as any);
+      safeReplace('/(blindpay-onboarding)/wallet');
       return;
     }
 
     setCurrentStep('check-status');
-    router.replace('/(tabs)' as any);
+    safeReplace('/(tabs)');
   }, [receiver, isLoading, error]);
 
   if (error && !receiver) {
     return (
       <View style={styles.container}>
+        <View style={styles.backBtnWrap}>
+          <OnboardingBackButton />
+        </View>
         <Text style={styles.errorText}>Não foi possível verificar sua conta</Text>
         <PressableScale onPress={() => refetch()}>
           <Text style={styles.retryBtn}>Tentar novamente</Text>
@@ -84,6 +103,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing[6],
     gap: 16,
+  },
+  backBtnWrap: {
+    position: 'absolute',
+    top: 60,
+    left: Spacing[6],
   },
   errorText: {
     fontSize: FontSize.body,

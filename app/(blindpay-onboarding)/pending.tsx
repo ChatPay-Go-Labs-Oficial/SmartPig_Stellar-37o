@@ -1,14 +1,16 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import { PressableScale } from '@/components/ui';
+import { safeReplace } from '@/lib/navigation/safe-replace';
 
 export default function PendingScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Text style={styles.icon}>✅</Text>
+          <MaterialIcons name="check-circle" size={40} color={Accent.success} />
         </View>
 
         <Text style={styles.title}>Recebemos seus dados!</Text>
@@ -24,16 +26,16 @@ export default function PendingScreen() {
           </Text>
         </View>
 
-        <LinearGradient
-          colors={Gradients.primary}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.btn}
-        >
-          <Text style={styles.btnText} onPress={() => router.replace('/(tabs)' as any)}>
-            Ir para o app
-          </Text>
-        </LinearGradient>
+        <PressableScale onPress={() => safeReplace('/(tabs)')} style={styles.btnWrap}>
+          <LinearGradient
+            colors={Gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.btn}
+          >
+            <Text style={styles.btnText}>Ir para o app</Text>
+          </LinearGradient>
+        </PressableScale>
       </View>
     </View>
   );
@@ -50,6 +52,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing[8],
     gap: 16,
+    width: '100%',
   },
   iconContainer: {
     width: 80,
@@ -60,9 +63,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border,
-  },
-  icon: {
-    fontSize: 36,
   },
   title: {
     fontSize: FontSize.heading,
@@ -93,12 +93,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  btnWrap: {
+    width: '100%',
+    marginTop: Spacing[4],
+  },
   btn: {
     paddingVertical: 14,
     borderRadius: Radius.sm,
     alignItems: 'center',
     width: '100%',
-    marginTop: Spacing[4],
   },
   btnText: {
     color: '#fff',

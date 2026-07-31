@@ -1,92 +1,100 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { usePrivy } from '@privy-io/expo';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
-function findPrivyEmail(user: unknown): string {
-  const accounts = (user as { linked_accounts?: unknown[] } | null)?.linked_accounts ?? [];
-  for (const account of accounts as { type?: string; address?: string }[]) {
-    if (account?.type === 'email' && typeof account.address === 'string') {
-      return account.address;
-    }
-  }
-  return '';
-}
-
-export default function KycFormScreen() {
-  const { user } = usePrivy();
+export default function KycAddressScreen() {
   const setKycDraft = useBlindPayStore((s) => s.setKycDraft);
   const draft = useBlindPayStore((s) => s.kycDraft);
   const setCurrentStep = useBlindPayStore((s) => s.setCurrentStep);
 
-  const prefilledEmail = useMemo(() => findPrivyEmail(user), [user]);
-
-  const [firstName, setFirstName] = useState(draft.firstName ?? '');
-  const [lastName, setLastName] = useState(draft.lastName ?? '');
-  const [email, setEmail] = useState(draft.email ?? '');
+  const [addressLine1, setAddressLine1] = useState(draft.addressLine1 ?? '');
+  const [addressLine2, setAddressLine2] = useState(draft.addressLine2 ?? '');
+  const [city, setCity] = useState(draft.city ?? '');
+  const [stateProvinceRegion, setStateProvinceRegion] = useState(draft.stateProvinceRegion ?? '');
+  const [postalCode, setPostalCode] = useState(draft.postalCode ?? '');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (!email && prefilledEmail) setEmail(prefilledEmail);
-  }, [prefilledEmail]);
-
   function handleContinue() {
-    if (!firstName.trim() || !lastName.trim()) {
-      setError('Nome e sobrenome são obrigatórios');
-      return;
-    }
-    if (!email.trim()) {
-      setError('E-mail é obrigatório');
+    if (!addressLine1.trim() || !city.trim() || !stateProvinceRegion.trim() || !postalCode.trim()) {
+      setError('Endereço completo é obrigatório');
       return;
     }
     setError('');
-    setKycDraft({ firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim() });
-    setCurrentStep('kyc-document');
-    safeReplace('/(blindpay-onboarding)/kyc-document');
+    setKycDraft({
+      addressLine1: addressLine1.trim(),
+      addressLine2: addressLine2.trim(),
+      city: city.trim(),
+      stateProvinceRegion: stateProvinceRegion.trim(),
+      postalCode: postalCode.trim(),
+    });
+    setCurrentStep('kyc-documents-intro');
+    safeReplace('/(blindpay-onboarding)/kyc-documents-intro');
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.container}>
         <OnboardingBackButton />
-        <OnboardingProgress step={2} total={10} />
-        <Text style={styles.title}>Como podemos te chamar?</Text>
-        <Text style={styles.subtitle}>Seus dados básicos, pra começar</Text>
+        <OnboardingProgress step={4} total={10} />
+        <Text style={styles.title}>Seu endereço</Text>
+        <Text style={styles.subtitle}>Onde você mora atualmente</Text>
 
         <View style={styles.form}>
-          <Text style={styles.label}>Nome *</Text>
+          <Text style={styles.label}>Rua e número *</Text>
           <TextInput
             style={styles.input}
-            placeholder="Nome"
+            placeholder="Rua e número"
             placeholderTextColor={Colors.mutedForeground}
-            value={firstName}
-            onChangeText={setFirstName}
-            autoCapitalize="words"
+            value={addressLine1}
+            onChangeText={setAddressLine1}
           />
 
-          <Text style={styles.label}>Sobrenome *</Text>
+          <Text style={styles.label}>Complemento</Text>
           <TextInput
             style={styles.input}
-            placeholder="Sobrenome"
+            placeholder="Apto, bloco (opcional)"
             placeholderTextColor={Colors.mutedForeground}
-            value={lastName}
-            onChangeText={setLastName}
-            autoCapitalize="words"
+            value={addressLine2}
+            onChangeText={setAddressLine2}
           />
 
-          <Text style={styles.label}>E-mail *</Text>
+          <View style={styles.row}>
+            <View style={styles.rowItemGrow}>
+              <Text style={styles.label}>Cidade *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Cidade"
+                placeholderTextColor={Colors.mutedForeground}
+                value={city}
+                onChangeText={setCity}
+              />
+            </View>
+            <View style={styles.rowItemSmall}>
+              <Text style={styles.label}>UF *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="UF"
+                placeholderTextColor={Colors.mutedForeground}
+                value={stateProvinceRegion}
+                onChangeText={setStateProvinceRegion}
+                autoCapitalize="characters"
+                maxLength={2}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.label}>CEP *</Text>
           <TextInput
             style={styles.input}
-            placeholder="email@exemplo.com"
+            placeholder="00000-000"
             placeholderTextColor={Colors.mutedForeground}
-            value={email}
-            onChangeText={setEmail}
-            inputMode="email"
-            autoCapitalize="none"
+            value={postalCode}
+            onChangeText={setPostalCode}
+            inputMode="numeric"
           />
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -125,6 +133,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing[6],
   },
   form: {
+    gap: Spacing[3],
+  },
+  row: {
+    flexDirection: 'row',
+    gap: Spacing[3],
+  },
+  rowItemGrow: {
+    flex: 2,
+    gap: Spacing[3],
+  },
+  rowItemSmall: {
+    flex: 1,
     gap: Spacing[3],
   },
   label: {
