@@ -30,10 +30,18 @@ async function captureFrom(source: 'camera' | 'library'): Promise<PickPhotoResul
 /** Pergunta se o usuário quer tirar a foto na hora ou escolher uma já existente. */
 export function pickPhoto(): Promise<PickPhotoResult> {
   return new Promise((resolve) => {
-    Alert.alert('Adicionar foto', 'Como você quer enviar a foto?', [
-      { text: 'Tirar foto', onPress: () => captureFrom('camera').then(resolve) },
-      { text: 'Escolher da galeria', onPress: () => captureFrom('library').then(resolve) },
-      { text: 'Cancelar', style: 'cancel', onPress: () => resolve(null) },
-    ]);
+    Alert.alert(
+      'Adicionar foto',
+      'Como você quer enviar a foto?',
+      [
+        { text: 'Tirar foto', onPress: () => captureFrom('camera').then(resolve) },
+        { text: 'Escolher da galeria', onPress: () => captureFrom('library').then(resolve) },
+        { text: 'Cancelar', style: 'cancel', onPress: () => resolve(null) },
+      ],
+      // No Android o alerta é dismissível tocando fora da caixa por padrão —
+      // nesse caminho nenhum onPress dispara, e sem onDismiss a Promise nunca
+      // resolveria, travando a tela chamadora em "Selecionando foto...".
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
   });
 }
