@@ -117,14 +117,8 @@ export async function createReceiver(
   return data;
 }
 
-/**
- * O backend lê `userId` do corpo da requisição mesmo em GET (`@Body('userId')`,
- * não `@Query('userId')`). A sintaxe `{ data: {...} }` funciona normalmente
- * com o adapter XHR usado pelo axios em React Native — não trocar por
- * `params` achando que é engano, é proposital.
- */
 export async function getReceiver(userId: string): Promise<BlindPayReceiverRecord> {
-  const { data } = await apiClient.get('/ramp/receiver', { data: { userId } });
+  const { data } = await apiClient.get('/ramp/receiver');
   return data;
 }
 
@@ -135,9 +129,8 @@ export async function createBankAccount(
   return data;
 }
 
-/** Ver nota em `getReceiver` sobre `userId` no corpo do GET. */
 export async function listBankAccounts(userId: string): Promise<BlindPayBankAccountRecord[]> {
-  const { data } = await apiClient.get('/ramp/receiver/bank-accounts', { data: { userId } });
+  const { data } = await apiClient.get('/ramp/receiver/bank-accounts');
   return data;
 }
 

@@ -63,9 +63,8 @@ export async function createOnramp(dto: OnrampQuoteRequest): Promise<OnrampTrans
   return data;
 }
 
-/** `userId` vai no corpo do GET — ver nota em `lib/api/blindpay.ts::getReceiver`. */
 export async function getOnramp(id: string, userId: string): Promise<OnrampTransaction> {
-  const { data } = await apiClient.get(`/ramp/onramp/${id}`, { data: { userId } });
+  const { data } = await apiClient.get(`/ramp/onramp/${id}`);
   return data;
 }
 
@@ -138,8 +137,7 @@ export async function submitOfframp(
   return data;
 }
 
-/** `userId` vai no corpo do GET — ver nota em `lib/api/blindpay.ts::getReceiver`. */
 export async function getOfframp(id: string, userId: string): Promise<OfframpTransaction> {
-  const { data } = await apiClient.get(`/ramp/offramp/${id}`, { data: { userId } });
+  const { data } = await apiClient.get(`/ramp/offramp/${id}`);
   return data;
 }
