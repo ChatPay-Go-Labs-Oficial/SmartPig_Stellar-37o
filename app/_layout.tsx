@@ -96,10 +96,13 @@ const queryClient = new QueryClient({
       // Nenhum sistema de toast/log de erro existia antes — sem isso, falhas de
       // rede em queries somem silenciosamente (nenhum console.error, nenhum
       // erro vermelho, nada). Log aqui é só para depuração durante o teste.
+      // Loga só `message` (nunca error?.response?.data inteiro): payloads de
+      // rotas de KYC/ramp podem ecoar CPF, endereço, chave Pix etc. — ver
+      // docs/security.md ("Do not include personal payloads in telemetry").
       console.error(
         `[query:${JSON.stringify(query.queryKey)}]`,
         error?.response?.status,
-        error?.response?.data ?? error?.message ?? error,
+        error?.response?.data?.message ?? error?.message,
       );
     },
   }),
@@ -110,7 +113,7 @@ const queryClient = new QueryClient({
       console.error(
         `[mutation:${mutation.options.mutationKey ? JSON.stringify(mutation.options.mutationKey) : "unknown"}]`,
         error?.response?.status,
-        error?.response?.data ?? error?.message ?? error,
+        error?.response?.data?.message ?? error?.message,
       );
     },
   }),
