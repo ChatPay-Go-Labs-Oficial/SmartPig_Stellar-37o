@@ -1,4 +1,4 @@
-import { Modal, View, Text, StyleSheet, Pressable } from "react-native";
+import { Modal, View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -32,9 +32,17 @@ export function RampMethodSelector({
 }: RampMethodSelectorProps) {
   const isDeposit = type === "deposit";
   const contractId = useAuthStore((s) => s.contractId);
-  const { data: receiver } = useBlindPayReceiver(visible ? contractId : null);
+  const { data: receiver, isLoading: receiverLoading } = useBlindPayReceiver(
+    visible ? contractId : null,
+  );
 
   function handlePixPress() {
+    // Enquanto a consulta do receiver ainda está em andamento, `receiver` é
+    // `undefined` — sem essa trava, um toque rápido manda até usuário já
+    // cadastrado pro onboarding à toa (o próprio onboarding se autocorrige
+    // depois, mas o usuário vê um flash de tela sem motivo aparente).
+    if (receiverLoading) return;
+
     onClose();
     const isOnboarded =
       receiver &&
@@ -104,8 +112,8 @@ export function RampMethodSelector({
             </PressableScale>
 
             {/* PIX */}
-            <PressableScale onPress={handlePixPress}>
-              <View style={styles.optionCard}>
+            <PressableScale onPress={handlePixPress} disabled={receiverLoading}>
+              <View style={[styles.optionCard, receiverLoading && styles.optionCardDisabled]}>
                 <View style={styles.optionIconWrap}>
                   <MaterialIcons name="pix" size={22} color={Accent.primary} />
                 </View>
@@ -117,7 +125,11 @@ export function RampMethodSelector({
                       : "Receba na sua conta via Pix"}
                   </Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
+                {receiverLoading ? (
+                  <ActivityIndicator size="small" color={Colors.mutedForeground} />
+                ) : (
+                  <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
+                )}
               </View>
             </PressableScale>
           </View>
@@ -195,6 +207,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     padding: Spacing[4],
+  },
+  optionCardDisabled: {
+    opacity: 0.5,
   },
   optionIconWrap: {
     width: 46,
