@@ -134,18 +134,17 @@ export function WithdrawModal({
   const parsedAmount = parseFloat(amount || "0");
 
   const shareAmount = useMemo(() => {
-    if (!parsedAmount || parsedUnderlying <= 0) return 0;
-    // When dfTokens is 0 (not yet computed by API), fall back to 1:1 ratio with underlying
-    const effectiveDfTokens = parsedDfTokens > 0 ? parsedDfTokens : parsedUnderlying;
-    return Math.floor((parsedAmount / parsedUnderlying) * effectiveDfTokens);
-  }, [parsedAmount, parsedUnderlying, parsedDfTokens]);
+    if (!parsedAmount || parsedUnderlying <= 0 || parsedDfTokens <= 0) return 0;
+    if (activeChip === "all") return parsedDfTokens;
+    return (parsedAmount / parsedUnderlying) * parsedDfTokens;
+  }, [parsedAmount, parsedUnderlying, parsedDfTokens, activeChip]);
 
   const handleChipSelect = (chip: string) => {
     playClick();
     setActiveChip(chip);
     if (chip === "25") setAmount((parsedUnderlying * 0.25).toFixed(2));
     if (chip === "50") setAmount((parsedUnderlying * 0.5).toFixed(2));
-    if (chip === "all") setAmount(parsedUnderlying.toFixed(2));
+    if (chip === "all") setAmount(String(parsedUnderlying));
   };
 
   const handleAmountChange = (text: string) => {
@@ -154,7 +153,7 @@ export function WithdrawModal({
   };
 
   const handleWithdraw = async () => {
-    if (parsedAmount <= 0 || parsedAmount > parsedUnderlying) return;
+    if (parsedAmount <= 0 || parsedAmount > parsedUnderlying + 1e-6) return;
     setError("");
     setStep("authenticating");
     try {
@@ -201,7 +200,7 @@ export function WithdrawModal({
     onClose();
   };
 
-  const isConfirmEnabled = !!amount && parsedAmount > 0 && parsedAmount <= parsedUnderlying;
+  const isConfirmEnabled = !!amount && parsedAmount > 0 && parsedAmount <= parsedUnderlying + 1e-6;
   const isBlocked =
     step === "authenticating" ||
     step === "processing" ||

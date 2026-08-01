@@ -76,6 +76,7 @@ export const getVaultBalance = async (id: string, walletAddress: string): Promis
   const { data } = await apiClient.get(`/vaults/${id}/balance`, { params: { walletAddress } });
   return {
     ...data,
+    dfTokens: normalizeStellarAmount(String(data.dfTokens ?? '0')),
     underlyingBalance: Array.isArray(data.underlyingBalance)
       ? data.underlyingBalance.map(normalizeStellarAmount)
       : [],
