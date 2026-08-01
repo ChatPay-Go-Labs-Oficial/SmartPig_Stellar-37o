@@ -1,9 +1,17 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { PressableScale } from '@/components/ui';
-import { safeReplace } from '@/lib/navigation/safe-replace';
+import { View, Text, StyleSheet } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import {
+  Colors,
+  Accent,
+  Font,
+  FontSize,
+  Gradients,
+  Radius,
+  Spacing,
+} from "@/constants/theme";
+import { PressableScale } from "@/components/ui";
+import { safeReplace } from "@/lib/navigation/safe-replace";
 
 export default function PendingScreen() {
   return (
@@ -15,9 +23,9 @@ export default function PendingScreen() {
 
         <Text style={styles.title}>Recebemos seus dados!</Text>
         <Text style={styles.message}>
-          A análise pode levar algumas horas. Assim que for concluída, os depósitos e
-          saques via Pix ficam liberados automaticamente — você não precisa fazer
-          mais nada.
+          A análise pode levar algumas horas. Assim que for concluída, os
+          depósitos e saques via Pix ficam liberados automaticamente, você não
+          precisa fazer mais nada.
         </Text>
 
         <View style={styles.infoCard}>
@@ -26,7 +34,10 @@ export default function PendingScreen() {
           </Text>
         </View>
 
-        <PressableScale onPress={() => safeReplace('/(tabs)')} style={styles.btnWrap}>
+        <PressableScale
+          onPress={() => safeReplace("/(tabs)")}
+          style={styles.btnWrap}
+        >
           <LinearGradient
             colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
@@ -45,22 +56,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   content: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: Spacing[8],
     gap: 16,
-    width: '100%',
+    width: "100%",
   },
   iconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: Colors.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -68,13 +79,13 @@ const styles = StyleSheet.create({
     fontSize: FontSize.heading,
     fontFamily: Font.black,
     color: Colors.foreground,
-    textAlign: 'center',
+    textAlign: "center",
   },
   message: {
     fontSize: FontSize.body,
     fontFamily: Font.regular,
     color: Colors.mutedForeground,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
   infoCard: {
@@ -83,30 +94,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     padding: Spacing[4],
-    width: '100%',
+    width: "100%",
     marginTop: Spacing[2],
   },
   infoText: {
     fontSize: FontSize.bodySmall,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
   },
   btnWrap: {
-    width: '100%',
+    width: "100%",
     marginTop: Spacing[4],
   },
   btn: {
     paddingVertical: 14,
     borderRadius: Radius.sm,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   btnText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: FontSize.body,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: Font.bold,
   },
 });
