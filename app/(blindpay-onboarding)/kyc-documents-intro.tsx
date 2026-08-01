@@ -2,7 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
@@ -38,9 +38,14 @@ export default function KycDocumentsIntroScreen() {
     safeReplace('/(blindpay-onboarding)/kyc-selfie');
   }
 
+  function handleBack() {
+    setCurrentStep('kyc-address');
+    safeReplace('/(blindpay-onboarding)/kyc-address');
+  }
+
   return (
     <View style={styles.container}>
-      <OnboardingBackButton />
+      <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={5} total={10} />
 
       <View style={styles.iconWrap}>

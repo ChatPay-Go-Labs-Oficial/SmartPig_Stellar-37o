@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useUploadKycFile } from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { pickPhoto } from '@/lib/media/pick-photo';
@@ -17,6 +17,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 
 export default function KycDocFrontScreen() {
   const draft = useBlindPayStore((s) => s.kycDraft);
+  const idDocFrontUrl = useBlindPayStore((s) => s.idDocFrontUrl);
   const setIdDocFrontUrl = useBlindPayStore((s) => s.setIdDocFrontUrl);
   const setCurrentStep = useBlindPayStore((s) => s.setCurrentStep);
   const uploadFile = useUploadKycFile();
@@ -26,6 +27,10 @@ export default function KycDocFrontScreen() {
   const [uri, setUri] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [picking, setPicking] = useState(false);
+
+  // Se voltou pra esse passo antes e não trocou de foto, mostra a que já foi
+  // enviada em vez de forçar tirar outra à toa.
+  const previewUri = uri ?? idDocFrontUrl ?? null;
 
   async function pickImage() {
     setPicking(true);
@@ -44,11 +49,17 @@ export default function KycDocFrontScreen() {
   }
 
   async function handleContinue() {
-    if (!uri) {
+    if (!uri && !idDocFrontUrl) {
       setError('Tire uma foto para continuar');
       return;
     }
     setError('');
+    if (!uri) {
+      // Nada mudou desde a última vez — já tem uma foto enviada, só segue.
+      setCurrentStep('kyc-doc-back');
+      safeReplace('/(blindpay-onboarding)/kyc-doc-back');
+      return;
+    }
     try {
       const { url } = await uploadFile.mutateAsync({
         fileUri: uri,
@@ -63,9 +74,14 @@ export default function KycDocFrontScreen() {
     }
   }
 
+  function handleBack() {
+    setCurrentStep('kyc-selfie');
+    safeReplace('/(blindpay-onboarding)/kyc-selfie');
+  }
+
   return (
     <View style={styles.container}>
-      <OnboardingBackButton />
+      <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={7} total={10} />
       <Text style={styles.title}>Agora, a frente do seu documento</Text>
       <Text style={styles.subtitle}>Fotografe a frente do seu {docLabel} com todos os dados legíveis.</Text>
@@ -78,8 +94,8 @@ export default function KycDocFrontScreen() {
                 <ActivityIndicator color={Accent.primary} />
                 <Text style={styles.captureHint}>Selecionando foto...</Text>
               </View>
-            ) : uri ? (
-              <Image source={{ uri }} style={styles.preview} />
+            ) : previewUri ? (
+              <Image source={{ uri: previewUri }} style={styles.preview} />
             ) : (
               <View style={styles.capturePlaceholder}>
                 <MaterialIcons name="credit-card" size={40} color={Colors.mutedForeground} />
@@ -88,7 +104,7 @@ export default function KycDocFrontScreen() {
             )}
           </View>
         </PressableScale>
-        {uri && !picking ? (
+        {previewUri && !picking ? (
           <PressableScale onPress={pickImage} style={styles.retakeBtn} disabled={picking}>
             <Text style={styles.retakeText}>Tirar outra foto</Text>
           </PressableScale>

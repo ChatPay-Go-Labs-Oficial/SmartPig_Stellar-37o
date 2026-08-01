@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
@@ -47,8 +47,13 @@ export default function BankAccountScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.container}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <OnboardingBackButton />
         <OnboardingProgress step={9} total={10} />
         <Text style={styles.title}>Sua chave Pix</Text>
@@ -76,33 +81,35 @@ export default function BankAccountScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
+      </ScrollView>
 
-        <View style={styles.footer}>
-          <PressableScale onPress={handleContinue} disabled={createBankAccount.isPending}>
-            <LinearGradient
-              colors={Gradients.primary}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.btn, createBankAccount.isPending && styles.btnDisabled]}
-            >
-              <Text style={styles.btnText}>
-                {createBankAccount.isPending ? 'Salvando...' : 'Continuar'}
-              </Text>
-            </LinearGradient>
-          </PressableScale>
-        </View>
+      <View style={styles.footer}>
+        <PressableScale onPress={handleContinue} disabled={createBankAccount.isPending}>
+          <LinearGradient
+            colors={Gradients.primary}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.btn, createBankAccount.isPending && styles.btnDisabled]}
+          >
+            <Text style={styles.btnText}>
+              {createBankAccount.isPending ? 'Salvando...' : 'Continuar'}
+            </Text>
+          </LinearGradient>
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
+  },
+  container: {
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing[6],
     paddingTop: 60,
-    paddingBottom: Spacing[8],
+    paddingBottom: Spacing[4],
   },
   title: {
     fontSize: FontSize.heading,
@@ -142,8 +149,10 @@ const styles = StyleSheet.create({
     fontFamily: Font.regular,
   },
   footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing[6],
+    paddingTop: Spacing[4],
+    paddingBottom: Spacing[8],
   },
   btn: {
     paddingVertical: 14,

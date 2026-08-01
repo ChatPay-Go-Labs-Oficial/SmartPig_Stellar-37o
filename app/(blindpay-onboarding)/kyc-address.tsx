@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
@@ -35,10 +35,20 @@ export default function KycAddressScreen() {
     safeReplace('/(blindpay-onboarding)/kyc-documents-intro');
   }
 
+  function handleBack() {
+    setCurrentStep('kyc-document');
+    safeReplace('/(blindpay-onboarding)/kyc-document');
+  }
+
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.container}>
-        <OnboardingBackButton />
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <OnboardingStepHeader onBack={handleBack} />
         <OnboardingProgress step={4} total={10} />
         <Text style={styles.title}>Seu endereço</Text>
         <Text style={styles.subtitle}>Onde você mora atualmente</Text>
@@ -99,26 +109,28 @@ export default function KycAddressScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
+      </ScrollView>
 
-        <View style={styles.footer}>
-          <PressableScale onPress={handleContinue}>
-            <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
-              <Text style={styles.btnText}>Continuar</Text>
-            </LinearGradient>
-          </PressableScale>
-        </View>
+      <View style={styles.footer}>
+        <PressableScale onPress={handleContinue}>
+          <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
+            <Text style={styles.btnText}>Continuar</Text>
+          </LinearGradient>
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
+  },
+  container: {
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing[6],
     paddingTop: 60,
-    paddingBottom: Spacing[8],
+    paddingBottom: Spacing[4],
   },
   title: {
     fontSize: FontSize.heading,
@@ -169,8 +181,10 @@ const styles = StyleSheet.create({
     fontFamily: Font.regular,
   },
   footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing[6],
+    paddingTop: Spacing[4],
+    paddingBottom: Spacing[8],
   },
   btn: {
     paddingVertical: 14,

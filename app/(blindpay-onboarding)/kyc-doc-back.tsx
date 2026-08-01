@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useCreateBlindPayReceiver, useUploadKycFile } from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
@@ -29,9 +29,11 @@ export default function KycDocBackScreen() {
     tosId,
     selfieFileUrl,
     idDocFrontUrl,
+    idDocBackUrl,
     setIdDocBackUrl,
     setReceiver,
     setCurrentStep,
+    clearKycDraft,
   } = useBlindPayStore();
   const uploadFile = useUploadKycFile();
   const createReceiver = useCreateBlindPayReceiver();
@@ -42,6 +44,10 @@ export default function KycDocBackScreen() {
   const [uri, setUri] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [picking, setPicking] = useState(false);
+
+  // Se voltou pra esse passo antes e não trocou de foto, mostra a que já foi
+  // enviada em vez de forçar tirar outra à toa.
+  const previewUri = uri ?? idDocBackUrl ?? null;
 
   async function pickImage() {
     setPicking(true);
@@ -60,7 +66,7 @@ export default function KycDocBackScreen() {
   }
 
   async function handleContinue() {
-    if (!uri) {
+    if (!uri && !idDocBackUrl) {
       setError('Tire uma foto para continuar');
       return;
     }
@@ -70,12 +76,18 @@ export default function KycDocBackScreen() {
     }
     setError('');
     try {
-      const { url: idDocBackUrl } = await uploadFile.mutateAsync({
-        fileUri: uri,
-        fileName: 'id_back.jpg',
-        mimeType: 'image/jpeg',
-      });
-      setIdDocBackUrl(idDocBackUrl);
+      // Se voltou nesse passo e não trocou a foto, reaproveita a URL já
+      // enviada em vez de subir o arquivo de novo à toa.
+      let finalIdDocBackUrl = idDocBackUrl;
+      if (uri) {
+        const { url } = await uploadFile.mutateAsync({
+          fileUri: uri,
+          fileName: 'id_back.jpg',
+          mimeType: 'image/jpeg',
+        });
+        finalIdDocBackUrl = url;
+        setIdDocBackUrl(url);
+      }
 
       const receiver = await createReceiver.mutateAsync({
         userId: contractId,
@@ -96,21 +108,30 @@ export default function KycDocBackScreen() {
         idDocType: draft.idDocType,
         selfieFileUrl: selfieFileUrl ?? '',
         idDocFrontUrl: idDocFrontUrl ?? '',
-        idDocBackUrl,
+        idDocBackUrl: finalIdDocBackUrl ?? '',
         tosId: tosId ?? undefined,
       });
 
       setReceiver(receiver.id);
       setCurrentStep('bank-account');
+      // O receiver já existe no backend com esses dados — o rascunho local
+      // (CPF, endereço, data de nascimento) não serve mais pra nada e não
+      // deve continuar guardado (nem em memória, nem no SecureStore).
+      clearKycDraft();
       safeReplace('/(blindpay-onboarding)/bank-account');
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Erro ao enviar seus dados. Tente novamente.');
     }
   }
 
+  function handleBack() {
+    setCurrentStep('kyc-doc-front');
+    safeReplace('/(blindpay-onboarding)/kyc-doc-front');
+  }
+
   return (
     <View style={styles.container}>
-      <OnboardingBackButton />
+      <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={8} total={10} />
       <Text style={styles.title}>Por último, o verso</Text>
       <Text style={styles.subtitle}>Fotografe o verso do seu {docLabel}, sem cortes nas bordas.</Text>
@@ -123,8 +144,8 @@ export default function KycDocBackScreen() {
                 <ActivityIndicator color={Accent.primary} />
                 <Text style={styles.captureHint}>Selecionando foto...</Text>
               </View>
-            ) : uri ? (
-              <Image source={{ uri }} style={styles.preview} />
+            ) : previewUri ? (
+              <Image source={{ uri: previewUri }} style={styles.preview} />
             ) : (
               <View style={styles.capturePlaceholder}>
                 <MaterialIcons name="credit-card" size={40} color={Colors.mutedForeground} />
@@ -133,7 +154,7 @@ export default function KycDocBackScreen() {
             )}
           </View>
         </PressableScale>
-        {uri && !picking ? (
+        {previewUri && !picking ? (
           <PressableScale onPress={pickImage} style={styles.retakeBtn} disabled={picking}>
             <Text style={styles.retakeText}>Tirar outra foto</Text>
           </PressableScale>

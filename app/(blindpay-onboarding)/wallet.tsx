@@ -9,6 +9,7 @@ import { useAuthStore } from '@/lib/stores/auth.store';
 import { useCreateBlockchainWallet } from '@/lib/queries/blindpay.queries';
 import { useSubmitTrustlineXdr } from '@/lib/queries/etherfuse-ramp.queries';
 import { signBlindPayXdr } from '@/lib/queries/blindpay-ramp.queries';
+import { authenticateWithDeviceBiometrics } from '@/lib/security/biometrics';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
@@ -63,9 +64,21 @@ export default function WalletScreen() {
 
   async function handleConfirm() {
     if (!pendingXdr || !walletAddress) return;
-    setStep('confirming');
     setError('');
+    setStep('confirming');
     try {
+      const biometricResult = await authenticateWithDeviceBiometrics({
+        promptMessage: 'Confirme para liberar o Pix',
+        promptSubtitle: 'Ativação da sua conta PigFi',
+        promptDescription: 'Autorize a ativação do recebimento via Pix na sua conta.',
+      });
+
+      if (!biometricResult.success) {
+        setError(biometricResult.message ?? 'Biometria não confirmada. Tente novamente.');
+        setStep('need-confirmation');
+        return;
+      }
+
       const signedXdr = await signBlindPayXdr(pendingXdr);
       await submitTrustline.mutateAsync({ signedXdr, stellarAddress: walletAddress });
       await finish();

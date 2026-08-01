@@ -3,13 +3,14 @@ import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useUploadKycFile } from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { pickPhoto } from '@/lib/media/pick-photo';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
 export default function KycSelfieScreen() {
+  const selfieFileUrl = useBlindPayStore((s) => s.selfieFileUrl);
   const setSelfieFileUrl = useBlindPayStore((s) => s.setSelfieFileUrl);
   const setCurrentStep = useBlindPayStore((s) => s.setCurrentStep);
   const uploadFile = useUploadKycFile();
@@ -17,6 +18,10 @@ export default function KycSelfieScreen() {
   const [uri, setUri] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [picking, setPicking] = useState(false);
+
+  // Se voltou pra esse passo antes e não trocou de foto, mostra a que já foi
+  // enviada em vez de forçar tirar outra à toa.
+  const previewUri = uri ?? selfieFileUrl ?? null;
 
   async function pickImage() {
     setPicking(true);
@@ -35,11 +40,17 @@ export default function KycSelfieScreen() {
   }
 
   async function handleContinue() {
-    if (!uri) {
+    if (!uri && !selfieFileUrl) {
       setError('Tire uma selfie para continuar');
       return;
     }
     setError('');
+    if (!uri) {
+      // Nada mudou desde a última vez — já tem uma selfie enviada, só segue.
+      setCurrentStep('kyc-doc-front');
+      safeReplace('/(blindpay-onboarding)/kyc-doc-front');
+      return;
+    }
     try {
       const { url } = await uploadFile.mutateAsync({
         fileUri: uri,
@@ -54,9 +65,14 @@ export default function KycSelfieScreen() {
     }
   }
 
+  function handleBack() {
+    setCurrentStep('kyc-documents-intro');
+    safeReplace('/(blindpay-onboarding)/kyc-documents-intro');
+  }
+
   return (
     <View style={styles.container}>
-      <OnboardingBackButton />
+      <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={6} total={10} />
       <Text style={styles.title}>Vamos começar com uma selfie</Text>
       <Text style={styles.subtitle}>
@@ -71,8 +87,8 @@ export default function KycSelfieScreen() {
                 <ActivityIndicator color={Accent.primary} />
                 <Text style={styles.captureHint}>Selecionando foto...</Text>
               </View>
-            ) : uri ? (
-              <Image source={{ uri }} style={styles.preview} />
+            ) : previewUri ? (
+              <Image source={{ uri: previewUri }} style={styles.preview} />
             ) : (
               <View style={styles.capturePlaceholder}>
                 <MaterialIcons name="face" size={40} color={Colors.mutedForeground} />
@@ -81,7 +97,7 @@ export default function KycSelfieScreen() {
             )}
           </View>
         </PressableScale>
-        {uri && !picking ? (
+        {previewUri && !picking ? (
           <PressableScale onPress={pickImage} style={styles.retakeBtn} disabled={picking}>
             <Text style={styles.retakeText}>Tirar outra foto</Text>
           </PressableScale>

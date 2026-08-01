@@ -25,11 +25,28 @@ const LOCAL_STEPS: BlindPayOnboardingStep[] = [
 
 export default function BlindPayOnboardingIndex() {
   const contractId = useAuthStore((s) => s.contractId);
-  const { tosId, currentStep, setReceiver, setBankAccount, setWallet, setCurrentStep } = useBlindPayStore();
+  const {
+    tosId,
+    currentStep,
+    setReceiver,
+    setBankAccount,
+    setWallet,
+    setCurrentStep,
+    hydrateSecureFields,
+  } = useBlindPayStore();
 
   const { data: receiver, isLoading, error, refetch } = useBlindPayReceiver(contractId);
 
   const hasRouted = useRef(false);
+
+  // O rascunho de KYC (CPF, endereço, data de nascimento) e as URLs dos
+  // documentos enviados vivem no SecureStore, fora da rehidratação automática
+  // do zustand — repõe no estado uma vez aqui, antes de qualquer tela de
+  // formulário do onboarding montar.
+  useEffect(() => {
+    hydrateSecureFields();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (isLoading || hasRouted.current) return;

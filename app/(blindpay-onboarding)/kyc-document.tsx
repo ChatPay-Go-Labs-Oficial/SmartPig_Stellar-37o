@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useBlindPayStore, type BlindPayKycDraft } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
@@ -42,6 +42,48 @@ function isoDateToBr(value: string): string {
   return match ? `${match[3]}/${match[2]}/${match[1]}` : '';
 }
 
+/** Valida CPF pelo algoritmo oficial da Receita Federal (dígitos verificadores, módulo 11). */
+function isValidCpf(digits: string): boolean {
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+
+  const checkDigit = (base: string, factor: number): number => {
+    let sum = 0;
+    for (const digit of base) sum += Number(digit) * factor--;
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
+  };
+
+  const d1 = checkDigit(digits.slice(0, 9), 10);
+  const d2 = checkDigit(digits.slice(0, 9) + d1, 11);
+  return digits === digits.slice(0, 9) + String(d1) + String(d2);
+}
+
+/** Valida data de nascimento: existência no calendário + maioridade (18–120 anos). */
+function validateBirthDate(isoDate: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (!match) return 'Informe a data de nascimento completa';
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  // new Date() "rola" datas inexistentes (ex.: 31/02 vira 02 ou 03/03) — comparar
+  // os componentes de volta é como se detecta que a data digitada não existe.
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const isRealDate =
+    date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  if (!isRealDate) return 'Essa data não existe — confira o dia e o mês';
+
+  const now = new Date();
+  const eighteenYearsAgo = new Date(Date.UTC(now.getUTCFullYear() - 18, now.getUTCMonth(), now.getUTCDate()));
+  const oldestPlausible = new Date(Date.UTC(now.getUTCFullYear() - 120, now.getUTCMonth(), now.getUTCDate()));
+
+  if (date > eighteenYearsAgo) return 'É preciso ser maior de 18 anos para usar o Pix';
+  if (date < oldestPlausible) return 'Confira a data de nascimento informada';
+
+  return null;
+}
+
 export default function KycDocumentScreen() {
   const setKycDraft = useBlindPayStore((s) => s.setKycDraft);
   const draft = useBlindPayStore((s) => s.kycDraft);
@@ -53,14 +95,27 @@ export default function KycDocumentScreen() {
   const [error, setError] = useState('');
 
   function handleContinue() {
-    if (taxId.replace(/\D/g, '').length !== 11) {
+    const taxIdDigits = taxId.replace(/\D/g, '');
+    if (taxIdDigits.length !== 11) {
       setError('Informe um CPF válido (11 dígitos)');
       return;
     }
+    if (!isValidCpf(taxIdDigits)) {
+      setError('Esse CPF não é válido');
+      return;
+    }
+
+    const isoDateOfBirth = brDateToIso(dateOfBirth);
+    const birthDateError = validateBirthDate(isoDateOfBirth);
+    if (birthDateError) {
+      setError(birthDateError);
+      return;
+    }
+
     setError('');
     setKycDraft({
-      taxId,
-      dateOfBirth: brDateToIso(dateOfBirth),
+      taxId: taxIdDigits,
+      dateOfBirth: isoDateOfBirth,
       idDocCountry: 'BR',
       idDocType,
     });
@@ -68,10 +123,20 @@ export default function KycDocumentScreen() {
     safeReplace('/(blindpay-onboarding)/kyc-address');
   }
 
+  function handleBack() {
+    setCurrentStep('kyc-form');
+    safeReplace('/(blindpay-onboarding)/kyc-form');
+  }
+
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={styles.container}>
-        <OnboardingBackButton />
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <OnboardingStepHeader onBack={handleBack} />
         <OnboardingProgress step={3} total={10} />
         <Text style={styles.title}>Seu documento</Text>
         <Text style={styles.subtitle}>Precisamos confirmar sua identidade</Text>
@@ -117,26 +182,28 @@ export default function KycDocumentScreen() {
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
+      </ScrollView>
 
-        <View style={styles.footer}>
-          <PressableScale onPress={handleContinue}>
-            <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
-              <Text style={styles.btnText}>Continuar</Text>
-            </LinearGradient>
-          </PressableScale>
-        </View>
+      <View style={styles.footer}>
+        <PressableScale onPress={handleContinue}>
+          <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
+            <Text style={styles.btnText}>Continuar</Text>
+          </LinearGradient>
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
+  },
+  container: {
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing[6],
     paddingTop: 60,
-    paddingBottom: Spacing[8],
+    paddingBottom: Spacing[4],
   },
   title: {
     fontSize: FontSize.heading,
@@ -204,8 +271,10 @@ const styles = StyleSheet.create({
     fontFamily: Font.regular,
   },
   footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing[6],
+    paddingTop: Spacing[4],
+    paddingBottom: Spacing[8],
   },
   btn: {
     paddingVertical: 14,
