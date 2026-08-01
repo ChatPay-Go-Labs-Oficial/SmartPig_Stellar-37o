@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -32,6 +32,16 @@ function extractAmountRange(raw: string): { min: string; max: string } | null {
   return match ? { min: match[1], max: match[2] } : null;
 }
 
+/** Trata o último separador (`,` ou `.`) como decimal; os demais como milhar. */
+function parseAmountInput(raw: string): number {
+  const cleaned = raw.replace(/[^\d.,]/g, '');
+  const decimalIndex = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  if (decimalIndex === -1) return parseFloat(cleaned) || 0;
+  const intPart = cleaned.slice(0, decimalIndex).replace(/[.,]/g, '');
+  const decPart = cleaned.slice(decimalIndex + 1).replace(/[.,]/g, '');
+  return parseFloat(`${intPart}.${decPart}`) || 0;
+}
+
 function friendlyError(raw: string): string {
   const range = extractAmountRange(raw);
   if (range) {
@@ -57,10 +67,14 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
   const [copied, setCopied] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [amountRange, setAmountRange] = useState<{ min: string; max: string } | null>(null);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getQuote = useOnrampQuote();
   const createOnramp = useCreateOnramp();
-  const { data: order } = useOnrampOrder(step === 'pix' ? orderId : null, contractId);
+  const { data: order, isError: orderHasError } = useOnrampOrder(
+    step === 'pix' ? orderId : null,
+    contractId,
+  );
 
   useEffect(() => {
     const onShow = (e: any) => setKeyboardHeight(e.endCoordinates.height);
@@ -75,6 +89,10 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
   }, []);
 
   function resetAndClose() {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
     setStep('input');
     setAmount('');
     setErrorMsg('');
@@ -85,11 +103,20 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
     onClose();
   }
 
+  // Garante que o timeout de auto-fechamento não sobrevive ao desmonte do
+  // componente nem dispara onSuccess numa instância que o usuário já fechou.
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (step !== 'pix' || !order) return;
     if (order.status === 'COMPLETED') {
       setStep('success');
-      setTimeout(() => {
+      successTimeoutRef.current = setTimeout(() => {
+        successTimeoutRef.current = null;
         resetAndClose();
         onSuccess?.();
       }, 2500);
@@ -101,7 +128,7 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
   }, [order?.status, step]);
 
   async function handleGetQuote() {
-    const value = parseFloat(amount.replace(',', '.'));
+    const value = parseAmountInput(amount);
     if (!value || value <= 0) return;
     if (!blockchainWalletId) {
       setErrorMsg('Finalize seu cadastro Pix antes de depositar.');
@@ -128,10 +155,16 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
 
   async function handleConfirm() {
     if (!blockchainWalletId) return;
-    const value = parseFloat(amount.replace(',', '.'));
+    const value = parseAmountInput(amount);
     setErrorMsg('');
     setStep('creating');
     try {
+      // Débito técnico conhecido: o backend gera uma cotação nova aqui dentro
+      // em vez de honrar a cotação já mostrada no passo anterior (`quote`).
+      // O app não pode simplesmente mandar o `quote.id` — CreateOnrampDto não
+      // tem esse campo, e o ValidationPipe do backend usa
+      // forbidNonWhitelisted: true, então um campo extra derruba a requisição
+      // com 400. Corrigir exige adicionar `quoteId` ao DTO no backend primeiro.
       const result = await createOnramp.mutateAsync({
         userId: contractId!,
         blockchainWalletId,
@@ -243,6 +276,13 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
                   <View style={styles.quoteDivider} />
                   <View style={styles.quoteRow}>
                     <Text style={styles.quoteLabel}>Vai para o seu porquinho</Text>
+                    {/* Escala diferente de propósito: BlindPayPayinQuote.receiver_amount vem
+                        em centavos (÷100), enquanto BlindPayPayoutQuote.sender_amount (usado
+                        no modal de saque) vem em micro-unidades (÷1_000_000) — são campos de
+                        DTOs diferentes e a própria API da BlindPay é assimétrica aqui.
+                        Confirmado via comentário do DTO no backend e teste real (mintagem de
+                        1465 unidades brutas = R$14,65, batendo no saldo on-chain via Horizon).
+                        Não "corrigir" pra bater com o outro modal. */}
                     <Text style={[styles.quoteValue, { color: Accent.success }]}>
                       ${(quote.receiver_amount / 100).toFixed(2)}
                     </Text>
@@ -276,6 +316,35 @@ export function BlindPayOnrampModal({ visible, onClose, onSuccess }: BlindPayOnr
                 <RampStepIndicator step={3} total={3} label="Pagar" />
                 <ActivityIndicator color={Accent.primary} size="large" />
                 <Text style={styles.statusTitle}>Gerando seu código Pix...</Text>
+              </View>
+            )}
+
+            {step === 'pix' && !order && (
+              <View style={styles.centerBody}>
+                <RampStepIndicator step={3} total={3} label="Pagar" />
+                {orderHasError ? (
+                  <>
+                    <Text style={styles.errorText}>
+                      Não conseguimos confirmar o status do seu Pix agora. Tente novamente em
+                      instantes.
+                    </Text>
+                    <PressableScale onPress={resetAndClose}>
+                      <LinearGradient
+                        colors={Gradients.primary}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.actionBtn}
+                      >
+                        <Text style={styles.actionBtnText}>Fechar</Text>
+                      </LinearGradient>
+                    </PressableScale>
+                  </>
+                ) : (
+                  <>
+                    <ActivityIndicator color={Accent.primary} size="large" />
+                    <Text style={styles.statusTitle}>Carregando seu código Pix...</Text>
+                  </>
+                )}
               </View>
             )}
 
