@@ -31,7 +31,7 @@ import { vaultKeys } from "@/lib/queries/vaults.queries";
 import { signXdr } from "@/lib/stellar/kit";
 import { useSound } from "@/hooks/use-sound";
 import { useAuthStore } from "@/lib/stores/auth.store";
-import { useWalletBalance } from "@/lib/queries/wallets.queries";
+import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -159,6 +159,7 @@ export function DepositModal({
       qc.invalidateQueries({ queryKey: vaultKeys.all });
       if (walletAddress) {
         qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, walletAddress) });
+        qc.invalidateQueries({ queryKey: walletKeys.balance(walletAddress) });
       }
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erro ao processar depósito");

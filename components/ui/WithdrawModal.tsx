@@ -27,6 +27,7 @@ import {
   useSubmitWithdrawal,
 } from "@/lib/queries/withdrawals.queries";
 import { vaultKeys } from "@/lib/queries/vaults.queries";
+import { walletKeys } from "@/lib/queries/wallets.queries";
 import { signXdr } from "@/lib/stellar/kit";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
 import { useAuthStore } from "@/lib/stores/auth.store";
@@ -184,6 +185,7 @@ export function WithdrawModal({
       qc.invalidateQueries({ queryKey: vaultKeys.all });
       if (walletAddress) {
         qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, walletAddress) });
+        qc.invalidateQueries({ queryKey: walletKeys.balance(walletAddress) });
       }
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || "Erro ao processar saque");
