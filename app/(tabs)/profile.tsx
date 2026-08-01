@@ -34,6 +34,7 @@ import { useSmartAccount } from "@/hooks/use-smart-account";
 import { useSound } from "@/hooks/use-sound";
 import { usePixStore } from "@/lib/stores/pix.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useBlindPayStore } from "@/lib/stores/blindpay.store";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { useAllVaultBalances } from "@/lib/queries/vaults.queries";
@@ -130,6 +131,12 @@ export default function ProfileScreen() {
     setShowLogoutModal(false);
     await Promise.allSettled([logout(), disconnect()]);
     clearAuth();
+    // Dado sensível (chave Pix, rascunho de KYC e URLs de documentos) não pode
+    // sobreviver ao logout num aparelho que outra pessoa pode voltar a usar —
+    // ver docs/security.md. hasBankAccount/hasWallet/receiverId são só um
+    // cache local; o backend continua sendo a fonte de verdade no próximo login.
+    useBlindPayStore.getState().resetOnboarding();
+    usePixStore.getState().clearPixKey();
     router.replace("/(auth)");
   }
 
