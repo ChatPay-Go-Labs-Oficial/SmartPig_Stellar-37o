@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Modal,
   View,
@@ -25,6 +25,7 @@ import {
   useSubmitOfframp,
   signBlindPayXdr,
 } from '@/lib/queries/blindpay-ramp.queries';
+import { authenticateWithDeviceBiometrics } from '@/lib/security/biometrics';
 
 const MICRO_UNITS_PER_TOKEN = 1_000_000;
 
@@ -49,6 +50,16 @@ type Step =
 function extractAmountRange(raw: string): { min: string; max: string } | null {
   const match = /between \$?([\d,.]+)\s*and\s*\$?([\d,.]+)/i.exec(raw);
   return match ? { min: match[1], max: match[2] } : null;
+}
+
+/** Trata o último separador (`,` ou `.`) como decimal; os demais como milhar. */
+function parseAmountInput(raw: string): number {
+  const cleaned = raw.replace(/[^\d.,]/g, '');
+  const decimalIndex = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  if (decimalIndex === -1) return parseFloat(cleaned) || 0;
+  const intPart = cleaned.slice(0, decimalIndex).replace(/[.,]/g, '');
+  const decPart = cleaned.slice(decimalIndex + 1).replace(/[.,]/g, '');
+  return parseFloat(`${intPart}.${decPart}`) || 0;
 }
 
 function friendlyError(raw: string): string {
@@ -84,8 +95,10 @@ export function BlindPayOfframpModal({
   const [errorMsg, setErrorMsg] = useState('');
   const [orderId, setOrderId] = useState<string | null>(null);
   const [unsignedDelegationXdr, setUnsignedDelegationXdr] = useState<string | null>(null);
+  const [pendingTrustlineXdr, setPendingTrustlineXdr] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [amountRange, setAmountRange] = useState<{ min: string; max: string } | null>(null);
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const getQuote = useOfframpQuote();
   const createOfframp = useCreateOfframp();
@@ -107,21 +120,35 @@ export function BlindPayOfframpModal({
   }, []);
 
   function resetAndClose() {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
     setStep('input');
     setAmount('');
     setErrorMsg('');
     setOrderId(null);
     setUnsignedDelegationXdr(null);
+    setPendingTrustlineXdr(null);
     setAmountRange(null);
     getQuote.reset();
     onClose();
   }
 
+  // Garante que o timeout de auto-fechamento não sobrevive ao desmonte do
+  // componente nem dispara onSuccess numa instância que o usuário já fechou.
+  useEffect(() => {
+    return () => {
+      if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (step !== 'pending' || !order) return;
     if (order.status === 'COMPLETED') {
       setStep('success');
-      setTimeout(() => {
+      successTimeoutRef.current = setTimeout(() => {
+        successTimeoutRef.current = null;
         resetAndClose();
         onSuccess?.();
       }, 2500);
@@ -133,11 +160,15 @@ export function BlindPayOfframpModal({
   }, [order?.status, step]);
 
   async function handleGetQuote() {
-    const value = parseFloat(amount.replace(',', '.'));
+    const value = parseAmountInput(amount);
     if (!value || value <= 0) return;
     if (!bankAccount) {
       setErrorMsg('Finalize seu cadastro Pix antes de sacar.');
       setStep('error');
+      return;
+    }
+    if (typeof maxAmount === 'number' && value > maxAmount) {
+      setErrorMsg(`Valor maior que o saldo disponível ($${maxAmount.toFixed(2)}).`);
       return;
     }
     setErrorMsg('');
@@ -160,24 +191,42 @@ export function BlindPayOfframpModal({
 
   async function handleConfirmQuote() {
     if (!bankAccount || !walletAddress) return;
-    const value = parseFloat(amount.replace(',', '.'));
     setErrorMsg('');
     setStep('creating');
     try {
-      const result = await createOfframp.mutateAsync({
-        userId: contractId!,
-        bankAccountId: bankAccount.id,
-        senderWalletAddress: walletAddress,
-        amountUsdc: Math.round(value * MICRO_UNITS_PER_TOKEN),
-      });
-      setOrderId(result.id);
+      // Se a ordem já foi criada numa tentativa anterior (só a submissão da
+      // trustline falhou), não recria — isso deixaria uma ordem órfã pra trás
+      // no backend. Só retoma de onde parou.
+      if (!orderId) {
+        const value = parseAmountInput(amount);
+        // Débito técnico conhecido: o backend gera uma cotação nova aqui dentro
+        // em vez de honrar a cotação já mostrada no passo anterior (`quote`).
+        // O app não pode simplesmente mandar o `quote.id` — CreateOfframpDto
+        // não tem esse campo, e o ValidationPipe do backend usa
+        // forbidNonWhitelisted: true, então um campo extra derruba a
+        // requisição com 400. Corrigir exige adicionar `quoteId` ao DTO no
+        // backend primeiro.
+        const result = await createOfframp.mutateAsync({
+          userId: contractId!,
+          bankAccountId: bankAccount.id,
+          senderWalletAddress: walletAddress,
+          amountUsdc: Math.round(value * MICRO_UNITS_PER_TOKEN),
+        });
+        setOrderId(result.id);
+        setPendingTrustlineXdr(result.trustlineXdr ?? null);
+        setUnsignedDelegationXdr(result.unsignedDelegationXdr);
 
-      if (result.trustlineXdr) {
-        const signedTrustline = await signBlindPayXdr(result.trustlineXdr);
+        if (result.trustlineXdr) {
+          const signedTrustline = await signBlindPayXdr(result.trustlineXdr);
+          await submitTrustline.mutateAsync({ signedXdr: signedTrustline, stellarAddress: walletAddress });
+          setPendingTrustlineXdr(null);
+        }
+      } else if (pendingTrustlineXdr) {
+        const signedTrustline = await signBlindPayXdr(pendingTrustlineXdr);
         await submitTrustline.mutateAsync({ signedXdr: signedTrustline, stellarAddress: walletAddress });
+        setPendingTrustlineXdr(null);
       }
 
-      setUnsignedDelegationXdr(result.unsignedDelegationXdr);
       setStep('confirming');
     } catch (e: any) {
       setErrorMsg(friendlyError(e?.response?.data?.message || e?.message || ''));
@@ -188,8 +237,21 @@ export function BlindPayOfframpModal({
   async function handleConfirmWithdraw() {
     if (!orderId || !unsignedDelegationXdr) return;
     setErrorMsg('');
-    setStep('submitting');
     try {
+      const biometricResult = await authenticateWithDeviceBiometrics({
+        promptMessage: 'Confirme o saque',
+        promptSubtitle: 'Saque via Pix — PigFi',
+        promptDescription: quote
+          ? `Autorize o saque de R$ ${(quote.receiver_amount / 100).toFixed(2)}.`
+          : 'Autorize o saque via Pix.',
+      });
+
+      if (!biometricResult.success) {
+        setErrorMsg(biometricResult.message ?? 'Biometria não confirmada. Tente novamente.');
+        return;
+      }
+
+      setStep('submitting');
       const signedXdr = await signBlindPayXdr(unsignedDelegationXdr);
       await submitOfframp.mutateAsync({
         id: orderId,
@@ -231,6 +293,9 @@ export function BlindPayOfframpModal({
                 <MaterialIcons name="arrow-upward" size={18} color={Accent.secondary} />
               </View>
               <Text style={styles.headerTitle}>Sacar via Pix</Text>
+              <Pressable onPress={resetAndClose} hitSlop={12} style={styles.closeBtn}>
+                <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
+              </Pressable>
             </View>
 
             {(step === 'input' || step === 'quoting') && (
@@ -299,6 +364,12 @@ export function BlindPayOfframpModal({
                 <View style={styles.quoteCard}>
                   <View style={styles.quoteRow}>
                     <Text style={styles.quoteLabel}>Você envia</Text>
+                    {/* Escala diferente de propósito: BlindPayPayoutQuote.sender_amount vem
+                        em micro-unidades (÷1_000_000), enquanto BlindPayPayinQuote.receiver_amount
+                        (usado no modal de depósito) vem em centavos (÷100) — são campos de DTOs
+                        diferentes e a própria API da BlindPay é assimétrica aqui. Ver comentário
+                        equivalente em BlindPayOnrampModal.tsx. Não "corrigir" pra bater com o
+                        outro modal. */}
                     <Text style={styles.quoteValue}>
                       ${(quote.sender_amount / MICRO_UNITS_PER_TOKEN).toFixed(2)}
                     </Text>
@@ -469,9 +540,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: {
+    flex: 1,
     fontSize: FontSize.subheading,
     fontFamily: Font.black,
     color: Colors.foreground,
+  },
+  closeBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.muted,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   body: {
     gap: Spacing[3],
