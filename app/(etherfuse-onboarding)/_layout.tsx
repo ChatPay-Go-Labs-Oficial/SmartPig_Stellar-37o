@@ -7,7 +7,11 @@ export default function EtherfuseOnboardingLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: Colors.background },
-        animation: 'slide_from_right',
+        // Mesmo motivo do (blindpay-onboarding)/_layout.tsx: sem transição
+        // animada não há startViewTransaction, e o mount layer do Fabric não
+        // estoura com "addViewAt: cannot insert view [...] View already has a
+        // parent" (software-mansion/react-native-screens#3249).
+        animation: 'none',
       }}
     />
   );

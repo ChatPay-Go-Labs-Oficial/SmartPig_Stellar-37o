@@ -32,6 +32,12 @@ import {
 } from "@expo-google-fonts/nunito";
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router, useSegments } from "expo-router";
+import { enableFreeze } from "react-native-screens";
+
+// Desliga globalmente o congelamento de telas inativas do react-native-screens.
+// O freezeOnBlur nas screenOptions do Stack cobre as rotas deste layout; esta
+// chamada cobre navegadores aninhados, que não herdam aquela opção.
+enableFreeze(false);
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -150,6 +156,14 @@ export default function RootLayout() {
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: Colors.background },
+              // O react-freeze do react-native-screens suspende a subárvore de
+              // telas inativas e a reativa depois. Essa reativação remonta views
+              // nativas já existentes, e no Fabric isso vira um Insert sem o
+              // Remove correspondente: "addViewAt: cannot insert view [...] View
+              // already has a parent". O tipo da view na mensagem varia
+              // (LinearGradientView, ReactTextView) porque a falha é da
+              // remontagem, não do componente. Ver enableFreeze(false) abaixo.
+              freezeOnBlur: false,
             }}
           >
             <Stack.Screen
@@ -366,12 +380,14 @@ function AppGate() {
       const previousAppState = appStateRef.current;
       appStateRef.current = nextAppState;
 
+      const pickerActive = isNativePickerActive();
+
       if (
         isAuthenticated &&
         !inAuthFlow &&
         !biometricLocked &&
         !authenticatingRef.current &&
-        !isNativePickerActive() &&
+        !pickerActive &&
         previousAppState.match(/inactive|background/) &&
         nextAppState === "active"
       ) {
