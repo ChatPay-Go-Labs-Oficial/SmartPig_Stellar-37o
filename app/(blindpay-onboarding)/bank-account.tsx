@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { usePixStore } from '@/lib/stores/pix.store';
 import { useCreateBankAccount } from '@/lib/queries/blindpay.queries';
@@ -46,6 +46,11 @@ export default function BankAccountScreen() {
     }
   }
 
+  function handleBack() {
+    setCurrentStep('kyc-doc-back');
+    safeReplace('/(blindpay-onboarding)/kyc-doc-back');
+  }
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView
@@ -54,7 +59,7 @@ export default function BankAccountScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <OnboardingBackButton />
+        <OnboardingStepHeader onBack={handleBack} />
         <OnboardingProgress step={9} total={10} />
         <Text style={styles.title}>Sua chave Pix</Text>
         <Text style={styles.subtitle}>É para onde o dinheiro vai quando você sacar do seu porquinho</Text>

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingBackButton, OnboardingProgress } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress } from '@/components/ui';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useCreateBlockchainWallet } from '@/lib/queries/blindpay.queries';
@@ -88,9 +88,14 @@ export default function WalletScreen() {
     }
   }
 
+  function handleBack() {
+    setCurrentStep('bank-account');
+    safeReplace('/(blindpay-onboarding)/bank-account');
+  }
+
   return (
     <View style={styles.container}>
-      <OnboardingBackButton />
+      <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={10} total={10} />
 
       {(step === 'preparing' || step === 'confirming') && (
