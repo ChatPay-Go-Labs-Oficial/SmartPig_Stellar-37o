@@ -64,6 +64,14 @@ interface BlindPayState {
   currentStep: BlindPayOnboardingStep;
 
   setTosId: (id: string) => void;
+  /**
+   * Prepara um reenvio de KYC: descarta o `tosId` mantendo o rascunho.
+   *
+   * Cada `tos_id` da BlindPay só pode ser vinculado a um customer, e o reenvio
+   * cria um customer novo — o aceite anterior está queimado. O rascunho (CPF,
+   * endereço, data de nascimento) fica, para o usuário não redigitar tudo.
+   */
+  startKycRetry: () => void;
   setKycDraft: (patch: Partial<BlindPayKycDraft>) => void;
   /** Repõe kycDraft e as URLs dos documentos a partir do SecureStore — chamar uma vez no início do onboarding. */
   hydrateSecureFields: () => Promise<void>;
@@ -97,6 +105,7 @@ export const useBlindPayStore = create<BlindPayState>()(
       ...initialState,
 
       setTosId: (id) => set({ tosId: id }),
+      startKycRetry: () => set({ tosId: null, currentStep: 'tos' }),
       setKycDraft: (patch) => {
         const kycDraft = { ...get().kycDraft, ...patch };
         set({ kycDraft });

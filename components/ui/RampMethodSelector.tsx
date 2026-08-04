@@ -13,7 +13,8 @@ import {
 } from "@/constants/theme";
 import { PressableScale } from "./PressableScale";
 import { useAuthStore } from "@/lib/stores/auth.store";
-import { useBlindPayReceiver } from "@/lib/queries/blindpay.queries";
+import { useBlindPayReceiver, useKycStatus } from "@/lib/queries/blindpay.queries";
+import { KycStatusBadge } from "./KycStatusBadge";
 
 interface RampMethodSelectorProps {
   visible: boolean;
@@ -35,21 +36,33 @@ export function RampMethodSelector({
   const { data: receiver, isLoading: receiverLoading } = useBlindPayReceiver(
     visible ? contractId : null,
   );
+  const { data: kyc, isLoading: kycLoading } = useKycStatus(
+    visible ? contractId : null,
+  );
+
+  const isLoading = receiverLoading || kycLoading;
+  // `approved_rfi` também libera: nesse estado a BlindPay mantém o cliente
+  // operacional, o RFI aberto só precisa ser respondido antes do prazo.
+  const isKycCleared =
+    kyc?.kycStatus === "APPROVED" || kyc?.kycStatus === "APPROVED_RFI";
 
   function handlePixPress() {
-    // Enquanto a consulta do receiver ainda está em andamento, `receiver` é
-    // `undefined` — sem essa trava, um toque rápido manda até usuário já
-    // cadastrado pro onboarding à toa (o próprio onboarding se autocorrige
-    // depois, mas o usuário vê um flash de tela sem motivo aparente).
-    if (receiverLoading) return;
+    // Enquanto as consultas ainda estão em andamento os dados são `undefined` —
+    // sem essa trava, um toque rápido manda até usuário já cadastrado pro
+    // onboarding à toa (o próprio onboarding se autocorrige depois, mas o
+    // usuário vê um flash de tela sem motivo aparente).
+    if (isLoading) return;
 
     onClose();
-    const isOnboarded =
+    const hasRampAccounts =
       receiver &&
       (receiver.bankAccounts?.length ?? 0) > 0 &&
       (receiver.blockchainWallets?.length ?? 0) > 0;
 
-    if (!isOnboarded) {
+    // Ter conta e wallet não basta: um KYC recusado ou em análise deixa os dois
+    // registros de pé, e mandar esse usuário para o modal de ramp só produz um
+    // erro cru vindo da BlindPay lá na frente.
+    if (!hasRampAccounts || !isKycCleared) {
       router.replace("/(blindpay-onboarding)" as any);
       return;
     }
@@ -112,20 +125,27 @@ export function RampMethodSelector({
             </PressableScale>
 
             {/* PIX */}
-            <PressableScale onPress={handlePixPress} disabled={receiverLoading}>
-              <View style={[styles.optionCard, receiverLoading && styles.optionCardDisabled]}>
+            <PressableScale onPress={handlePixPress} disabled={isLoading}>
+              <View style={[styles.optionCard, isLoading && styles.optionCardDisabled]}>
                 <View style={styles.optionIconWrap}>
                   <MaterialIcons name="pix" size={22} color={Accent.primary} />
                 </View>
                 <View style={styles.optionText}>
-                  <Text style={styles.optionLabel}>PIX (BRL)</Text>
+                  <View style={styles.optionLabelRow}>
+                    <Text style={styles.optionLabel}>PIX (BRL)</Text>
+                    <KycStatusBadge status={kyc?.kycStatus} />
+                  </View>
                   <Text style={styles.optionDesc}>
-                    {isDeposit
-                      ? "Deposite via Pix em reais"
-                      : "Receba na sua conta via Pix"}
+                    {kyc?.kycStatus === "REJECTED"
+                      ? "Verificação recusada — toque para reenviar seus documentos"
+                      : kyc?.kycStatus === "VERIFYING"
+                        ? "Verificação em análise. Avisamos assim que sair o resultado"
+                        : isDeposit
+                          ? "Deposite via Pix em reais"
+                          : "Receba na sua conta via Pix"}
                   </Text>
                 </View>
-                {receiverLoading ? (
+                {isLoading ? (
                   <ActivityIndicator size="small" color={Colors.mutedForeground} />
                 ) : (
                   <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
@@ -223,6 +243,12 @@ const styles = StyleSheet.create({
   optionText: {
     flex: 1,
     gap: 3,
+  },
+  optionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap",
   },
   optionLabel: {
     fontSize: FontSize.body,

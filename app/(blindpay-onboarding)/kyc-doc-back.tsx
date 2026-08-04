@@ -5,7 +5,12 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useCreateBlindPayReceiver, useUploadKycFile } from '@/lib/queries/blindpay.queries';
+import {
+  useCreateBlindPayReceiver,
+  useKycStatus,
+  useResubmitKyc,
+  useUploadKycFile,
+} from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { pickPhoto } from '@/lib/media/pick-photo';
 import { safeReplace } from '@/lib/navigation/safe-replace';
@@ -33,13 +38,15 @@ export default function KycDocBackScreen() {
     setIdDocBackUrl,
     setReceiver,
     setCurrentStep,
-    clearKycDraft,
   } = useBlindPayStore();
   const uploadFile = useUploadKycFile();
   const createReceiver = useCreateBlindPayReceiver();
+  const resubmitKyc = useResubmitKyc();
+  const { data: kyc } = useKycStatus(contractId);
 
   const docLabel = DOC_TYPE_LABELS[draft.idDocType ?? 'ID_CARD'] ?? 'documento';
-  const submitting = uploadFile.isPending || createReceiver.isPending;
+  const submitting =
+    uploadFile.isPending || createReceiver.isPending || resubmitKyc.isPending;
 
   const [uri, setUri] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -89,7 +96,14 @@ export default function KycDocBackScreen() {
         setIdDocBackUrl(url);
       }
 
-      const receiver = await createReceiver.mutateAsync({
+      // Um KYC recusado não pode ser corrigido no mesmo customer da BlindPay —
+      // a rota de reenvio cria um novo e recria a conta Pix e a wallet contra
+      // ele. Chamar `createReceiver` aqui devolveria "User already has a
+      // BlindPay receiver" e travaria o usuário de novo.
+      const isRetry = kyc?.kycStatus === 'REJECTED';
+      const submit = isRetry ? resubmitKyc : createReceiver;
+
+      const receiver = await submit.mutateAsync({
         userId: contractId,
         email: draft.email ?? '',
         firstName: draft.firstName,
@@ -113,11 +127,19 @@ export default function KycDocBackScreen() {
       });
 
       setReceiver(receiver.id);
+
+      // O rascunho NÃO é apagado aqui. Enquanto a BlindPay não aprovar, ele é
+      // exatamente o que permite refazer o KYC sem redigitar CPF, endereço e
+      // data de nascimento. Quem limpa é a tela de pending, ao ver `APPROVED`.
+      if (isRetry) {
+        // No reenvio o backend já recriou conta Pix e wallet contra o customer
+        // novo, então não há mais nada para o usuário preencher.
+        setCurrentStep('pending');
+        safeReplace('/(blindpay-onboarding)/pending');
+        return;
+      }
+
       setCurrentStep('bank-account');
-      // O receiver já existe no backend com esses dados — o rascunho local
-      // (CPF, endereço, data de nascimento) não serve mais pra nada e não
-      // deve continuar guardado (nem em memória, nem no SecureStore).
-      clearKycDraft();
       safeReplace('/(blindpay-onboarding)/bank-account');
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.message || 'Erro ao enviar seus dados. Tente novamente.');
@@ -134,7 +156,11 @@ export default function KycDocBackScreen() {
       <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={8} total={10} />
       <Text style={styles.title}>Por último, o verso</Text>
-      <Text style={styles.subtitle}>Fotografe o verso do seu {docLabel}, sem cortes nas bordas.</Text>
+      <Text style={styles.subtitle}>
+        Fotografe o verso do seu {docLabel} sobre uma superfície plana, com os
+        quatro cantos dentro da foto e uma margem em volta. Confira na
+        pré-visualização se nenhuma borda ficou de fora.
+      </Text>
 
       <View style={styles.captureWrap}>
         <PressableScale onPress={pickImage} disabled={picking}>
@@ -205,8 +231,10 @@ const styles = StyleSheet.create({
   },
   captureCard: {
     alignSelf: 'center',
-    width: '70%',
-    aspectRatio: 3 / 4,
+    // Documento é deitado — um quadro retrato empurrava a foto para uma faixa
+    // estreita e ilegível depois que o preview passou a mostrar tudo.
+    width: '100%',
+    aspectRatio: 4 / 3,
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
@@ -230,7 +258,10 @@ const styles = StyleSheet.create({
   preview: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    // 'contain', nunca 'cover': com cover o preview descarta as bordas da foto
+    // — exatamente a região que a BlindPay checa — e o usuário aprovava uma
+    // imagem com os cantos cortados sem ter como enxergar isso.
+    resizeMode: 'contain',
   },
   retakeText: {
     fontSize: FontSize.bodySmall,

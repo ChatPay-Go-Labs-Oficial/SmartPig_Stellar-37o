@@ -4,7 +4,7 @@ import { PressableScale } from '@/components/ui/PressableScale';
 import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { Colors, Accent, Font, FontSize, Spacing } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useBlindPayReceiver } from '@/lib/queries/blindpay.queries';
+import { useBlindPayReceiver, useKycStatus } from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore, type BlindPayOnboardingStep } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
@@ -35,7 +35,13 @@ export default function BlindPayOnboardingIndex() {
     hydrateSecureFields,
   } = useBlindPayStore();
 
-  const { data: receiver, isLoading, error, refetch } = useBlindPayReceiver(contractId);
+  const { data: receiver, isLoading: receiverLoading, error, refetch } =
+    useBlindPayReceiver(contractId);
+  const { data: kyc, isLoading: kycLoading } = useKycStatus(contractId);
+
+  // Rotear antes do status do KYC chegar mandaria um recusado pra /(tabs) —
+  // é justamente a decisão que depende dele.
+  const isLoading = receiverLoading || kycLoading;
 
   const hasRouted = useRef(false);
 
@@ -87,9 +93,31 @@ export default function BlindPayOnboardingIndex() {
       return;
     }
 
+    // Conta e wallet existem, mas isso não diz nada sobre o KYC: um cadastro
+    // recusado mantém os dois de pé. Antes daqui o usuário recusado caía em
+    // /(tabs) e só descobria o problema como erro cru no meio de um depósito.
+    if (kyc?.kycStatus === 'REJECTED') {
+      // Se já começou o reenvio (aceitou o ToS de novo, refez alguma foto),
+      // retoma de onde parou em vez de mandar de volta pro aviso de recusa.
+      if (LOCAL_STEPS.includes(currentStep)) {
+        hasRouted.current = true;
+        safeReplace(`/(blindpay-onboarding)/${currentStep}`);
+        return;
+      }
+      setCurrentStep('pending');
+      safeReplace('/(blindpay-onboarding)/pending');
+      return;
+    }
+
+    if (kyc && kyc.kycStatus !== 'APPROVED' && kyc.kycStatus !== 'APPROVED_RFI') {
+      setCurrentStep('pending');
+      safeReplace('/(blindpay-onboarding)/pending');
+      return;
+    }
+
     setCurrentStep('check-status');
     safeReplace('/(tabs)');
-  }, [receiver, isLoading, error]);
+  }, [receiver, isLoading, error, kyc]);
 
   if (error && !receiver) {
     return (

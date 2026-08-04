@@ -56,6 +56,28 @@ export interface CreateReceiverRequest {
   tosId?: string;
 }
 
+/**
+ * Espelha o enum do backend. `COMPLIANCE_REQUEST` pausa o cliente enquanto o
+ * compliance espera documentos; `APPROVED_RFI` mantém ele operacional.
+ */
+export type KycStatus =
+  | 'VERIFYING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'COMPLIANCE_REQUEST'
+  | 'APPROVED_RFI';
+
+export interface KycStatusResponse {
+  kycStatus: KycStatus;
+  /** Motivo da rejeição já achatado pelo backend, quando existe. */
+  rejectionReason: string | null;
+  warnings: unknown;
+  rfi: unknown | null;
+  /** `true` só quando a BlindPay aceita uma nova tentativa. */
+  canResubmit: boolean;
+  updatedAt: string;
+}
+
 export interface CreateBankAccountRequest {
   userId: string;
   name: string;
@@ -119,6 +141,24 @@ export async function createReceiver(
 
 export async function getReceiver(userId: string): Promise<BlindPayReceiverRecord> {
   const { data } = await apiClient.get('/ramp/receiver');
+  return data;
+}
+
+/** Consulta o status real na BlindPay (o backend persiste de passagem). */
+export async function getKycStatus(): Promise<KycStatusResponse> {
+  const { data } = await apiClient.get('/ramp/receiver/kyc-status');
+  return data;
+}
+
+/**
+ * Refaz o KYC depois de uma rejeição. Cria um customer novo na BlindPay — a
+ * API não permite corrigir um existente — e o backend recria a conta Pix e a
+ * wallet contra ele, então o usuário não redigita esses dados.
+ */
+export async function resubmitReceiver(
+  dto: CreateReceiverRequest,
+): Promise<BlindPayReceiverRecord> {
+  const { data } = await apiClient.post('/ramp/receiver/resubmit', dto);
   return data;
 }
 

@@ -173,7 +173,10 @@ const styles = StyleSheet.create({
   preview: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    // Mesmo motivo das telas de documento: o preview tem que mostrar a foto
+    // inteira, senão o usuário confirma um enquadramento que não é o enviado.
+    // Aqui o quadro segue retrato, que é o formato natural de uma selfie.
+    resizeMode: 'contain',
   },
   retakeText: {
     fontSize: FontSize.bodySmall,

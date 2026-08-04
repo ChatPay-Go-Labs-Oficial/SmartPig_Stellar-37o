@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -12,40 +13,113 @@ import {
 } from "@/constants/theme";
 import { PressableScale } from "@/components/ui";
 import { safeReplace } from "@/lib/navigation/safe-replace";
+import { useAuthStore } from "@/lib/stores/auth.store";
+import { useBlindPayStore } from "@/lib/stores/blindpay.store";
+import { useKycStatus } from "@/lib/queries/blindpay.queries";
 
 export default function PendingScreen() {
+  const contractId = useAuthStore((s) => s.contractId);
+  const clearKycDraft = useBlindPayStore((s) => s.clearKycDraft);
+  const startKycRetry = useBlindPayStore((s) => s.startKycRetry);
+
+  // `useKycStatus` faz poll sozinho enquanto o status não é terminal e para
+  // quando chega a aprovado/recusado — por isso não há setInterval aqui.
+  const { data: kyc } = useKycStatus(contractId);
+  const isRejected = kyc?.kycStatus === "REJECTED";
+  const isApproved =
+    kyc?.kycStatus === "APPROVED" || kyc?.kycStatus === "APPROVED_RFI";
+
+  // Aprovado é o único ponto em que o rascunho de KYC deixa de ser útil: até
+  // aqui ele é o que permite refazer o envio sem redigitar tudo.
+  useEffect(() => {
+    if (isApproved) clearKycDraft();
+  }, [isApproved, clearKycDraft]);
+
+  // O reenvio recomeça nos Termos de Uso, não nas fotos: o customer novo exige
+  // um `tos_id` novo, e o aceite anterior ficou preso ao cadastro recusado.
+  // O rascunho sobrevive, então os formulários seguintes já vêm preenchidos.
+  function handleRetry() {
+    startKycRetry();
+    safeReplace("/(blindpay-onboarding)/tos");
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <MaterialIcons name="check-circle" size={40} color={Accent.success} />
+          <MaterialIcons
+            name={
+              isRejected
+                ? "error-outline"
+                : isApproved
+                  ? "verified"
+                  : "check-circle"
+            }
+            size={40}
+            color={isRejected ? Accent.destructive : Accent.success}
+          />
         </View>
 
-        <Text style={styles.title}>Recebemos seus dados!</Text>
+        <Text style={styles.title}>
+          {isRejected
+            ? "Não conseguimos aprovar seus documentos"
+            : isApproved
+              ? "Tudo certo!"
+              : "Recebemos seus dados!"}
+        </Text>
         <Text style={styles.message}>
-          A análise pode levar algumas horas. Assim que for concluída, os
-          depósitos e saques via Pix ficam liberados automaticamente, você não
-          precisa fazer mais nada.
+          {isRejected
+            ? "Você pode enviar novamente com fotos corrigidas."
+            : isApproved
+              ? "Sua identidade foi verificada. Depósitos e saques via Pix estão liberados."
+              : "A análise pode levar algumas horas. Assim que for concluída, os depósitos e saques via Pix ficam liberados automaticamente, você não precisa fazer mais nada."}
         </Text>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.infoText}>
-            Você já pode continuar usando o app normalmente enquanto isso.
-          </Text>
-        </View>
+        {/* Mensagem do compliance exibida verbatim: é a instrução específica
+            do que precisa ser corrigido, e reescrever muda o sentido. */}
+        {isRejected && kyc?.rejectionReason ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoText}>{kyc.rejectionReason}</Text>
+          </View>
+        ) : !isRejected && !isApproved ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoText}>
+              Você já pode continuar usando o app normalmente enquanto isso.
+            </Text>
+          </View>
+        ) : null}
+
+        {isRejected && kyc?.canResubmit && (
+          <PressableScale onPress={handleRetry} style={styles.btnWrap}>
+            <LinearGradient
+              colors={Gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.btn}
+            >
+              <Text style={styles.btnText}>Enviar novamente</Text>
+            </LinearGradient>
+          </PressableScale>
+        )}
 
         <PressableScale
           onPress={() => safeReplace("/(tabs)")}
           style={styles.btnWrap}
         >
-          <LinearGradient
-            colors={Gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.btn}
-          >
-            <Text style={styles.btnText}>Ir para o app</Text>
-          </LinearGradient>
+          {isRejected ? (
+            <View style={[styles.btn, styles.btnSecondary]}>
+              <Text style={styles.btnSecondaryText}>Agora não</Text>
+            </View>
+          ) : (
+            <LinearGradient
+              colors={Gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.btn}
+            >
+              <Text style={styles.btnText}>Ir para o app</Text>
+            </LinearGradient>
+          )}
         </PressableScale>
       </View>
     </View>
@@ -113,6 +187,16 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
     alignItems: "center",
     width: "100%",
+  },
+  btnSecondary: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  btnSecondaryText: {
+    color: Colors.mutedForeground,
+    fontSize: FontSize.body,
+    fontFamily: Font.bold,
   },
   btnText: {
     color: "#fff",

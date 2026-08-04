@@ -84,7 +84,11 @@ export default function KycDocFrontScreen() {
       <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={7} total={10} />
       <Text style={styles.title}>Agora, a frente do seu documento</Text>
-      <Text style={styles.subtitle}>Fotografe a frente do seu {docLabel} com todos os dados legíveis.</Text>
+      <Text style={styles.subtitle}>
+        Fotografe a frente do seu {docLabel} sobre uma superfície plana, com os
+        quatro cantos dentro da foto e uma margem em volta. Confira na
+        pré-visualização se nenhuma borda ficou de fora.
+      </Text>
 
       <View style={styles.captureWrap}>
         <PressableScale onPress={pickImage} disabled={picking}>
@@ -155,8 +159,10 @@ const styles = StyleSheet.create({
   },
   captureCard: {
     alignSelf: 'center',
-    width: '70%',
-    aspectRatio: 3 / 4,
+    // Documento é deitado — um quadro retrato empurrava a foto para uma faixa
+    // estreita e ilegível depois que o preview passou a mostrar tudo.
+    width: '100%',
+    aspectRatio: 4 / 3,
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
@@ -180,7 +186,10 @@ const styles = StyleSheet.create({
   preview: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    // 'contain', nunca 'cover': com cover o preview descarta as bordas da foto
+    // — exatamente a região que a BlindPay checa — e o usuário aprovava uma
+    // imagem com os cantos cortados sem ter como enxergar isso.
+    resizeMode: 'contain',
   },
   retakeText: {
     fontSize: FontSize.bodySmall,
