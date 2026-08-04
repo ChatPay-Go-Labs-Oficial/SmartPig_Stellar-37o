@@ -530,11 +530,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
-    // Só um respiro mínimo em volta do valor: o gap do `body` já separa o
-    // bloco seguinte, e manter este padding grande empurrava o card de aviso
-    // (e o botão, logo abaixo) para baixo — escondendo o botão em telas
-    // menores ou com barra de navegação.
-    paddingVertical: Spacing[1],
+    // Sem padding vertical em volta do valor: o gap do `body` já separa os
+    // blocos, e qualquer folga aqui só empurra o card de aviso e o botão para
+    // baixo — escondendo o botão em telas menores ou com barra de navegação.
+    paddingVertical: 0,
   },
   amountDollar: {
     fontSize: 36,
