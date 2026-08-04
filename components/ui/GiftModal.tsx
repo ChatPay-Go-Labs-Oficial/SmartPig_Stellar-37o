@@ -10,6 +10,7 @@ import {
   ScrollView,
   Share,
   Keyboard,
+  useWindowDimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -75,6 +76,7 @@ function errorMessage(error: unknown): string {
 }
 
 export function GiftModal({ visible, onClose }: GiftModalProps) {
+  const { height: windowHeight } = useWindowDimensions();
   const queryClient = useQueryClient();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const contractId = useAuthStore((s) => s.contractId);
@@ -200,6 +202,19 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
     amountNum <= Number(usdcBalance);
   const isBusy = step === "creating" || step === "signing";
 
+  // O sheet precisa caber na área visível com o teclado aberto. O campo de valor
+  // tem autoFocus, então o teclado sobe assim que o modal abre; com um maxHeight
+  // fixo em 92% da tela, o sheet (que é empurrado pelo paddingBottom do teclado)
+  // passava do limite visível e o botão "Presentear", no fim do ScrollView, ficava
+  // escondido atrás do teclado. Quando o teclado fecha, o teto volta aos 94%.
+  const sheetMaxHeight = Math.min(
+    windowHeight * 0.94,
+    Math.max(
+      windowHeight * 0.5,
+      windowHeight - keyboardHeight - Spacing[3],
+    ),
+  );
+
   return (
     <Modal
       visible={visible}
@@ -213,7 +228,10 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
         onPress={isBusy ? undefined : handleClose}
       >
         <View style={{ paddingBottom: keyboardHeight }}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable
+            style={[styles.sheet, { maxHeight: sheetMaxHeight }]}
+            onPress={() => {}}
+          >
             <View style={styles.handle} />
 
             <View style={styles.headerRow}>
@@ -431,7 +449,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing[8],
     borderTopWidth: 1,
     borderColor: Colors.border,
-    maxHeight: "92%",
   },
   handle: {
     width: 40,
