@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
@@ -24,7 +24,7 @@ export default function PendingScreen() {
 
   // `useKycStatus` faz poll sozinho enquanto o status não é terminal e para
   // quando chega a aprovado/recusado — por isso não há setInterval aqui.
-  const { data: kyc } = useKycStatus(contractId);
+  const { data: kyc, isLoading } = useKycStatus(contractId);
   const isRejected = kyc?.kycStatus === "REJECTED";
   const isApproved =
     kyc?.kycStatus === "APPROVED" || kyc?.kycStatus === "APPROVED_RFI";
@@ -41,6 +41,17 @@ export default function PendingScreen() {
   function handleRetry() {
     startKycRetry();
     safeReplace("/(blindpay-onboarding)/tos");
+  }
+
+  // Sem isso, a primeira renderização cai no ramo "nem aprovado nem recusado"
+  // e mostra "Recebemos seus dados!" por um instante antes do status real
+  // chegar — pisca uma tela errada quando a aprovação é rápida.
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator color={Accent.primary} size="large" />
+      </View>
+    );
   }
 
   return (
@@ -74,20 +85,6 @@ export default function PendingScreen() {
               ? "Sua identidade foi verificada. Depósitos e saques via Pix estão liberados."
               : "A análise pode levar algumas horas. Assim que for concluída, os depósitos e saques via Pix ficam liberados automaticamente, você não precisa fazer mais nada."}
         </Text>
-
-        {/* Mensagem do compliance exibida verbatim: é a instrução específica
-            do que precisa ser corrigido, e reescrever muda o sentido. */}
-        {isRejected && kyc?.rejectionReason ? (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoText}>{kyc.rejectionReason}</Text>
-          </View>
-        ) : !isRejected && !isApproved ? (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoText}>
-              Você já pode continuar usando o app normalmente enquanto isso.
-            </Text>
-          </View>
-        ) : null}
 
         {isRejected && kyc?.canResubmit && (
           <PressableScale onPress={handleRetry} style={styles.btnWrap}>

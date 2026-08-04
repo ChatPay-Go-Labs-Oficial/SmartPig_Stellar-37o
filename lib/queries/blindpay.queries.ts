@@ -65,7 +65,13 @@ export function useResubmitKyc() {
     mutationKey: ['blindpay-resubmit-kyc'],
     mutationFn: (dto: CreateReceiverRequest) => resubmitReceiver(dto),
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
+      // resetQueries (não invalidateQueries) para o status: o reenvio troca de
+      // customer na BlindPay, então o cache antigo tem o status REJECTED do
+      // customer anterior. Com invalidate ele ficaria visível (stale-while-
+      // revalidate) até o refetch chegar — a tela de pending piscaria
+      // "recusado" antes do status novo. Reset limpa e força um estado de
+      // carregamento em vez disso.
+      queryClient.resetQueries({
         queryKey: blindpayKeys.kycStatus(variables.userId),
       });
       queryClient.invalidateQueries({

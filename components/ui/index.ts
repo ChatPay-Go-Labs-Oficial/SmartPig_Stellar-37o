@@ -28,4 +28,5 @@ export { TransferModal } from './TransferModal';
 export { GiftModal } from './GiftModal';
 export { GiftClaimGate } from './GiftClaimSheet';
 export { MyGiftsModal } from './MyGiftsModal';
+export { DocPhotoTips } from './DocPhotoTips';
 

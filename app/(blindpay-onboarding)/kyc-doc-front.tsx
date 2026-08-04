@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale, DocPhotoTips } from '@/components/ui';
 import { useUploadKycFile } from '@/lib/queries/blindpay.queries';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { pickPhoto } from '@/lib/media/pick-photo';
@@ -85,10 +85,11 @@ export default function KycDocFrontScreen() {
       <OnboardingProgress step={7} total={10} />
       <Text style={styles.title}>Agora, a frente do seu documento</Text>
       <Text style={styles.subtitle}>
-        Fotografe a frente do seu {docLabel} sobre uma superfície plana, com os
-        quatro cantos dentro da foto e uma margem em volta. Confira na
-        pré-visualização se nenhuma borda ficou de fora.
+        Fotografe a frente do seu {docLabel}, com os quatro cantos dentro da
+        foto e uma margem em volta. Confira na pré-visualização se nenhuma
+        borda ficou de fora.
       </Text>
+      <DocPhotoTips />
 
       <View style={styles.captureWrap}>
         <PressableScale onPress={pickImage} disabled={picking}>

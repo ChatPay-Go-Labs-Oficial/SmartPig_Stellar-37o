@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale, DocPhotoTips } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import {
   useCreateBlindPayReceiver,
@@ -157,10 +157,11 @@ export default function KycDocBackScreen() {
       <OnboardingProgress step={8} total={10} />
       <Text style={styles.title}>Por último, o verso</Text>
       <Text style={styles.subtitle}>
-        Fotografe o verso do seu {docLabel} sobre uma superfície plana, com os
-        quatro cantos dentro da foto e uma margem em volta. Confira na
-        pré-visualização se nenhuma borda ficou de fora.
+        Fotografe o verso do seu {docLabel}, com os quatro cantos dentro da
+        foto e uma margem em volta. Confira na pré-visualização se nenhuma
+        borda ficou de fora.
       </Text>
+      <DocPhotoTips />
 
       <View style={styles.captureWrap}>
         <PressableScale onPress={pickImage} disabled={picking}>
