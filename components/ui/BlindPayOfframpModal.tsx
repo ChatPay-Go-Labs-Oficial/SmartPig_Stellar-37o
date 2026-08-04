@@ -316,6 +316,10 @@ export function BlindPayOfframpModal({
                     onChangeText={setAmount}
                     keyboardType="decimal-pad"
                     autoFocus
+                    // O campo é centralizado e sempre focado, então o caret
+                    // fica piscando sozinho no meio do valor sem indicar nada
+                    // útil — o teclado já sinaliza que o campo está ativo.
+                    caretHidden
                   />
                 </View>
 

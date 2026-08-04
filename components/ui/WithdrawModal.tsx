@@ -39,17 +39,30 @@ const WITHDRAW_GRADIENT = ["hsl(220, 90%, 58%)", "hsl(270, 80%, 60%)"] as const;
 
 function friendlyError(raw: string): string {
   const s = raw.toLowerCase();
-  if (s.includes('insufficient') || s.includes('balance') || s.includes('saldo') || s.includes('funds'))
-    return 'Saldo insuficiente no porquinho para realizar o saque.';
-  if (s.includes('network') || s.includes('timeout') || s.includes('econnrefused') || s.includes('fetch'))
-    return 'Erro de conexao. Verifique sua internet e tente novamente.';
-  if (s.includes('unauthorized') || s.includes('401') || s.includes('forbidden'))
-    return 'Sessao expirada. Saia e entre novamente no app.';
-  if (s.includes('biometria') || s.includes('identidade'))
-    return raw;
-  if (s.includes('minimum') || s.includes('minimo') || s.includes('min amount'))
-    return 'Valor abaixo do minimo permitido para saque.';
-  return 'Nao foi possivel processar o saque. Tente novamente em instantes.';
+  if (
+    s.includes("insufficient") ||
+    s.includes("balance") ||
+    s.includes("saldo") ||
+    s.includes("funds")
+  )
+    return "Saldo insuficiente no porquinho para realizar o saque.";
+  if (
+    s.includes("network") ||
+    s.includes("timeout") ||
+    s.includes("econnrefused") ||
+    s.includes("fetch")
+  )
+    return "Erro de conexao. Verifique sua internet e tente novamente.";
+  if (
+    s.includes("unauthorized") ||
+    s.includes("401") ||
+    s.includes("forbidden")
+  )
+    return "Sessao expirada. Saia e entre novamente no app.";
+  if (s.includes("biometria") || s.includes("identidade")) return raw;
+  if (s.includes("minimum") || s.includes("minimo") || s.includes("min amount"))
+    return "Valor abaixo do minimo permitido para saque.";
+  return "Nao foi possivel processar o saque. Tente novamente em instantes.";
 }
 
 interface WithdrawModalProps {
@@ -62,7 +75,13 @@ interface WithdrawModalProps {
   onClose: () => void;
 }
 
-type Step = "input" | "authenticating" | "processing" | "signing" | "submitting" | "success";
+type Step =
+  | "input"
+  | "authenticating"
+  | "processing"
+  | "signing"
+  | "submitting"
+  | "success";
 
 export function WithdrawModal({
   visible,
@@ -115,9 +134,17 @@ export function WithdrawModal({
 
       floatLoop.current = Animated.loop(
         Animated.sequence([
-          Animated.timing(floatAnim, { toValue: -12, duration: 1400, useNativeDriver: true }),
-          Animated.timing(floatAnim, { toValue: 0,   duration: 1400, useNativeDriver: true }),
-        ])
+          Animated.timing(floatAnim, {
+            toValue: -12,
+            duration: 1400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(floatAnim, {
+            toValue: 0,
+            duration: 1400,
+            useNativeDriver: true,
+          }),
+        ]),
       );
       floatLoop.current.start();
 
@@ -165,13 +192,19 @@ export function WithdrawModal({
       });
 
       if (!biometricResult.success) {
-        setError(biometricResult.message ?? "Biometria não confirmada. Tente novamente.");
+        setError(
+          biometricResult.message ??
+            "Biometria não confirmada. Tente novamente.",
+        );
         setStep("input");
         return;
       }
 
       setStep("processing");
-      const result = await createWithdrawal.mutateAsync({ vaultId, shares: shareAmount });
+      const result = await createWithdrawal.mutateAsync({
+        vaultId,
+        shares: shareAmount,
+      });
 
       if (!result.unsignedXdr) throw new Error("XDR não gerado");
 
@@ -179,16 +212,23 @@ export function WithdrawModal({
       const signedXdr = await signXdr(result.unsignedXdr);
 
       setStep("submitting");
-      await submitWithdrawal.mutateAsync({ withdrawalId: result.id, signedXdr });
+      await submitWithdrawal.mutateAsync({
+        withdrawalId: result.id,
+        signedXdr,
+      });
 
       setStep("success");
       qc.invalidateQueries({ queryKey: vaultKeys.all });
       if (walletAddress) {
-        qc.invalidateQueries({ queryKey: vaultKeys.balance(vaultId, walletAddress) });
+        qc.invalidateQueries({
+          queryKey: vaultKeys.balance(vaultId, walletAddress),
+        });
         qc.invalidateQueries({ queryKey: walletKeys.balance(walletAddress) });
       }
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || "Erro ao processar saque");
+      setError(
+        e?.response?.data?.message || e?.message || "Erro ao processar saque",
+      );
       setStep("input");
     }
   };
@@ -202,7 +242,8 @@ export function WithdrawModal({
     onClose();
   };
 
-  const isConfirmEnabled = !!amount && parsedAmount > 0 && parsedAmount <= parsedUnderlying + 1e-6;
+  const isConfirmEnabled =
+    !!amount && parsedAmount > 0 && parsedAmount <= parsedUnderlying + 1e-6;
   const isBlocked =
     step === "authenticating" ||
     step === "processing" ||
@@ -217,7 +258,10 @@ export function WithdrawModal({
       statusBarTranslucent
       onRequestClose={isBlocked ? undefined : handleClose}
     >
-      <Pressable style={styles.backdrop} onPress={isBlocked ? undefined : handleClose}>
+      <Pressable
+        style={styles.backdrop}
+        onPress={isBlocked ? undefined : handleClose}
+      >
         <View style={{ paddingBottom: keyboardHeight }}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.handle} />
@@ -225,19 +269,32 @@ export function WithdrawModal({
             {/* ── Header ── */}
             <View style={styles.headerRow}>
               <View style={styles.headerIcon}>
-                <MaterialIcons name="arrow-upward" size={20} color={WITHDRAW_GRADIENT[0]} />
+                <MaterialIcons
+                  name="arrow-upward"
+                  size={20}
+                  color={WITHDRAW_GRADIENT[0]}
+                />
               </View>
               <View style={styles.headerTextBlock}>
                 <Text style={styles.headerTitle}>Sacar do porquinho</Text>
                 {apyValue > 0 && (
                   <Text style={styles.headerSub}>
-                    Porquinho do PigFi · {apyValue.toFixed(2).replace(".", ",")}%/ano
+                    Porquinho do PigFi · {apyValue.toFixed(2).replace(".", ",")}
+                    %/ano
                   </Text>
                 )}
               </View>
               {!isBlocked && (
-                <Pressable onPress={handleClose} hitSlop={12} style={styles.closeBtn}>
-                  <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
+                <Pressable
+                  onPress={handleClose}
+                  hitSlop={12}
+                  style={styles.closeBtn}
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={16}
+                    color={Colors.mutedForeground}
+                  />
                 </Pressable>
               )}
             </View>
@@ -265,6 +322,10 @@ export function WithdrawModal({
                     keyboardType="decimal-pad"
                     autoFocus
                     cursorColor={WITHDRAW_GRADIENT[0]}
+                    // O campo é centralizado e sempre focado, então o caret
+                    // fica piscando sozinho no meio do valor sem indicar nada
+                    // útil — o teclado já sinaliza que o campo está ativo.
+                    caretHidden
                   />
                 </View>
 
@@ -285,7 +346,9 @@ export function WithdrawModal({
                             end={{ x: 1, y: 1 }}
                             style={[styles.quickBtn, styles.quickBtnActive]}
                           >
-                            <Text style={[styles.quickText, styles.quickTextActive]}>
+                            <Text
+                              style={[styles.quickText, styles.quickTextActive]}
+                            >
                               {chip}%
                             </Text>
                           </LinearGradient>
@@ -298,7 +361,10 @@ export function WithdrawModal({
                     );
                   })}
                   {/* Tudo */}
-                  <Pressable onPress={() => handleChipSelect("all")} style={{ flex: 1 }}>
+                  <Pressable
+                    onPress={() => handleChipSelect("all")}
+                    style={{ flex: 1 }}
+                  >
                     {activeChip === "all" ? (
                       <LinearGradient
                         colors={WITHDRAW_GRADIENT}
@@ -306,7 +372,11 @@ export function WithdrawModal({
                         end={{ x: 1, y: 1 }}
                         style={[styles.quickBtn, styles.quickBtnActive]}
                       >
-                        <Text style={[styles.quickText, styles.quickTextActive]}>Tudo</Text>
+                        <Text
+                          style={[styles.quickText, styles.quickTextActive]}
+                        >
+                          Tudo
+                        </Text>
                       </LinearGradient>
                     ) : (
                       <View style={styles.quickBtn}>
@@ -324,17 +394,28 @@ export function WithdrawModal({
 
                 {errorMsg ? (
                   <View style={styles.errorCard}>
-                    <MaterialIcons name="error-outline" size={18} color={Accent.destructive} />
+                    <MaterialIcons
+                      name="error-outline"
+                      size={18}
+                      color={Accent.destructive}
+                    />
                     <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={styles.errorCardTitle}>Ops, algo deu errado</Text>
-                      <Text style={styles.errorCardMsg}>{friendlyError(errorMsg)}</Text>
+                      <Text style={styles.errorCardTitle}>
+                        Ops, algo deu errado
+                      </Text>
+                      <Text style={styles.errorCardMsg}>
+                        {friendlyError(errorMsg)}
+                      </Text>
                     </View>
                   </View>
                 ) : null}
 
                 {/* Confirm button */}
                 <Pressable
-                  onPress={() => { playClick(); handleWithdraw(); }}
+                  onPress={() => {
+                    playClick();
+                    handleWithdraw();
+                  }}
                   disabled={!isConfirmEnabled}
                   style={{ alignSelf: "stretch" }}
                 >
@@ -342,7 +423,10 @@ export function WithdrawModal({
                     colors={WITHDRAW_GRADIENT}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    style={[styles.confirmBtn, !isConfirmEnabled && styles.btnDisabled]}
+                    style={[
+                      styles.confirmBtn,
+                      !isConfirmEnabled && styles.btnDisabled,
+                    ]}
                   >
                     <Text style={styles.confirmBtnText}>Confirmar saque</Text>
                   </LinearGradient>
@@ -361,9 +445,11 @@ export function WithdrawModal({
                   {step === "submitting" && "Processando na Stellar..."}
                 </Text>
                 <Text style={styles.statusSub}>
-                  {step === "authenticating" && "Protegendo seu saque antes de continuar"}
+                  {step === "authenticating" &&
+                    "Protegendo seu saque antes de continuar"}
                   {step === "processing" && "Preparando saque do vault"}
-                  {step === "signing" && "Use Face ID / Touch ID para autorizar"}
+                  {step === "signing" &&
+                    "Use Face ID / Touch ID para autorizar"}
                   {step === "submitting" && "Enviando para sua carteira ⚡"}
                 </Text>
               </View>
@@ -372,12 +458,14 @@ export function WithdrawModal({
             {/* ── Success ── */}
             {step === "success" && (
               <View style={styles.centerBody}>
-                <Animated.View style={{
-                  transform: [
-                    { scale: scaleAnim },
-                    { translateY: floatAnim },
-                  ],
-                }}>
+                <Animated.View
+                  style={{
+                    transform: [
+                      { scale: scaleAnim },
+                      { translateY: floatAnim },
+                    ],
+                  }}
+                >
                   <Image
                     source={require("@/assets/images/pigfi_tirar_do_porquinho.png")}
                     style={styles.successPig}
@@ -389,7 +477,10 @@ export function WithdrawModal({
                   ${parsedAmount.toFixed(2)} já caíram na sua carteira.
                 </Text>
                 <Pressable
-                  onPress={() => { handleClose(); router.navigate("/(tabs)"); }}
+                  onPress={() => {
+                    handleClose();
+                    router.navigate("/(tabs)");
+                  }}
                   style={{ alignSelf: "stretch" }}
                 >
                   <LinearGradient
