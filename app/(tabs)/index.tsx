@@ -712,7 +712,7 @@ export default function HomeScreen() {
       />
       <BlindPayOfframpModal
         visible={offrampOpen}
-        maxAmount={walletBalance}
+        maxAmount={parsedWalletUsdc}
         onClose={() => setOfframpOpen(false)}
       />
       <LevelUpAnimation
