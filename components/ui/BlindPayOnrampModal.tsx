@@ -315,8 +315,7 @@ export function BlindPayOnrampModal({
                 </View>
 
                 <Text style={styles.hintText}>
-                  Não sabe quanto digitar em reais? Escolha um valor em
-                  dólar:
+                  Não sabe quanto digitar em reais? Escolha um valor em dólar:
                 </Text>
                 <View style={styles.quickRow}>
                   {QUICK_USD_VALUES.map((v) => {
@@ -400,9 +399,7 @@ export function BlindPayOnrampModal({
                   </View>
                   <View style={styles.quoteDivider} />
                   <View style={styles.quoteRow}>
-                    <Text style={styles.quoteLabel}>
-                      Vai para o seu porquinho
-                    </Text>
+                    <Text style={styles.quoteLabel}>Vai para sua carteira</Text>
                     {/* Escala diferente de propósito: BlindPayPayinQuote.receiver_amount vem
                         em centavos (÷100), enquanto BlindPayPayoutQuote.sender_amount (usado
                         no modal de saque) vem em micro-unidades (÷1_000_000) — são campos de
