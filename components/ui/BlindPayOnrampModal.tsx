@@ -46,6 +46,9 @@ type Step =
   | "success"
   | "error";
 
+/** Chips de valor rápido — alvo em USD recebido, não em reais pagos. */
+const QUICK_USD_VALUES = [10, 15, 20];
+
 function extractAmountRange(raw: string): { min: string; max: string } | null {
   const match = /between \$?([\d,.]+)\s*and\s*\$?([\d,.]+)/i.exec(raw);
   return match ? { min: match[1], max: match[2] } : null;
@@ -87,6 +90,12 @@ export function BlindPayOnrampModal({
   const blockchainWalletId = receiver?.blockchainWallets?.[0]?.id ?? null;
 
   const [amount, setAmount] = useState("");
+  /** Valor do chip rápido selecionado ($10/$15/$20), em vez de BRL digitado. */
+  const [quickUsd, setQuickUsd] = useState<number | null>(null);
+  /** Campos da última cotação pedida — reusados no submit pra pedir a mesma cotação de novo. */
+  const [lastAmountFields, setLastAmountFields] = useState<
+    { amountBrl: number } | { amountUsd: number } | null
+  >(null);
   const [step, setStep] = useState<Step>("input");
   const [errorMsg, setErrorMsg] = useState("");
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -124,6 +133,8 @@ export function BlindPayOnrampModal({
     }
     setStep("input");
     setAmount("");
+    setQuickUsd(null);
+    setLastAmountFields(null);
     setErrorMsg("");
     setOrderId(null);
     setCopied(false);
@@ -156,9 +167,9 @@ export function BlindPayOnrampModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.status, step]);
 
-  async function handleGetQuote() {
-    const value = parseAmountInput(amount);
-    if (!value || value <= 0) return;
+  async function requestQuote(
+    fields: { amountBrl: number } | { amountUsd: number },
+  ) {
     if (!blockchainWalletId) {
       setErrorMsg("Finalize seu cadastro Pix antes de depositar.");
       setStep("error");
@@ -170,8 +181,9 @@ export function BlindPayOnrampModal({
       await getQuote.mutateAsync({
         userId: contractId!,
         blockchainWalletId,
-        amountBrl: Math.round(value * 100),
+        ...fields,
       });
+      setLastAmountFields(fields);
       setStep("quote");
     } catch (e: any) {
       const message = e?.response?.data?.message || e?.message || "";
@@ -182,9 +194,20 @@ export function BlindPayOnrampModal({
     }
   }
 
-  async function handleConfirm() {
-    if (!blockchainWalletId) return;
+  async function handleGetQuote() {
     const value = parseAmountInput(amount);
+    if (!value || value <= 0) return;
+    await requestQuote({ amountBrl: Math.round(value * 100) });
+  }
+
+  function handleQuickUsd(value: number) {
+    setAmount("");
+    setQuickUsd(value);
+    requestQuote({ amountUsd: Math.round(value * 100) });
+  }
+
+  async function handleConfirm() {
+    if (!blockchainWalletId || !lastAmountFields) return;
     setErrorMsg("");
     setStep("creating");
     try {
@@ -194,10 +217,12 @@ export function BlindPayOnrampModal({
       // tem esse campo, e o ValidationPipe do backend usa
       // forbidNonWhitelisted: true, então um campo extra derruba a requisição
       // com 400. Corrigir exige adicionar `quoteId` ao DTO no backend primeiro.
+      // Reenvia os mesmos campos (amountBrl OU amountUsd) usados na cotação
+      // exibida, pra não trocar a base do cálculo entre o preview e o submit.
       const result = await createOnramp.mutateAsync({
         userId: contractId!,
         blockchainWalletId,
-        amountBrl: Math.round(value * 100),
+        ...lastAmountFields,
       });
       setOrderId(result.id);
       setStep("pix");
@@ -265,7 +290,7 @@ export function BlindPayOnrampModal({
                 <RampStepIndicator step={1} total={3} label="Valor" />
                 <Text style={styles.stepSubtitle}>
                   Informe quanto você quer depositar via Pix. O saldo cai
-                  automaticamente no seu porquinho assim que o pagamento for
+                  automaticamente na sua carteira assim que o pagamento for
                   confirmado.
                 </Text>
                 <Text style={styles.label}>Valor em reais</Text>
@@ -276,7 +301,10 @@ export function BlindPayOnrampModal({
                     placeholder="0,00"
                     placeholderTextColor="rgba(255,255,255,0.2)"
                     value={amount}
-                    onChangeText={setAmount}
+                    onChangeText={(t) => {
+                      setAmount(t);
+                      setQuickUsd(null);
+                    }}
                     keyboardType="decimal-pad"
                     autoFocus
                     // O campo é centralizado e sempre focado, então o caret
@@ -284,6 +312,43 @@ export function BlindPayOnrampModal({
                     // útil — o teclado já sinaliza que o campo está ativo.
                     caretHidden
                   />
+                </View>
+
+                <Text style={styles.hintText}>
+                  Não sabe quanto digitar em reais? Escolha um valor em
+                  dólar:
+                </Text>
+                <View style={styles.quickRow}>
+                  {QUICK_USD_VALUES.map((v) => {
+                    const isActive = quickUsd === v;
+                    return (
+                      <Pressable
+                        key={v}
+                        onPress={() => handleQuickUsd(v)}
+                        disabled={getQuote.isPending}
+                        style={{ flex: 1 }}
+                      >
+                        {isActive ? (
+                          <LinearGradient
+                            colors={Gradients.primary}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.quickBtn, styles.quickBtnActive]}
+                          >
+                            <Text
+                              style={[styles.quickText, styles.quickTextActive]}
+                            >
+                              ${v}
+                            </Text>
+                          </LinearGradient>
+                        ) : (
+                          <View style={styles.quickBtn}>
+                            <Text style={styles.quickText}>${v}</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
                 </View>
 
                 {amountRange && (
@@ -598,6 +663,31 @@ const styles = StyleSheet.create({
     fontFamily: Font.regular,
     color: Colors.mutedForeground,
     textAlign: "center",
+  },
+  quickRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  quickBtn: {
+    height: 42,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.muted,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  quickBtnActive: {
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+  },
+  quickText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
+    color: Colors.mutedForeground,
+  },
+  quickTextActive: {
+    color: "#fff",
   },
   actionBtn: {
     borderRadius: Radius.lg,

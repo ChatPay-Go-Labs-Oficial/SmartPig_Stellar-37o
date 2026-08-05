@@ -49,8 +49,15 @@ export interface OnrampTransaction {
 export interface OnrampQuoteRequest {
   userId: string;
   blockchainWalletId: string;
-  /** Valor em centavos de BRL — R$ 10,00 = 1000 */
-  amountBrl: number;
+  /** Valor em centavos de BRL — R$ 10,00 = 1000. Informe este OU amountUsd. */
+  amountBrl?: number;
+  /**
+   * Valor em centavos de USD que o usuário quer RECEBER em USDC — $ 10,00 =
+   * 1000. Informe este OU amountBrl. Usado pelos chips de valor rápido: o
+   * mínimo da BlindPay é em dólar, então especificar o alvo em USD evita o
+   * usuário ter que adivinhar quantos reais digitar.
+   */
+  amountUsd?: number;
 }
 
 export async function getOnrampQuote(dto: OnrampQuoteRequest): Promise<OnrampQuote> {

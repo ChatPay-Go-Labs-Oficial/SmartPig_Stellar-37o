@@ -36,6 +36,9 @@ import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
 
 const MICRO_UNITS_PER_TOKEN = 1_000_000;
 
+/** Chips de valor rápido — $10 é o mínimo aceito pela BlindPay para saque. */
+const QUICK_VALUES = [10, 15, 20];
+
 interface BlindPayOfframpModalProps {
   visible: boolean;
   maxAmount?: number;
@@ -399,6 +402,38 @@ export function BlindPayOfframpModal({
                   />
                 </View>
 
+                <View style={styles.quickRow}>
+                  {QUICK_VALUES.map((v) => {
+                    const isActive = amount === String(v);
+                    return (
+                      <Pressable
+                        key={v}
+                        onPress={() => setAmount(String(v))}
+                        style={{ flex: 1 }}
+                      >
+                        {isActive ? (
+                          <LinearGradient
+                            colors={[Accent.secondary, Accent.secondary]}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.quickBtn, styles.quickBtnActive]}
+                          >
+                            <Text
+                              style={[styles.quickText, styles.quickTextActive]}
+                            >
+                              ${v}
+                            </Text>
+                          </LinearGradient>
+                        ) : (
+                          <View style={styles.quickBtn}>
+                            <Text style={styles.quickText}>${v}</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
                 {typeof maxAmount === "number" && maxAmount > 0 && (
                   <Text style={styles.maxHint}>
                     Saldo disponível: ${maxAmount.toFixed(2)}
@@ -747,6 +782,31 @@ const styles = StyleSheet.create({
     fontFamily: Font.regular,
     color: Colors.mutedForeground,
     textAlign: "center",
+  },
+  quickRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  quickBtn: {
+    height: 42,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.muted,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  quickBtnActive: {
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+  },
+  quickText: {
+    fontSize: FontSize.bodySmall,
+    fontFamily: Font.black,
+    color: Colors.mutedForeground,
+  },
+  quickTextActive: {
+    color: "#fff",
   },
   hintText: {
     fontSize: FontSize.label,
