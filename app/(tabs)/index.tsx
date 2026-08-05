@@ -4,8 +4,8 @@ import {
   StarryBackground,
   WithdrawModal,
   RampMethodSelector,
-  EtherfuseOnrampModal,
-  EtherfuseOfframpModal,
+  BlindPayOnrampModal,
+  BlindPayOfframpModal,
   getPigLevel,
   PressableScale,
   LevelUpAnimation,
@@ -181,6 +181,7 @@ export default function HomeScreen() {
   const walletBalance = firstBalance
     ? parseFloat(firstBalance.underlyingBalance?.[0] ?? "0")
     : 0;
+  const firstDfTokens = firstBalance?.dfTokens ?? "0";
 
   const level = getPigLevel(totalInvested);
   const levelIndex = PIG_LEVELS.findIndex((item) => item.label === level.label);
@@ -699,19 +700,19 @@ export default function HomeScreen() {
       <WithdrawModal
         visible={withdrawOpen}
         vaultId={firstVaultId}
-        dfTokens="0"
+        dfTokens={firstDfTokens}
         underlyingBalance={String(walletBalance)}
         assetSymbol={firstVaultSymbol}
         onClose={() => setWithdrawOpen(false)}
       />
       <GiftModal visible={giftOpen} onClose={() => setGiftOpen(false)} />
-      <EtherfuseOnrampModal
+      <BlindPayOnrampModal
         visible={onrampOpen}
         onClose={() => setOnrampOpen(false)}
       />
-      <EtherfuseOfframpModal
+      <BlindPayOfframpModal
         visible={offrampOpen}
-        maxAmount={walletBalance}
+        maxAmount={parsedWalletUsdc}
         onClose={() => setOfframpOpen(false)}
       />
       <LevelUpAnimation

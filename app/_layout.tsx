@@ -20,6 +20,7 @@ import { useAuthStore } from "@/lib/stores/auth.store";
 import { setTokenProvider } from "@/lib/api/token";
 import { setSignRawHashProvider } from "@/lib/stellar/signer";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
+import { isNativePickerActive } from "@/lib/security/native-picker-guard";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Nunito_400Regular,
@@ -29,8 +30,14 @@ import {
   Nunito_900Black,
   useFonts,
 } from "@expo-google-fonts/nunito";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, router, useSegments } from "expo-router";
+import { enableFreeze } from "react-native-screens";
+
+// Desliga globalmente o congelamento de telas inativas do react-native-screens.
+// O freezeOnBlur nas screenOptions do Stack cobre as rotas deste layout; esta
+// chamada cobre navegadores aninhados, que não herdam aquela opção.
+enableFreeze(false);
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -90,6 +97,32 @@ export const unstable_settings = {
 };
 
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: any, query) => {
+      // Nenhum sistema de toast/log de erro existia antes — sem isso, falhas de
+      // rede em queries somem silenciosamente (nenhum console.error, nenhum
+      // erro vermelho, nada). Log aqui é só para depuração durante o teste.
+      // Loga só `message` (nunca error?.response?.data inteiro): payloads de
+      // rotas de KYC/ramp podem ecoar CPF, endereço, chave Pix etc. — ver
+      // docs/security.md ("Do not include personal payloads in telemetry").
+      console.error(
+        `[query:${JSON.stringify(query.queryKey)}]`,
+        error?.response?.status,
+        error?.response?.data?.message ?? error?.message,
+      );
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error: any, _vars, _ctx, mutation) => {
+      // Mesmo motivo do QueryCache acima: sem isso, erros de mutation (ex.:
+      // upload de arquivo, criação de receiver) somem silenciosamente.
+      console.error(
+        `[mutation:${mutation.options.mutationKey ? JSON.stringify(mutation.options.mutationKey) : "unknown"}]`,
+        error?.response?.status,
+        error?.response?.data?.message ?? error?.message,
+      );
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 min
@@ -123,6 +156,14 @@ export default function RootLayout() {
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: Colors.background },
+              // O react-freeze do react-native-screens suspende a subárvore de
+              // telas inativas e a reativa depois. Essa reativação remonta views
+              // nativas já existentes, e no Fabric isso vira um Insert sem o
+              // Remove correspondente: "addViewAt: cannot insert view [...] View
+              // already has a parent". O tipo da view na mensagem varia
+              // (LinearGradientView, ReactTextView) porque a falha é da
+              // remontagem, não do componente. Ver enableFreeze(false) abaixo.
+              freezeOnBlur: false,
             }}
           >
             <Stack.Screen
@@ -135,6 +176,7 @@ export default function RootLayout() {
             />
             <Stack.Screen name="vault/[id]" />
             <Stack.Screen name="(etherfuse-onboarding)" />
+            <Stack.Screen name="(blindpay-onboarding)" />
             <Stack.Screen name="education" />
             <Stack.Screen name="pigs" />
           </Stack>
@@ -338,11 +380,14 @@ function AppGate() {
       const previousAppState = appStateRef.current;
       appStateRef.current = nextAppState;
 
+      const pickerActive = isNativePickerActive();
+
       if (
         isAuthenticated &&
         !inAuthFlow &&
         !biometricLocked &&
         !authenticatingRef.current &&
+        !pickerActive &&
         previousAppState.match(/inactive|background/) &&
         nextAppState === "active"
       ) {

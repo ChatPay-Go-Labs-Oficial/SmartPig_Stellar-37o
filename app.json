@@ -63,11 +63,18 @@
           "faceIDPermission": "Use Face ID para proteger o acesso ao PigFi."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O PigFi usa a câmera para fotografar seu documento e selfie durante a verificação de identidade.",
+          "photosPermission": "O PigFi acessa suas fotos para enviar o documento e a selfie da verificação de identidade."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     },
     "extra": {
       "router": {},

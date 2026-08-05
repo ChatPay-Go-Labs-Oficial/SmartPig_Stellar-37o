@@ -25,6 +25,7 @@ import {
 import {
   Card,
   Input,
+  PressableScale,
   ConfirmModal,
   TransferModal,
   MyGiftsModal,
@@ -34,6 +35,10 @@ import { useSmartAccount } from "@/hooks/use-smart-account";
 import { useSound } from "@/hooks/use-sound";
 import { usePixStore } from "@/lib/stores/pix.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useBlindPayStore } from "@/lib/stores/blindpay.store";
+import { useKycStatus } from "@/lib/queries/blindpay.queries";
+import type { KycStatusResponse } from "@/lib/api/blindpay";
+import { KycStatusBadge } from "@/components/ui/KycStatusBadge";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { useAllVaultBalances } from "@/lib/queries/vaults.queries";
@@ -56,6 +61,28 @@ const PIG_IMAGES: Record<string, any> = {
   "Porquinho Dourado": require("@/assets/images/pig-gold.png"),
   "Porquinho Rei": require("@/assets/images/pig-king.png"),
 };
+/**
+ * Texto de apoio do card de KYC. A mensagem da rejeição vem da BlindPay em
+ * inglês; exibimos verbatim porque é instrução específica do compliance sobre
+ * o que corrigir, e reescrever corre o risco de mudar o sentido.
+ */
+function kycStatusHint(kyc: KycStatusResponse): string {
+  switch (kyc.kycStatus) {
+    case "APPROVED":
+    case "APPROVED_RFI":
+      return "Sua identidade foi verificada. Você já pode depositar e sacar via Pix.";
+    case "VERIFYING":
+      return "Estamos analisando seus documentos. Isso costuma levar poucos minutos.";
+    case "COMPLIANCE_REQUEST":
+      return "Precisamos de informações adicionais para concluir sua verificação.";
+    case "REJECTED":
+      return (
+        kyc.rejectionReason ??
+        "Não foi possível verificar sua identidade com os documentos enviados."
+      );
+  }
+}
+
 export default function ProfileScreen() {
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const walletAccountId = useAuthStore((s) => s.walletAccountId);
@@ -67,6 +94,8 @@ export default function ProfileScreen() {
   const { disconnect } = useSmartAccount();
   const { logout } = usePrivy();
   const { playClick, playInvestirConfirmacao, playQuestaoErrada } = useSound();
+
+  const { data: kyc, isLoading: kycLoading } = useKycStatus(contractId);
 
   const { data: balances } = useWalletBalance(walletAddress);
   const usdcBalance = balances ? findUsdcBalance(balances) : null;
@@ -130,6 +159,12 @@ export default function ProfileScreen() {
     setShowLogoutModal(false);
     await Promise.allSettled([logout(), disconnect()]);
     clearAuth();
+    // Dado sensível (chave Pix, rascunho de KYC e URLs de documentos) não pode
+    // sobreviver ao logout num aparelho que outra pessoa pode voltar a usar —
+    // ver docs/security.md. hasBankAccount/hasWallet/receiverId são só um
+    // cache local; o backend continua sendo a fonte de verdade no próximo login.
+    useBlindPayStore.getState().resetOnboarding();
+    usePixStore.getState().clearPixKey();
     router.replace("/(auth)");
   }
 
@@ -325,6 +360,45 @@ export default function ProfileScreen() {
             </LinearGradient>
           </Pressable>
         </Card>
+
+        {/* ── Verificação de identidade (KYC) ── */}
+        {kyc && (
+          <Card style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardIconWrap}>
+                <MaterialIcons name="badge" size={16} color={Accent.primary} />
+              </View>
+              <Text style={styles.cardLabel}>Verificação de identidade</Text>
+              <View style={styles.kycBadgeSlot}>
+                <KycStatusBadge status={kyc.kycStatus} isLoading={kycLoading} />
+              </View>
+            </View>
+
+            <Text style={styles.hint}>{kycStatusHint(kyc)}</Text>
+
+            {/* O reenvio só aparece quando a BlindPay aceita nova tentativa.
+                Motivos como fraude ou sanção não são corrigíveis pelo usuário —
+                oferecer o botão ali só produziria uma segunda recusa. */}
+            {kyc.canResubmit && (
+              <PressableScale
+                onPress={() => {
+                  playClick();
+                  router.push("/(blindpay-onboarding)" as any);
+                }}
+              >
+                <LinearGradient
+                  colors={Gradients.primary as [string, string]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.saveBtn}
+                >
+                  <MaterialIcons name="refresh" size={16} color="#fff" />
+                  <Text style={styles.saveBtnText}>Refazer verificação</Text>
+                </LinearGradient>
+              </PressableScale>
+            )}
+          </Card>
+        )}
 
         {/* ── Chave PIX ── */}
         {false && (
@@ -731,6 +805,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     flexShrink: 0,
+  },
+  kycBadgeSlot: {
+    marginLeft: "auto",
   },
   cardLabel: {
     fontSize: FontSize.bodySmall,

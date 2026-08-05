@@ -1,4 +1,5 @@
-import { Modal, View, Text, StyleSheet, Pressable } from "react-native";
+import { Modal, View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
@@ -11,6 +12,9 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { PressableScale } from "./PressableScale";
+import { useAuthStore } from "@/lib/stores/auth.store";
+import { useBlindPayReceiver, useKycStatus } from "@/lib/queries/blindpay.queries";
+import { KycStatusBadge } from "./KycStatusBadge";
 
 interface RampMethodSelectorProps {
   visible: boolean;
@@ -24,9 +28,46 @@ export function RampMethodSelector({
   visible,
   type,
   onSelectStellar,
+  onSelectRamp,
   onClose,
 }: RampMethodSelectorProps) {
   const isDeposit = type === "deposit";
+  const contractId = useAuthStore((s) => s.contractId);
+  const { data: receiver, isLoading: receiverLoading } = useBlindPayReceiver(
+    visible ? contractId : null,
+  );
+  const { data: kyc, isLoading: kycLoading } = useKycStatus(
+    visible ? contractId : null,
+  );
+
+  const isLoading = receiverLoading || kycLoading;
+  // `approved_rfi` também libera: nesse estado a BlindPay mantém o cliente
+  // operacional, o RFI aberto só precisa ser respondido antes do prazo.
+  const isKycCleared =
+    kyc?.kycStatus === "APPROVED" || kyc?.kycStatus === "APPROVED_RFI";
+
+  function handlePixPress() {
+    // Enquanto as consultas ainda estão em andamento os dados são `undefined` —
+    // sem essa trava, um toque rápido manda até usuário já cadastrado pro
+    // onboarding à toa (o próprio onboarding se autocorrige depois, mas o
+    // usuário vê um flash de tela sem motivo aparente).
+    if (isLoading) return;
+
+    onClose();
+    const hasRampAccounts =
+      receiver &&
+      (receiver.bankAccounts?.length ?? 0) > 0 &&
+      (receiver.blockchainWallets?.length ?? 0) > 0;
+
+    // Ter conta e wallet não basta: um KYC recusado ou em análise deixa os dois
+    // registros de pé, e mandar esse usuário para o modal de ramp só produz um
+    // erro cru vindo da BlindPay lá na frente.
+    if (!hasRampAccounts || !isKycCleared) {
+      router.replace("/(blindpay-onboarding)" as any);
+      return;
+    }
+    onSelectRamp();
+  }
 
   return (
     <Modal
@@ -83,25 +124,34 @@ export function RampMethodSelector({
               </View>
             </PressableScale>
 
-            {/* PIX — em breve */}
-            <View style={[styles.optionCard, styles.optionCardDisabled]}>
-              <View style={[styles.optionIconWrap, styles.optionIconWrapDisabled]}>
-                <MaterialIcons name="pix" size={22} color={Colors.mutedForeground} />
-              </View>
-              <View style={styles.optionText}>
-                <View style={styles.optionLabelRow}>
-                  <Text style={styles.optionLabelDisabled}>PIX (BRL)</Text>
-                  <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>Em breve</Text>
-                  </View>
+            {/* PIX */}
+            <PressableScale onPress={handlePixPress} disabled={isLoading}>
+              <View style={[styles.optionCard, isLoading && styles.optionCardDisabled]}>
+                <View style={styles.optionIconWrap}>
+                  <MaterialIcons name="pix" size={22} color={Accent.primary} />
                 </View>
-                <Text style={styles.optionDesc}>
-                  {isDeposit
-                    ? "Deposito via Pix em reais"
-                    : "Receba na sua conta bancaria"}
-                </Text>
+                <View style={styles.optionText}>
+                  <View style={styles.optionLabelRow}>
+                    <Text style={styles.optionLabel}>PIX (BRL)</Text>
+                    <KycStatusBadge status={kyc?.kycStatus} />
+                  </View>
+                  <Text style={styles.optionDesc}>
+                    {kyc?.kycStatus === "REJECTED"
+                      ? "Verificação recusada — toque para reenviar seus documentos"
+                      : kyc?.kycStatus === "VERIFYING"
+                        ? "Verificação em análise. Avisamos assim que sair o resultado"
+                        : isDeposit
+                          ? "Deposite via Pix em reais"
+                          : "Receba na sua conta via Pix"}
+                  </Text>
+                </View>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color={Colors.mutedForeground} />
+                ) : (
+                  <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
+                )}
               </View>
-            </View>
+            </PressableScale>
           </View>
         </Pressable>
       </Pressable>
@@ -190,9 +240,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexShrink: 0,
   },
-  optionIconWrapDisabled: {
-    backgroundColor: Colors.muted,
-  },
   optionText: {
     flex: 1,
     gap: 3,
@@ -201,37 +248,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    flexWrap: "wrap",
   },
   optionLabel: {
     fontSize: FontSize.body,
     fontFamily: Font.bold,
     color: Colors.foreground,
   },
-  optionLabelDisabled: {
-    fontSize: FontSize.body,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-  },
   optionDesc: {
     fontSize: FontSize.label,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
     lineHeight: 18,
-  },
-
-  // Em breve badge
-  comingSoonBadge: {
-    backgroundColor: Colors.muted,
-    borderRadius: Radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  comingSoonText: {
-    fontSize: 10,
-    fontFamily: Font.black,
-    color: Colors.mutedForeground,
-    letterSpacing: 0.3,
   },
 });
