@@ -1,48 +1,75 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingStepHeader, OnboardingProgress, PressableScale, DocPhotoTips } from '@/components/ui';
-import { useUploadKycFile } from '@/lib/queries/blindpay.queries';
-import { useBlindPayStore } from '@/lib/stores/blindpay.store';
-import { pickPhoto } from '@/lib/media/pick-photo';
-import { safeReplace } from '@/lib/navigation/safe-replace';
+import { useState } from "react";
+import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import {
+  Colors,
+  Accent,
+  Font,
+  FontSize,
+  Gradients,
+  Radius,
+  Spacing,
+} from "@/constants/theme";
+import {
+  OnboardingStepHeader,
+  OnboardingProgress,
+  PressableScale,
+  DocPhotoTips,
+} from "@/components/ui";
+import { useUploadKycFile } from "@/lib/queries/blindpay.queries";
+import { useBlindPayStore, type IdDocKind } from "@/lib/stores/blindpay.store";
+import { pickIdDocument } from "@/lib/media/pick-photo";
+import { safeReplace } from "@/lib/navigation/safe-replace";
 
 const DOC_TYPE_LABELS: Record<string, string> = {
-  ID_CARD: 'RG',
-  DRIVERS: 'CNH',
-  PASSPORT: 'passaporte',
+  ID_CARD: "RG",
+  DRIVERS: "CNH",
+  PASSPORT: "passaporte",
 };
 
 export default function KycDocFrontScreen() {
   const draft = useBlindPayStore((s) => s.kycDraft);
   const idDocFrontUrl = useBlindPayStore((s) => s.idDocFrontUrl);
+  const idDocFrontKindSaved = useBlindPayStore((s) => s.idDocFrontKind);
   const setIdDocFrontUrl = useBlindPayStore((s) => s.setIdDocFrontUrl);
+  const setPendingPdfDoc = useBlindPayStore((s) => s.setPendingPdfDoc);
   const setCurrentStep = useBlindPayStore((s) => s.setCurrentStep);
   const uploadFile = useUploadKycFile();
 
-  const docLabel = DOC_TYPE_LABELS[draft.idDocType ?? 'ID_CARD'] ?? 'documento';
+  const docLabel = DOC_TYPE_LABELS[draft.idDocType ?? "ID_CARD"] ?? "documento";
 
   const [uri, setUri] = useState<string | null>(null);
-  const [error, setError] = useState('');
+  const [kind, setKind] = useState<IdDocKind | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const [picking, setPicking] = useState(false);
 
-  // Se voltou pra esse passo antes e não trocou de foto, mostra a que já foi
-  // enviada em vez de forçar tirar outra à toa.
+  // Se voltou pra esse passo antes e não trocou de arquivo, mostra o que já
+  // foi enviado em vez de forçar escolher outro à toa.
   const previewUri = uri ?? idDocFrontUrl ?? null;
+  const previewKind = uri ? kind : idDocFrontKindSaved;
 
-  async function pickImage() {
+  async function pickDocument() {
     setPicking(true);
     try {
-      const result = await pickPhoto();
+      const result = await pickIdDocument();
       if (!result) return;
-      if ('error' in result) {
+      if ("error" in result) {
         setError(result.error);
         return;
       }
       setUri(result.uri);
-      setError('');
+      setKind(result.kind);
+      if (result.kind === "pdf") {
+        setFileName(result.fileName);
+        // BlindPay exige o mesmo PDF na etapa do verso — guarda pra oferecer
+        // reaproveitar sem reabrir o seletor de arquivos lá.
+        setPendingPdfDoc({ uri: result.uri, fileName: result.fileName });
+      } else {
+        setFileName(null);
+      }
+      setError("");
     } finally {
       setPicking(false);
     }
@@ -50,33 +77,38 @@ export default function KycDocFrontScreen() {
 
   async function handleContinue() {
     if (!uri && !idDocFrontUrl) {
-      setError('Tire uma foto para continuar');
+      setError("Adicione a frente do documento para continuar");
       return;
     }
-    setError('');
+    setError("");
     if (!uri) {
-      // Nada mudou desde a última vez — já tem uma foto enviada, só segue.
-      setCurrentStep('kyc-doc-back');
-      safeReplace('/(blindpay-onboarding)/kyc-doc-back');
+      // Nada mudou desde a última vez — já tem um arquivo enviado, só segue.
+      setCurrentStep("kyc-doc-back");
+      safeReplace("/(blindpay-onboarding)/kyc-doc-back");
       return;
     }
     try {
+      const isPdf = kind === "pdf";
       const { url } = await uploadFile.mutateAsync({
         fileUri: uri,
-        fileName: 'id_front.jpg',
-        mimeType: 'image/jpeg',
+        fileName: isPdf ? (fileName ?? "documento.pdf") : "id_front.jpg",
+        mimeType: isPdf ? "application/pdf" : "image/jpeg",
       });
-      setIdDocFrontUrl(url);
-      setCurrentStep('kyc-doc-back');
-      safeReplace('/(blindpay-onboarding)/kyc-doc-back');
+      setIdDocFrontUrl(url, kind ?? "image");
+      setCurrentStep("kyc-doc-back");
+      safeReplace("/(blindpay-onboarding)/kyc-doc-back");
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Não foi possível enviar sua foto. Tente novamente.');
+      setError(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Não foi possível enviar seu arquivo. Tente novamente.",
+      );
     }
   }
 
   function handleBack() {
-    setCurrentStep('kyc-selfie');
-    safeReplace('/(blindpay-onboarding)/kyc-selfie');
+    setCurrentStep("kyc-selfie");
+    safeReplace("/(blindpay-onboarding)/kyc-selfie");
   }
 
   return (
@@ -86,32 +118,57 @@ export default function KycDocFrontScreen() {
       <Text style={styles.title}>Agora, a frente do seu documento</Text>
       <Text style={styles.subtitle}>
         Fotografe a frente do seu {docLabel}, com os quatro cantos dentro da
-        foto e uma margem em volta. Confira na pré-visualização se nenhuma
-        borda ficou de fora.
+        foto e uma margem em volta. Confira na pré-visualização se nenhuma borda
+        ficou de fora.
       </Text>
       <DocPhotoTips />
 
       <View style={styles.captureWrap}>
-        <PressableScale onPress={pickImage} disabled={picking}>
+        <PressableScale onPress={pickDocument} disabled={picking}>
           <View style={styles.captureCard}>
             {picking ? (
               <View style={styles.capturePlaceholder}>
                 <ActivityIndicator color={Accent.primary} />
-                <Text style={styles.captureHint}>Selecionando foto...</Text>
+                <Text style={styles.captureHint}>Selecionando...</Text>
+              </View>
+            ) : previewKind === "pdf" ? (
+              <View style={styles.capturePlaceholder}>
+                <MaterialIcons
+                  name="picture-as-pdf"
+                  size={40}
+                  color={Accent.primary}
+                />
+                <Text style={styles.captureHint} numberOfLines={1}>
+                  {fileName ?? "Documento em PDF"}
+                </Text>
               </View>
             ) : previewUri ? (
               <Image source={{ uri: previewUri }} style={styles.preview} />
             ) : (
               <View style={styles.capturePlaceholder}>
-                <MaterialIcons name="credit-card" size={40} color={Colors.mutedForeground} />
-                <Text style={styles.captureHint}>Toque para tirar a foto</Text>
+                <MaterialIcons
+                  name="credit-card"
+                  size={40}
+                  color={Colors.mutedForeground}
+                />
+                <Text style={styles.captureHint}>
+                  Toque para tirar a foto ou enviar um PDF
+                </Text>
               </View>
             )}
           </View>
         </PressableScale>
         {previewUri && !picking ? (
-          <PressableScale onPress={pickImage} style={styles.retakeBtn} disabled={picking}>
-            <Text style={styles.retakeText}>Tirar outra foto</Text>
+          <PressableScale
+            onPress={pickDocument}
+            style={styles.retakeBtn}
+            disabled={picking}
+          >
+            <Text style={styles.retakeText}>
+              {previewKind === "pdf"
+                ? "Escolher outro arquivo"
+                : "Tirar outra foto"}
+            </Text>
           </PressableScale>
         ) : null}
       </View>
@@ -119,14 +176,22 @@ export default function KycDocFrontScreen() {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.footer}>
-        <PressableScale onPress={handleContinue} disabled={picking || uploadFile.isPending}>
+        <PressableScale
+          onPress={handleContinue}
+          disabled={picking || uploadFile.isPending}
+        >
           <LinearGradient
             colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={[styles.btn, (picking || uploadFile.isPending) && styles.btnDisabled]}
+            style={[
+              styles.btn,
+              (picking || uploadFile.isPending) && styles.btnDisabled,
+            ]}
           >
-            <Text style={styles.btnText}>{uploadFile.isPending ? 'Enviando...' : 'Continuar'}</Text>
+            <Text style={styles.btnText}>
+              {uploadFile.isPending ? "Enviando..." : "Continuar"}
+            </Text>
           </LinearGradient>
         </PressableScale>
       </View>
@@ -159,38 +224,40 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   captureCard: {
-    alignSelf: 'center',
+    alignSelf: "center",
     // Documento é deitado — um quadro retrato empurrava a foto para uma faixa
     // estreita e ilegível depois que o preview passou a mostrar tudo.
-    width: '100%',
+    width: "100%",
     aspectRatio: 4 / 3,
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   retakeBtn: {
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   capturePlaceholder: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: 8,
+    paddingHorizontal: Spacing[4],
   },
   captureHint: {
     fontSize: FontSize.label,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
+    textAlign: "center",
   },
   preview: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     // 'contain', nunca 'cover': com cover o preview descarta as bordas da foto
     // — exatamente a região que a BlindPay checa — e o usuário aprovava uma
     // imagem com os cantos cortados sem ter como enxergar isso.
-    resizeMode: 'contain',
+    resizeMode: "contain",
   },
   retakeText: {
     fontSize: FontSize.bodySmall,
@@ -201,23 +268,23 @@ const styles = StyleSheet.create({
     color: Accent.destructive,
     fontSize: FontSize.bodySmall,
     fontFamily: Font.regular,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: Spacing[4],
   },
   footer: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   btn: {
     paddingVertical: 14,
     borderRadius: Radius.sm,
-    alignItems: 'center',
+    alignItems: "center",
   },
   btnDisabled: { opacity: 0.5 },
   btnText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: FontSize.body,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: Font.bold,
   },
 });

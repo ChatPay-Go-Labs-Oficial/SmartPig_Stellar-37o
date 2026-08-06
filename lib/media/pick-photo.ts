@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { Alert } from 'react-native';
 import { beginNativePicker, endNativePicker } from '@/lib/security/native-picker-guard';
 
@@ -57,6 +58,57 @@ export function pickPhoto(): Promise<PickPhotoResult> {
       // No Android o alerta é dismissível tocando fora da caixa por padrão —
       // nesse caminho nenhum onPress dispara, e sem onDismiss a Promise nunca
       // resolveria, travando a tela chamadora em "Selecionando foto...".
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
+  });
+}
+
+export type PickedIdDocument =
+  | { kind: 'image'; uri: string }
+  | { kind: 'pdf'; uri: string; fileName: string };
+
+export type PickIdDocumentResult = PickedIdDocument | { error: string } | null;
+
+async function captureImageFrom(source: 'camera' | 'library'): Promise<PickIdDocumentResult> {
+  const result = await captureFrom(source);
+  if (!result) return null;
+  if ('error' in result) return result;
+  return { kind: 'image', uri: result.uri };
+}
+
+async function pickPdf(): Promise<PickIdDocumentResult> {
+  beginNativePicker();
+  try {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf',
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled || !result.assets?.[0]) return null;
+    const asset = result.assets[0];
+    return { kind: 'pdf', uri: asset.uri, fileName: asset.name ?? 'documento.pdf' };
+  } catch {
+    return { error: 'Não foi possível abrir o seletor de arquivos.' };
+  } finally {
+    endNativePicker();
+  }
+}
+
+/**
+ * Documento de identidade: foto (câmera/galeria) ou PDF — a Carteira de
+ * Identidade Digital e a CNH Digital do Gov.br são exportadas como PDF, e
+ * a BlindPay aceita o arquivo nesse formato.
+ */
+export function pickIdDocument(): Promise<PickIdDocumentResult> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      'Adicionar documento',
+      'Como você quer enviar?',
+      [
+        { text: 'Tirar foto', onPress: () => captureImageFrom('camera').then(resolve) },
+        { text: 'Escolher foto da galeria', onPress: () => captureImageFrom('library').then(resolve) },
+        { text: 'Enviar PDF (ex.: Gov.br)', onPress: () => pickPdf().then(resolve) },
+        { text: 'Cancelar', style: 'cancel', onPress: () => resolve(null) },
+      ],
       { cancelable: true, onDismiss: () => resolve(null) },
     );
   });

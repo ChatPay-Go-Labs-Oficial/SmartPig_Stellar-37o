@@ -2,7 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
+import { OnboardingStepHeader, OnboardingProgress, PressableScale, GovBrPdfNote } from '@/components/ui';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
@@ -76,6 +76,10 @@ export default function KycDocumentsIntroScreen() {
         <Text style={styles.privacyText}>
           Suas fotos são usadas somente para verificação de identidade e tratadas com segurança.
         </Text>
+      </View>
+
+      <View style={styles.pdfNoteWrap}>
+        <GovBrPdfNote />
       </View>
 
       <View style={styles.footer}>
@@ -168,6 +172,9 @@ const styles = StyleSheet.create({
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
     lineHeight: 17,
+  },
+  pdfNoteWrap: {
+    marginTop: Spacing[3],
   },
   footer: {
     flex: 1,
