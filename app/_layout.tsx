@@ -30,7 +30,12 @@ import {
   Nunito_900Black,
   useFonts,
 } from "@expo-google-fonts/nunito";
-import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { Stack, router, useSegments } from "expo-router";
 import { enableFreeze } from "react-native-screens";
 
@@ -45,11 +50,13 @@ import {
   AppState,
   InteractionManager,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import * as NavigationBar from "expo-navigation-bar";
 import "react-native-reanimated";
 import { GiftClaimGate } from "@/components/ui";
 
@@ -139,6 +146,14 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
     Nunito_900Black,
   });
+
+  // App é dark-only (ver Colors.background em constants/theme.ts), então os
+  // ícones da barra de navegação do Android devem ser sempre claros para
+  // manter contraste. Não afeta iOS (expo-navigation-bar é Android-only).
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    NavigationBar.setButtonStyleAsync("light").catch(() => {});
+  }, []);
 
   if (!fontsLoaded) {
     return <View style={styles.splash} />;

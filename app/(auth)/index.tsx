@@ -8,13 +8,14 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -23,12 +24,17 @@ import { useAuthStore } from '@/lib/stores/auth.store';
 import { walletLogin } from '@/lib/api/auth';
 import { getActivationXdr, submitActivation } from '@/lib/api/wallets';
 import { signXdr } from '@/lib/stellar/kit';
-import { useLoginWithEmail, useLoginWithOAuth, usePrivy } from '@privy-io/expo';
+import { useLoginWithOAuth, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
 import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passkey';
 
 const SHOW_PASSKEY_LOGIN = false;
-const GOOGLE_OAUTH_REDIRECT_PATH = '/oauth/callback';
+const OAUTH_REDIRECT_PATH = '/oauth/callback';
+type OAuthProvider = 'google' | 'apple';
+const OAUTH_PROVIDER_LABEL: Record<OAuthProvider, string> = {
+  google: 'Google',
+  apple: 'Apple',
+};
 const RELYING_PARTY = process.env.EXPO_PUBLIC_RELYING_PARTY;
 const PRIVY_APP_ID = process.env.EXPO_PUBLIC_PRIVY_APP_ID;
 const PRIVY_CLIENT_ID = process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID;
@@ -103,11 +109,8 @@ function createStellarWalletOnce(
 }
 
 export default function OnboardingScreen() {
-  const [loading, setLoading] = useState<'google' | 'passkey' | 'email' | null>(null);
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [codeSent, setCodeSent] = useState(false);
-  const [showEmailForm, setShowEmailForm] = useState(false);
+  const insets = useSafeAreaInsets();
+  const [loading, setLoading] = useState<OAuthProvider | 'passkey' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -118,12 +121,12 @@ export default function OnboardingScreen() {
   const authPromiseRef = useRef<Promise<void> | null>(null);
   const reconciledUserIdRef = useRef<string | null>(null);
   const pendingOAuthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingProviderRef = useRef<OAuthProvider>('google');
   const { createWallet } = useCreateWallet();
   const { loginWithPasskey } = useLoginWithPasskey();
   const { signupWithPasskey } = useSignupWithPasskey();
-  const { sendCode, loginWithCode } = useLoginWithEmail();
   const { login: loginWithOAuth } = useLoginWithOAuth();
-  const { error: privyError, isReady, user, logout } = usePrivy();
+  const { error: privyError, isReady, user } = usePrivy();
   const canUsePrivy = PRIVY_CONFIGURED && isReady && !privyError;
   const privyErrorDetail = getErrorDetail(privyError);
   const authStatusMessage = !PRIVY_CONFIGURED
@@ -228,11 +231,12 @@ export default function OnboardingScreen() {
 
     reconciledUserIdRef.current = user.id;
     clearPendingOAuthTimer();
-    setLoading('google');
+    const provider = pendingProviderRef.current;
+    setLoading(provider);
     setError(null);
     void completePrivyLogin(user)
       .catch((restoreErr) => {
-        setError('Sua conta Google foi conectada, mas não foi possível restaurar a sessão.');
+        setError(`Sua conta ${OAUTH_PROVIDER_LABEL[provider]} foi conectada, mas não foi possível restaurar a sessão.`);
         console.error('[privy:restore-session]', getErrorDetail(restoreErr) ?? restoreErr);
       })
       .finally(() => setLoading(null));
@@ -240,13 +244,15 @@ export default function OnboardingScreen() {
 
   useEffect(() => clearPendingOAuthTimer, [clearPendingOAuthTimer]);
 
-  async function handleGoogleLogin() {
+  async function handleOAuthLogin(provider: OAuthProvider) {
     if (!canUsePrivy) {
       setError(authStatusMessage ?? 'Login indisponível no momento.');
       return;
     }
 
-    setLoading('google');
+    const providerLabel = OAUTH_PROVIDER_LABEL[provider];
+    pendingProviderRef.current = provider;
+    setLoading(provider);
     setError(null);
     setDebugInfo(null);
     clearPendingOAuthTimer();
@@ -255,15 +261,11 @@ export default function OnboardingScreen() {
     let redirectUrl: string | undefined;
 
     try {
-      redirectUrl = Linking.createURL(GOOGLE_OAUTH_REDIRECT_PATH);
-      console.warn('[google:oauth:redirect]', {
-        redirectUrl,
-        clientId: process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID,
-      });
+      redirectUrl = Linking.createURL(OAUTH_REDIRECT_PATH);
 
       loggedInUser = user ?? await loginWithOAuth({
-        provider: 'google',
-        redirectUri: GOOGLE_OAUTH_REDIRECT_PATH,
+        provider,
+        redirectUri: OAUTH_REDIRECT_PATH,
       });
       if (!loggedInUser) {
         // Some Android browsers resume the app before the hook returns the user.
@@ -272,7 +274,7 @@ export default function OnboardingScreen() {
           pendingOAuthTimerRef.current = null;
           if (!authPromiseRef.current) {
             setLoading(null);
-            setError('Google conectado, mas a sessão ainda não foi restaurada. Tente novamente.');
+            setError(`${providerLabel} conectado, mas a sessão ainda não foi restaurada. Tente novamente.`);
           }
         }, 15_000);
         return;
@@ -283,8 +285,8 @@ export default function OnboardingScreen() {
 
       setError(
         isRedirectSchemeError
-          ? 'Google indisponível: configure o scheme do app no Privy.'
-          : 'Erro ao autenticar com Google. Tente novamente.',
+          ? `${providerLabel} indisponível: configure o scheme do app no Privy.`
+          : `Erro ao autenticar com ${providerLabel}. Tente novamente.`,
       );
       if (isRedirectSchemeError) {
         setDebugInfo(
@@ -293,7 +295,7 @@ export default function OnboardingScreen() {
           }`,
         );
       }
-      console.error('[google:oauth]', {
+      console.error(`[${provider}:oauth]`, {
         error: detail ?? oauthErr,
         redirectUrl,
         clientId: process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID,
@@ -306,8 +308,8 @@ export default function OnboardingScreen() {
       clearPendingOAuthTimer();
       await completePrivyLogin(loggedInUser);
     } catch (backendErr) {
-      setError('Login com Google realizado, mas não foi possível conectar com a API.');
-      console.error('[google:createAndAuth]', getErrorDetail(backendErr) ?? backendErr);
+      setError(`Login com ${providerLabel} realizado, mas não foi possível conectar com a API.`);
+      console.error(`[${provider}:createAndAuth]`, getErrorDetail(backendErr) ?? backendErr);
     } finally {
       setLoading(null);
     }
@@ -360,63 +362,6 @@ export default function OnboardingScreen() {
     }
   }
 
-  async function handleSendCode() {
-    if (!canUsePrivy) {
-      setError(authStatusMessage ?? 'Login indisponível no momento.');
-      return;
-    }
-
-    if (!email.trim()) return;
-    setLoading('email');
-    setError(null);
-    try {
-      if (user) {
-        await logout();
-        await new Promise(r => setTimeout(r, 500));
-      }
-      await sendCode({ email: email.trim() });
-      setCodeSent(true);
-    } catch (err) {
-      setError('Erro ao enviar código. Verifique o email.');
-      console.error(err);
-    } finally {
-      setLoading(null);
-    }
-  }
-
-  async function handleLoginWithCode() {
-    if (!canUsePrivy) {
-      setError(authStatusMessage ?? 'Login indisponível no momento.');
-      return;
-    }
-
-    if (!code.trim()) return;
-    setLoading('email');
-    setError(null);
-    try {
-      const loggedInUser = await loginWithCode({ code: code.trim(), email: email.trim() });
-      try {
-        await createAndAuth(loggedInUser);
-      } catch (backendErr: any) {
-        setError('Erro ao conectar. Tente novamente.');
-        console.error('[createAndAuth]', backendErr);
-      }
-    } catch (privyErr: any) {
-      const status = privyErr?.response?.status ?? privyErr?.status;
-      if (status === 400 || privyErr?.message?.includes?.('Already logged in')) {
-        await logout();
-        await sendCode({ email: email.trim() });
-        setCode('');
-        setError('Sessão reiniciada. Solicite um novo código e tente novamente.');
-        return;
-      }
-      setError('Código inválido. Tente novamente.');
-      console.error('[loginWithCode]', privyErr);
-    } finally {
-      setLoading(null);
-    }
-  }
-
   // After OAuth/passkey returns, Privy has a user but the backend session is
   // still being reconciled (wallet + auth). Show a full-screen loader during
   // that window so the sign-in UI doesn't flicker until navigation to home.
@@ -451,7 +396,10 @@ export default function OnboardingScreen() {
       behavior="padding"
     >
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: 26 + insets.bottom },
+        ]}
         keyboardShouldPersistTaps="handled"
         bounces={false}
       >
@@ -482,7 +430,7 @@ export default function OnboardingScreen() {
             ) : null}
 
             <Pressable
-              onPress={handleGoogleLogin}
+              onPress={() => handleOAuthLogin('google')}
               disabled={!canUsePrivy || loading !== null}
               style={({ pressed }) => [
                 styles.googleButtonShell,
@@ -516,6 +464,38 @@ export default function OnboardingScreen() {
               </LinearGradient>
             </Pressable>
 
+            {Platform.OS === 'ios' ? (
+              <Pressable
+                onPress={() => handleOAuthLogin('apple')}
+                disabled={!canUsePrivy || loading !== null}
+                style={({ pressed }) => [
+                  styles.appleButtonShell,
+                  pressed && loading === null && styles.btnPressed,
+                  (!canUsePrivy || loading !== null) && styles.btnDisabled,
+                ]}
+              >
+                <View style={styles.appleButton}>
+                  <View style={styles.appleIconBox}>
+                    <FontAwesome name="apple" size={20} color="#fff" />
+                  </View>
+                  <Text style={styles.appleButtonText} numberOfLines={1}>
+                    {loading === 'apple' ? 'Conectando...' : 'Continuar com Apple'}
+                  </Text>
+                  <View style={styles.appleButtonTrailing}>
+                    {loading === 'apple' ? (
+                      <ActivityIndicator size="small" color="rgba(255,255,255,0.78)" />
+                    ) : (
+                      <MaterialIcons
+                        name="arrow-forward"
+                        size={20}
+                        color="rgba(255,255,255,0.62)"
+                      />
+                    )}
+                  </View>
+                </View>
+              </Pressable>
+            ) : null}
+
             {SHOW_PASSKEY_LOGIN ? (
               <Pressable
                 onPress={handleConnectPrivy}
@@ -534,75 +514,8 @@ export default function OnboardingScreen() {
               </Pressable>
             ) : null}
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>ou</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {!showEmailForm && !codeSent ? (
-              <Pressable
-                onPress={() => setShowEmailForm(true)}
-                disabled={!canUsePrivy || loading !== null}
-                style={({ pressed }) => [
-                  styles.emailToggle,
-                  pressed && loading === null && styles.btnPressed,
-                  (!canUsePrivy || loading !== null) && styles.btnDisabled,
-                ]}
-              >
-                <FontAwesome name="envelope-o" size={15} color="rgba(255,255,255,0.68)" />
-                <Text style={styles.emailToggleText}>Entrar com e-mail</Text>
-              </Pressable>
-            ) : !codeSent ? (
-              <View style={styles.emailForm}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="seu@email.com"
-                  placeholderTextColor={Colors.mutedForeground}
-                  value={email}
-                  onChangeText={setEmail}
-                  inputMode="email"
-                  autoCapitalize="none"
-                  editable={canUsePrivy && loading === null}
-                />
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
-                <Pressable
-                  onPress={handleSendCode}
-                  disabled={!canUsePrivy || loading !== null || !email.trim()}
-                  style={[styles.emailSubmit, (!canUsePrivy || loading === 'email') && styles.btnDisabled]}
-                >
-                  <Text style={styles.emailSubmitText}>
-                    {loading === 'email' ? 'Enviando...' : 'Enviar código'}
-                  </Text>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={styles.emailForm}>
-                <Text style={styles.codeSentText}>Código enviado para {email}</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Código de 6 dígitos"
-                  placeholderTextColor={Colors.mutedForeground}
-                  value={code}
-                  onChangeText={setCode}
-                  inputMode="numeric"
-                  maxLength={6}
-                  editable={canUsePrivy && loading === null}
-                />
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
-                <Pressable
-                  onPress={handleLoginWithCode}
-                  disabled={!canUsePrivy || loading !== null || !code.trim()}
-                  style={[styles.emailSubmit, (!canUsePrivy || loading === 'email') && styles.btnDisabled]}
-                >
-                  <Text style={styles.emailSubmitText}>
-                    {loading === 'email' ? 'Verificando...' : 'Verificar código'}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
+            {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
 
             <Text style={styles.termsText}>
               Ao continuar, voce concorda com os <Text style={styles.termsLink}>Termos</Text> e a{'\n'}
@@ -631,7 +544,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     paddingHorizontal: Spacing[6],
     paddingTop: 54,
-    paddingBottom: 26,
   },
   content: {
     flex: 1,
@@ -732,6 +644,42 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
+  appleButtonShell: {
+    width: '100%',
+    borderRadius: 14,
+  },
+  appleButton: {
+    height: 58,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: '#000',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  appleIconBox: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appleButtonText: {
+    flex: 1,
+    paddingHorizontal: 8,
+    color: '#fff',
+    fontSize: FontSize.body,
+    fontWeight: '800',
+    fontFamily: Font.extraBold,
+    textAlign: 'center',
+  },
+  appleButtonTrailing: {
+    width: 36,
+    height: 36,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   authButton: {
     minHeight: 58,
     borderRadius: 16,
@@ -757,75 +705,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.55,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[2],
-    paddingHorizontal: Spacing[8],
-    paddingTop: 2,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-  },
-  dividerText: {
-    color: 'rgba(255,255,255,0.38)',
-    fontSize: FontSize.label,
-    fontFamily: Font.bold,
-    fontWeight: '700',
-  },
-  emailForm: {
-    gap: Spacing[2],
-  },
-  emailToggle: {
-    minHeight: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    backgroundColor: 'rgba(20,16,34,0.38)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing[2],
-  },
-  emailToggleText: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: FontSize.bodySmall,
-    fontWeight: '800',
-    fontFamily: Font.extraBold,
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    borderRadius: 16,
-    paddingHorizontal: Spacing[4],
-    paddingVertical: 14,
-    color: Colors.foreground,
-    fontSize: FontSize.body,
-    fontFamily: Font.regular,
-  },
-  emailSubmit: {
-    minHeight: 50,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-  },
-  emailSubmitText: {
-    color: Colors.foreground,
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    fontWeight: '700',
-  },
-  codeSentText: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
   },
   errorText: {
     color: '#EF4444',
