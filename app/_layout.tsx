@@ -397,13 +397,19 @@ function AppGate() {
 
       const pickerActive = isNativePickerActive();
 
+      // No iOS, o próprio prompt nativo de Face ID leva o app por um estado
+      // "inactive" transitório (tanto ao abrir quanto ao fechar o sheet), sem
+      // nunca passar por "background". Tratar "inactive" como backgrounding
+      // aqui recriava o cadeado assim que o Face ID fechava com sucesso,
+      // gerando um loop infinito de prompts. Só um "background" real (app
+      // minimizado/trocado) deve reexigir biometria.
       if (
         isAuthenticated &&
         !inAuthFlow &&
         !biometricLocked &&
         !authenticatingRef.current &&
         !pickerActive &&
-        previousAppState.match(/inactive|background/) &&
+        previousAppState === "background" &&
         nextAppState === "active"
       ) {
         setBiometricLocked(true);
