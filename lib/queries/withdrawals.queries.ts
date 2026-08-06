@@ -8,6 +8,19 @@ import {
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { randomUUID } from 'expo-crypto';
 
+// Stellar/Soroban amounts have at most 7 decimal places (see
+// STELLAR_AMOUNT_DECIMALS in lib/api/vaults.ts). `shares` here is a float
+// derived from dividing/multiplying the displayed dollar amount against the
+// vault's dfTokens/underlyingBalance, so it routinely lands on values like
+// 12.349999999975 (float noise past 7 decimals) or, for small amounts,
+// magnitudes under 1e-6 where JS's default number-to-string switches to
+// scientific notation (e.g. "1.2345e-7"). Either form gets rejected by the
+// backend's decimal parser. toFixed(7) always yields a plain, bounded
+// decimal string, matching what the backend expects.
+function toStellarAmountString(value: number): string {
+  return value.toFixed(7);
+}
+
 export const withdrawalKeys = {
   all: (userId: string) => ['withdrawals', userId] as const,
   detail: (id: string) => ['withdrawals', 'detail', id] as const,
@@ -51,7 +64,7 @@ export const useCreateWithdrawal = () => {
         userId: contractId!,
         walletAccountId: walletAccountId!,
         vaultId,
-        shareAmount: String(shares),
+        shareAmount: toStellarAmountString(shares),
       });
     },
     onSuccess: () => {
