@@ -10,6 +10,7 @@ import {
   ScrollView,
   Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useQueryClient } from '@tanstack/react-query';
 import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
@@ -111,6 +112,7 @@ export function MyGiftsModal({ visible, onClose }: MyGiftsModalProps) {
     setFeedback('');
     onClose();
   };
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -118,11 +120,15 @@ export function MyGiftsModal({ visible, onClose }: MyGiftsModalProps) {
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={handleClose}
     >
       <Pressable style={styles.backdrop} onPress={handleClose}>
         <View style={{ paddingBottom: keyboardHeight }}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable
+          style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+          onPress={() => {}}
+        >
           <View style={styles.handle} />
 
           <View style={styles.headerRow}>

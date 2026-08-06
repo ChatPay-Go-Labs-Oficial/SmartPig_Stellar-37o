@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from './PressableScale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
@@ -234,6 +235,7 @@ export function EtherfuseOfframpModal({
 
   const maxVal = maxAmount ?? 0;
   const quote = getQuote.data;
+  const insets = useSafeAreaInsets();
 
   if (!visible) return null;
 
@@ -243,6 +245,7 @@ export function EtherfuseOfframpModal({
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={resetAndClose}
     >
       <Pressable
@@ -250,7 +253,10 @@ export function EtherfuseOfframpModal({
         onPress={step === 'input' || step === 'quote' ? resetAndClose : undefined}
       >
         <View style={{ paddingBottom: keyboardHeight }}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable
+            style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+            onPress={() => {}}
+          >
             <View style={styles.handle} />
             <View style={styles.headerRow}>
               <View style={[styles.headerIcon, { backgroundColor: 'hsla(270, 80%, 60%, 0.15)' }]}>

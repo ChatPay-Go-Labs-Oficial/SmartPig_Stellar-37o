@@ -7,6 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -157,11 +158,12 @@ function GiftClaimSheet({ code, canInvest, onInvest, onKeep, onDismiss }: GiftCl
   const isFunded = preview.data?.status === 'FUNDED';
   const isConfirming =
     preview.data?.status === 'CREATED' || preview.data?.status === 'CLAIMING';
+  const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent>
+    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent>
       <View style={styles.backdrop}>
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}>
           {claimed && <Confetti active duration={3500} />}
           <View style={styles.handle} />
 

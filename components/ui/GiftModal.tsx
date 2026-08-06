@@ -12,6 +12,7 @@ import {
   Keyboard,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useQueryClient } from "@tanstack/react-query";
@@ -214,6 +215,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
       windowHeight - keyboardHeight - Spacing[3],
     ),
   );
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -221,6 +223,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={isBusy ? undefined : handleClose}
     >
       <Pressable
@@ -229,7 +232,10 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
       >
         <View style={{ paddingBottom: keyboardHeight }}>
           <Pressable
-            style={[styles.sheet, { maxHeight: sheetMaxHeight }]}
+            style={[
+              styles.sheet,
+              { maxHeight: sheetMaxHeight, paddingBottom: Spacing[8] + insets.bottom },
+            ]}
             onPress={() => {}}
           >
             <View style={styles.handle} />

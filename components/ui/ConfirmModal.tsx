@@ -1,4 +1,5 @@
 import { Modal, View, Text, StyleSheet, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Font, FontSize, Radius, Spacing } from '@/constants/theme';
 import { Button } from './Button';
 
@@ -23,17 +24,23 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onCancel}
     >
       {/* Backdrop — tap to dismiss */}
       <Pressable style={styles.backdrop} onPress={onCancel}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable
+          style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+          onPress={() => {}}
+        >
           <View style={styles.handle} />
 
           <Text style={styles.title}>{title}</Text>

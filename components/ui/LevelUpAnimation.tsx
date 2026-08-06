@@ -107,6 +107,7 @@ export function LevelUpAnimation({
       transparent
       animationType="fade"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={handleClose}
     >
       <Pressable style={styles.overlay} onPress={handleClose}>

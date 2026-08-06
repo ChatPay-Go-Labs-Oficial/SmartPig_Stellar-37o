@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PressableScale } from "./PressableScale";
 import { RampStepIndicator } from "./RampStepIndicator";
 import { LinearGradient } from "expo-linear-gradient";
@@ -325,6 +326,7 @@ export function BlindPayOfframpModal({
   }
 
   const quote = getQuote.data;
+  const insets = useSafeAreaInsets();
 
   if (!visible) return null;
 
@@ -334,6 +336,7 @@ export function BlindPayOfframpModal({
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={resetAndClose}
     >
       <Pressable
@@ -343,7 +346,10 @@ export function BlindPayOfframpModal({
         }
       >
         <View style={{ paddingBottom: keyboardHeight }}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable
+            style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+            onPress={() => {}}
+          >
             <View style={styles.handle} />
             <View style={styles.headerRow}>
               <View

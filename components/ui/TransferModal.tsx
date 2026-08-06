@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Clipboard from "expo-clipboard";
@@ -164,6 +165,7 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
   const shortDestination = toAddress
     ? `${toAddress.slice(0, 10)}...${toAddress.slice(-10)}`
     : "-";
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -171,13 +173,17 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={isBusy ? undefined : handleClose}
     >
       <Pressable
         style={styles.backdrop}
         onPress={isBusy ? undefined : handleClose}
       >
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable
+          style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+          onPress={() => {}}
+        >
           <View style={styles.handle} />
 
           {/* Header */}

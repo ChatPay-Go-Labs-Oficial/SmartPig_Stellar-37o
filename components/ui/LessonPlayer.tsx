@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
@@ -58,6 +59,8 @@ export function LessonPlayer({ lesson, onComplete, onClose }: LessonPlayerProps)
     setPhase('feedback');
   };
 
+  const insets = useSafeAreaInsets();
+
   const handleContinue = () => {
     if (questionIndex + 1 < totalQuestions) {
       setQuestionIndex((i) => i + 1);
@@ -68,7 +71,7 @@ export function LessonPlayer({ lesson, onComplete, onClose }: LessonPlayerProps)
   };
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <View style={styles.screen}>
 
         {/* ── Top bar ── */}
@@ -88,7 +91,10 @@ export function LessonPlayer({ lesson, onComplete, onClose }: LessonPlayerProps)
         {/* ── Content ── */}
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 120 + insets.bottom },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -652,7 +658,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: Spacing[6],
     paddingTop: Spacing[6],
-    paddingBottom: 120,
     gap: Spacing[4],
     flexGrow: 1,
   },

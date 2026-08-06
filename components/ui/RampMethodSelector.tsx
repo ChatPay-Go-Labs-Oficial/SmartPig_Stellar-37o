@@ -1,4 +1,12 @@
-import { Modal, View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -13,7 +21,10 @@ import {
 } from "@/constants/theme";
 import { PressableScale } from "./PressableScale";
 import { useAuthStore } from "@/lib/stores/auth.store";
-import { useBlindPayReceiver, useKycStatus } from "@/lib/queries/blindpay.queries";
+import {
+  useBlindPayReceiver,
+  useKycStatus,
+} from "@/lib/queries/blindpay.queries";
 import { KycStatusBadge } from "./KycStatusBadge";
 
 interface RampMethodSelectorProps {
@@ -69,16 +80,22 @@ export function RampMethodSelector({
     onSelectRamp();
   }
 
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable
+          style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+          onPress={() => {}}
+        >
           <View style={styles.handle} />
 
           {/* Header */}
@@ -99,7 +116,11 @@ export function RampMethodSelector({
               {isDeposit ? "Depositar fundos" : "Sacar fundos"}
             </Text>
             <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-              <MaterialIcons name="close" size={16} color={Colors.mutedForeground} />
+              <MaterialIcons
+                name="close"
+                size={16}
+                color={Colors.mutedForeground}
+              />
             </Pressable>
           </View>
 
@@ -108,7 +129,11 @@ export function RampMethodSelector({
             <PressableScale onPress={onSelectStellar}>
               <View style={styles.optionCard}>
                 <View style={styles.optionIconWrap}>
-                  <MaterialIcons name="savings" size={24} color={Accent.primary} />
+                  <MaterialIcons
+                    name="savings"
+                    size={24}
+                    color={Accent.primary}
+                  />
                 </View>
                 <View style={styles.optionText}>
                   <Text style={styles.optionLabel}>
@@ -120,13 +145,22 @@ export function RampMethodSelector({
                       : "Retire do cofrinho para sua carteira Stellar"}
                   </Text>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
+                <MaterialIcons
+                  name="chevron-right"
+                  size={20}
+                  color={Colors.mutedForeground}
+                />
               </View>
             </PressableScale>
 
             {/* PIX */}
             <PressableScale onPress={handlePixPress} disabled={isLoading}>
-              <View style={[styles.optionCard, isLoading && styles.optionCardDisabled]}>
+              <View
+                style={[
+                  styles.optionCard,
+                  isLoading && styles.optionCardDisabled,
+                ]}
+              >
                 <View style={styles.optionIconWrap}>
                   <MaterialIcons name="pix" size={22} color={Accent.primary} />
                 </View>
@@ -146,9 +180,16 @@ export function RampMethodSelector({
                   </Text>
                 </View>
                 {isLoading ? (
-                  <ActivityIndicator size="small" color={Colors.mutedForeground} />
+                  <ActivityIndicator
+                    size="small"
+                    color={Colors.mutedForeground}
+                  />
                 ) : (
-                  <MaterialIcons name="chevron-right" size={20} color={Colors.mutedForeground} />
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={20}
+                    color={Colors.mutedForeground}
+                  />
                 )}
               </View>
             </PressableScale>

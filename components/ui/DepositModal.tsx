@@ -11,6 +11,7 @@ import {
   Animated,
   Image,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQueryClient } from "@tanstack/react-query";
@@ -212,6 +213,7 @@ export function DepositModal({
   const isConfirmEnabled = !!amount && amountNum > 0;
   const isBlocked =
     step === "processing" || step === "signing" || step === "submitting";
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -219,6 +221,7 @@ export function DepositModal({
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={isBlocked ? undefined : handleClose}
     >
       <Pressable
@@ -226,7 +229,10 @@ export function DepositModal({
         onPress={isBlocked ? undefined : handleClose}
       >
         <View style={{ paddingBottom: keyboardHeight }}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable
+            style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+            onPress={() => {}}
+          >
             <View style={styles.handle} />
 
             {/* ── Header ── */}

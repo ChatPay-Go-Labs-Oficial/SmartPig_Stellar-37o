@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -35,6 +36,7 @@ export function EtherfuseOnrampModal({ visible, onClose }: EtherfuseOnrampModalP
   const displayAddress = walletAddress
     ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}`
     : '—';
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal
@@ -42,10 +44,14 @@ export function EtherfuseOnrampModal({ visible, onClose }: EtherfuseOnrampModalP
       transparent
       animationType="slide"
       statusBarTranslucent
+      navigationBarTranslucent
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable
+          style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
+          onPress={() => {}}
+        >
           <View style={styles.handle} />
 
           {/* ── Header ── */}
