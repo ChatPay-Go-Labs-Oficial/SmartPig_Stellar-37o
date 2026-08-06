@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
@@ -29,6 +30,7 @@ const DOC_TYPE_LABELS: Record<string, string> = {
 };
 
 export default function KycDocFrontScreen() {
+  const insets = useSafeAreaInsets();
   const draft = useBlindPayStore((s) => s.kycDraft);
   const idDocFrontUrl = useBlindPayStore((s) => s.idDocFrontUrl);
   const idDocFrontKindSaved = useBlindPayStore((s) => s.idDocFrontKind);
@@ -112,7 +114,7 @@ export default function KycDocFrontScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Spacing[8] + insets.bottom }]}>
       <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={7} total={10} />
       <Text style={styles.title}>Agora, a frente do seu documento</Text>

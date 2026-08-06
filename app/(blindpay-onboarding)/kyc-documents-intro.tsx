@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
@@ -31,6 +32,7 @@ const CHECKLIST: ChecklistItem[] = [
 ];
 
 export default function KycDocumentsIntroScreen() {
+  const insets = useSafeAreaInsets();
   const setCurrentStep = useBlindPayStore((s) => s.setCurrentStep);
 
   function handleContinue() {
@@ -44,7 +46,7 @@ export default function KycDocumentsIntroScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Spacing[8] + insets.bottom }]}>
       <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={5} total={10} />
 

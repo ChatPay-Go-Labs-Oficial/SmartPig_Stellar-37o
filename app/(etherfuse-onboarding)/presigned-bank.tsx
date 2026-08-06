@@ -7,6 +7,7 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { WebView } from 'react-native-webview';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +19,7 @@ import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
 import { useSyncBankAccounts, useGeneratePresignedUrl, useAcceptEsign, useAcceptTerms, useAcceptCustomerAgreement } from '@/lib/queries/etherfuse.queries';
 
 export default function PresignedBankScreen() {
+  const insets = useSafeAreaInsets();
   const contractId = useAuthStore((s) => s.contractId);
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const presignedUrl = useEtherfuseStore((s) => s.presignedUrl);
@@ -179,7 +181,7 @@ export default function PresignedBankScreen() {
           </View>
         )}
       />
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Spacing[8] + insets.bottom }]}>
         <PressableScale onPress={handleConfirmFinish}>
           <LinearGradient
             colors={Gradients.primary}

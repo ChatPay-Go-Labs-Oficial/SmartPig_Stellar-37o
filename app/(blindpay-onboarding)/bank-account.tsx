@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
@@ -10,6 +11,7 @@ import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
 export default function BankAccountScreen() {
+  const insets = useSafeAreaInsets();
   const contractId = useAuthStore((s) => s.contractId);
   const savedPixKey = usePixStore((s) => s.pixKey);
   const setPixKey = usePixStore((s) => s.setPixKey);
@@ -88,7 +90,7 @@ export default function BankAccountScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Spacing[8] + insets.bottom }]}>
         <PressableScale onPress={handleContinue} disabled={createBankAccount.isPending}>
           <LinearGradient
             colors={Gradients.primary}

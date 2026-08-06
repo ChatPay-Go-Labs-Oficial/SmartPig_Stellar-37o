@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
 import { OnboardingStepHeader, OnboardingProgress, PressableScale } from '@/components/ui';
@@ -7,6 +8,7 @@ import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
 export default function KycAddressScreen() {
+  const insets = useSafeAreaInsets();
   const setKycDraft = useBlindPayStore((s) => s.setKycDraft);
   const draft = useBlindPayStore((s) => s.kycDraft);
   const setCurrentStep = useBlindPayStore((s) => s.setCurrentStep);
@@ -111,7 +113,7 @@ export default function KycAddressScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Spacing[8] + insets.bottom }]}>
         <PressableScale onPress={handleContinue}>
           <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
             <Text style={styles.btnText}>Continuar</Text>

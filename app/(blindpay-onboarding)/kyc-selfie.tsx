@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
@@ -10,6 +11,7 @@ import { pickPhoto } from '@/lib/media/pick-photo';
 import { safeReplace } from '@/lib/navigation/safe-replace';
 
 export default function KycSelfieScreen() {
+  const insets = useSafeAreaInsets();
   const selfieFileUrl = useBlindPayStore((s) => s.selfieFileUrl);
   const setSelfieFileUrl = useBlindPayStore((s) => s.setSelfieFileUrl);
   const setCurrentStep = useBlindPayStore((s) => s.setCurrentStep);
@@ -71,7 +73,7 @@ export default function KycSelfieScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Spacing[8] + insets.bottom }]}>
       <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={6} total={10} />
       <Text style={styles.title}>Vamos começar com uma selfie</Text>

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PressableScale } from '@/components/ui/PressableScale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -45,6 +46,7 @@ const agreements: AgreementItem[] = [
 ];
 
 export default function AgreementsScreen() {
+  const insets = useSafeAreaInsets();
   const contractId = useAuthStore((s) => s.contractId);
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const setCurrentStep = useEtherfuseStore((s) => s.setCurrentStep);
@@ -114,7 +116,7 @@ export default function AgreementsScreen() {
       bounces={false}
     >
         <StarryBackground />
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingBottom: 60 + insets.bottom }]}>
           <OnboardingBackButton />
           <Text style={styles.title}>Termos e Acordos</Text>
         <Text style={styles.subtitle}>

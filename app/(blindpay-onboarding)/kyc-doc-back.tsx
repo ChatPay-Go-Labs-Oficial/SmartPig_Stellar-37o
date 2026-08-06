@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
@@ -41,6 +42,7 @@ function toIso8601(dateOnly: string): string | undefined {
 }
 
 export default function KycDocBackScreen() {
+  const insets = useSafeAreaInsets();
   const contractId = useAuthStore((s) => s.contractId);
   const {
     kycDraft: draft,
@@ -191,7 +193,7 @@ export default function KycDocBackScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Spacing[8] + insets.bottom }]}>
       <OnboardingStepHeader onBack={handleBack} />
       <OnboardingProgress step={8} total={10} />
       <Text style={styles.title}>Por último, o verso</Text>

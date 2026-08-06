@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePrivy } from '@privy-io/expo';
 import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
@@ -18,6 +19,7 @@ function findPrivyEmail(user: unknown): string {
 }
 
 export default function KycFormScreen() {
+  const insets = useSafeAreaInsets();
   const { user } = usePrivy();
   const setKycDraft = useBlindPayStore((s) => s.setKycDraft);
   const draft = useBlindPayStore((s) => s.kycDraft);
@@ -103,7 +105,7 @@ export default function KycFormScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Spacing[8] + insets.bottom }]}>
         <PressableScale onPress={handleContinue}>
           <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
             <Text style={styles.btnText}>Continuar</Text>
