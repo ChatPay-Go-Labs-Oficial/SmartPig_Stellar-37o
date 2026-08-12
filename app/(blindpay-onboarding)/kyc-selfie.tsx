@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -73,42 +73,48 @@ export default function KycSelfieScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: Spacing[8] + insets.bottom }]}>
-      <OnboardingStepHeader onBack={handleBack} />
-      <OnboardingProgress step={6} total={10} />
-      <Text style={styles.title}>Vamos começar com uma selfie</Text>
-      <Text style={styles.subtitle}>
-        Seu rosto visível, sem óculos escuros ou boné, em um lugar bem iluminado.
-      </Text>
+    <View style={styles.outer}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <OnboardingStepHeader onBack={handleBack} />
+        <OnboardingProgress step={6} total={10} />
+        <Text style={styles.title}>Vamos começar com uma selfie</Text>
+        <Text style={styles.subtitle}>
+          Seu rosto visível, sem óculos escuros ou boné, em um lugar bem iluminado.
+        </Text>
 
-      <View style={styles.captureWrap}>
-        <PressableScale onPress={pickImage} disabled={picking}>
-          <View style={styles.captureCard}>
-            {picking ? (
-              <View style={styles.capturePlaceholder}>
-                <ActivityIndicator color={Accent.primary} />
-                <Text style={styles.captureHint}>Selecionando foto...</Text>
-              </View>
-            ) : previewUri ? (
-              <Image source={{ uri: previewUri }} style={styles.preview} />
-            ) : (
-              <View style={styles.capturePlaceholder}>
-                <MaterialIcons name="face" size={40} color={Colors.mutedForeground} />
-                <Text style={styles.captureHint}>Toque para tirar a foto</Text>
-              </View>
-            )}
-          </View>
-        </PressableScale>
-        {previewUri && !picking ? (
-          <PressableScale onPress={pickImage} style={styles.retakeBtn} disabled={picking}>
-            <Text style={styles.retakeText}>Tirar outra foto</Text>
+        <View style={styles.captureWrap}>
+          <PressableScale onPress={pickImage} disabled={picking}>
+            <View style={styles.captureCard}>
+              {picking ? (
+                <View style={styles.capturePlaceholder}>
+                  <ActivityIndicator color={Accent.primary} />
+                  <Text style={styles.captureHint}>Selecionando foto...</Text>
+                </View>
+              ) : previewUri ? (
+                <Image source={{ uri: previewUri }} style={styles.preview} />
+              ) : (
+                <View style={styles.capturePlaceholder}>
+                  <MaterialIcons name="face" size={40} color={Colors.mutedForeground} />
+                  <Text style={styles.captureHint}>Toque para tirar a foto</Text>
+                </View>
+              )}
+            </View>
           </PressableScale>
-        ) : null}
-      </View>
+          {previewUri && !picking ? (
+            <PressableScale onPress={pickImage} style={styles.retakeBtn} disabled={picking}>
+              <Text style={styles.retakeText}>Tirar outra foto</Text>
+            </PressableScale>
+          ) : null}
+        </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Spacing[8] + insets.bottom }]}>
         <PressableScale onPress={handleContinue} disabled={picking || uploadFile.isPending}>
           <LinearGradient
             colors={Gradients.primary}
@@ -125,12 +131,17 @@ export default function KycSelfieScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  scroll: {
+    flex: 1,
+  },
+  container: {
     paddingHorizontal: Spacing[6],
     paddingTop: 60,
-    paddingBottom: Spacing[8],
+    paddingBottom: Spacing[6],
   },
   title: {
     fontSize: FontSize.heading,
@@ -193,8 +204,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing[4],
   },
   footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    paddingHorizontal: Spacing[6],
+    paddingTop: Spacing[3],
   },
   btn: {
     paddingVertical: 14,

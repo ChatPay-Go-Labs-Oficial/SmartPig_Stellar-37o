@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -62,7 +63,11 @@ export default function PendingScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.outer}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.content}>
         <OnboardingBackButton />
         <View style={styles.iconContainer}>
@@ -116,16 +121,21 @@ export default function PendingScreen() {
           </LinearGradient>
         )}
       </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  container: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: Spacing[8],
   },
   content: {
     alignItems: 'center',
