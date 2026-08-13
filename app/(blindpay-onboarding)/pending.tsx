@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
@@ -48,14 +48,18 @@ export default function PendingScreen() {
   // chegar — pisca uma tela errada quando a aprovação é rápida.
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.outer, styles.loadingCenter]}>
         <ActivityIndicator color={Accent.primary} size="large" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={styles.outer}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.content}>
         <View style={styles.iconContainer}>
           <MaterialIcons
@@ -119,16 +123,25 @@ export default function PendingScreen() {
           )}
         </PressableScale>
       </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  loadingCenter: {
     justifyContent: "center",
     alignItems: "center",
+  },
+  container: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: Spacing[8],
   },
   content: {
     alignItems: "center",

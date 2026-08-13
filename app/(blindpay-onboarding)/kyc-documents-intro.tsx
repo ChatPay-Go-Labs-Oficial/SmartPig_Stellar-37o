@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -46,45 +46,51 @@ export default function KycDocumentsIntroScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: Spacing[8] + insets.bottom }]}>
-      <OnboardingStepHeader onBack={handleBack} />
-      <OnboardingProgress step={5} total={10} />
+    <View style={styles.outer}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <OnboardingStepHeader onBack={handleBack} />
+        <OnboardingProgress step={5} total={10} />
 
-      <View style={styles.iconWrap}>
-        <MaterialIcons name="photo-camera" size={32} color={Accent.primary} />
-      </View>
+        <View style={styles.iconWrap}>
+          <MaterialIcons name="photo-camera" size={32} color={Accent.primary} />
+        </View>
 
-      <Text style={styles.title}>Vamos confirmar sua identidade</Text>
-      <Text style={styles.subtitle}>
-        Precisamos de 3 fotos rápidas para liberar depósitos e saques via Pix.
-      </Text>
-
-      <View style={styles.list}>
-        {CHECKLIST.map((item, index) => (
-          <View key={item.title} style={styles.listItem}>
-            <View style={styles.listIconWrap}>
-              <MaterialIcons name={item.icon} size={20} color={Accent.primary} />
-            </View>
-            <View style={styles.listText}>
-              <Text style={styles.listTitle}>{item.title}</Text>
-              <Text style={styles.listDescription}>{item.description}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-
-      <View style={styles.privacyRow}>
-        <MaterialIcons name="shield" size={16} color={Colors.mutedForeground} />
-        <Text style={styles.privacyText}>
-          Suas fotos são usadas somente para verificação de identidade e tratadas com segurança.
+        <Text style={styles.title}>Vamos confirmar sua identidade</Text>
+        <Text style={styles.subtitle}>
+          Precisamos de 3 fotos rápidas para liberar depósitos e saques via Pix.
         </Text>
-      </View>
 
-      <View style={styles.pdfNoteWrap}>
-        <GovBrPdfNote />
-      </View>
+        <View style={styles.list}>
+          {CHECKLIST.map((item, index) => (
+            <View key={item.title} style={styles.listItem}>
+              <View style={styles.listIconWrap}>
+                <MaterialIcons name={item.icon} size={20} color={Accent.primary} />
+              </View>
+              <View style={styles.listText}>
+                <Text style={styles.listTitle}>{item.title}</Text>
+                <Text style={styles.listDescription}>{item.description}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
 
-      <View style={styles.footer}>
+        <View style={styles.privacyRow}>
+          <MaterialIcons name="shield" size={16} color={Colors.mutedForeground} />
+          <Text style={styles.privacyText}>
+            Suas fotos são usadas somente para verificação de identidade e tratadas com segurança.
+          </Text>
+        </View>
+
+        <View style={styles.pdfNoteWrap}>
+          <GovBrPdfNote />
+        </View>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Spacing[8] + insets.bottom }]}>
         <PressableScale onPress={handleContinue}>
           <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.btn}>
             <Text style={styles.btnText}>Começar</Text>
@@ -96,12 +102,17 @@ export default function KycDocumentsIntroScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  scroll: {
+    flex: 1,
+  },
+  container: {
     paddingHorizontal: Spacing[6],
     paddingTop: 60,
-    paddingBottom: Spacing[8],
+    paddingBottom: Spacing[6],
   },
   iconWrap: {
     width: 64,
@@ -179,8 +190,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing[3],
   },
   footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
+    paddingHorizontal: Spacing[6],
+    paddingTop: Spacing[3],
   },
   btn: {
     paddingVertical: 14,

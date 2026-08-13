@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -193,87 +193,93 @@ export default function KycDocBackScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: Spacing[8] + insets.bottom }]}>
-      <OnboardingStepHeader onBack={handleBack} />
-      <OnboardingProgress step={8} total={10} />
-      <Text style={styles.title}>Por último, o verso</Text>
-      <Text style={styles.subtitle}>
-        Fotografe o verso do seu {docLabel}, com os quatro cantos dentro da foto
-        e uma margem em volta. Confira na pré-visualização se nenhuma borda
-        ficou de fora.
-      </Text>
-      <DocPhotoTips />
+    <View style={styles.outer}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <OnboardingStepHeader onBack={handleBack} />
+        <OnboardingProgress step={8} total={10} />
+        <Text style={styles.title}>Por último, o verso</Text>
+        <Text style={styles.subtitle}>
+          Fotografe o verso do seu {docLabel}, com os quatro cantos dentro da foto
+          e uma margem em volta. Confira na pré-visualização se nenhuma borda
+          ficou de fora.
+        </Text>
+        <DocPhotoTips />
 
-      {pendingPdfDoc && previewKind !== "pdf" ? (
-        <PressableScale
-          onPress={useSamePdfAsFront}
-          style={styles.reuseBtn}
-          disabled={picking}
-        >
-          <MaterialIcons
-            name="picture-as-pdf"
-            size={16}
-            color={Accent.primary}
-          />
-          <Text style={styles.reuseText} numberOfLines={1}>
-            Usar o mesmo PDF enviado na frente ({pendingPdfDoc.fileName})
-          </Text>
-        </PressableScale>
-      ) : null}
-
-      <View style={styles.captureWrap}>
-        <PressableScale onPress={pickDocument} disabled={picking}>
-          <View style={styles.captureCard}>
-            {picking ? (
-              <View style={styles.capturePlaceholder}>
-                <ActivityIndicator color={Accent.primary} />
-                <Text style={styles.captureHint}>Selecionando...</Text>
-              </View>
-            ) : previewKind === "pdf" ? (
-              <View style={styles.capturePlaceholder}>
-                <MaterialIcons
-                  name="picture-as-pdf"
-                  size={40}
-                  color={Accent.primary}
-                />
-                <Text style={styles.captureHint} numberOfLines={1}>
-                  {fileName ?? "Documento em PDF"}
-                </Text>
-              </View>
-            ) : previewUri ? (
-              <Image source={{ uri: previewUri }} style={styles.preview} />
-            ) : (
-              <View style={styles.capturePlaceholder}>
-                <MaterialIcons
-                  name="credit-card"
-                  size={40}
-                  color={Colors.mutedForeground}
-                />
-                <Text style={styles.captureHint}>
-                  Toque para tirar a foto ou enviar um PDF
-                </Text>
-              </View>
-            )}
-          </View>
-        </PressableScale>
-        {previewUri && !picking ? (
+        {pendingPdfDoc && previewKind !== "pdf" ? (
           <PressableScale
-            onPress={pickDocument}
-            style={styles.retakeBtn}
+            onPress={useSamePdfAsFront}
+            style={styles.reuseBtn}
             disabled={picking}
           >
-            <Text style={styles.retakeText}>
-              {previewKind === "pdf"
-                ? "Escolher outro arquivo"
-                : "Tirar outra foto"}
+            <MaterialIcons
+              name="picture-as-pdf"
+              size={16}
+              color={Accent.primary}
+            />
+            <Text style={styles.reuseText} numberOfLines={1}>
+              Usar o mesmo PDF enviado na frente ({pendingPdfDoc.fileName})
             </Text>
           </PressableScale>
         ) : null}
-      </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <View style={styles.captureWrap}>
+          <PressableScale onPress={pickDocument} disabled={picking}>
+            <View style={styles.captureCard}>
+              {picking ? (
+                <View style={styles.capturePlaceholder}>
+                  <ActivityIndicator color={Accent.primary} />
+                  <Text style={styles.captureHint}>Selecionando...</Text>
+                </View>
+              ) : previewKind === "pdf" ? (
+                <View style={styles.capturePlaceholder}>
+                  <MaterialIcons
+                    name="picture-as-pdf"
+                    size={40}
+                    color={Accent.primary}
+                  />
+                  <Text style={styles.captureHint} numberOfLines={1}>
+                    {fileName ?? "Documento em PDF"}
+                  </Text>
+                </View>
+              ) : previewUri ? (
+                <Image source={{ uri: previewUri }} style={styles.preview} />
+              ) : (
+                <View style={styles.capturePlaceholder}>
+                  <MaterialIcons
+                    name="credit-card"
+                    size={40}
+                    color={Colors.mutedForeground}
+                  />
+                  <Text style={styles.captureHint}>
+                    Toque para tirar a foto ou enviar um PDF
+                  </Text>
+                </View>
+              )}
+            </View>
+          </PressableScale>
+          {previewUri && !picking ? (
+            <PressableScale
+              onPress={pickDocument}
+              style={styles.retakeBtn}
+              disabled={picking}
+            >
+              <Text style={styles.retakeText}>
+                {previewKind === "pdf"
+                  ? "Escolher outro arquivo"
+                  : "Tirar outra foto"}
+              </Text>
+            </PressableScale>
+          ) : null}
+        </View>
 
-      <View style={styles.footer}>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: Spacing[8] + insets.bottom }]}>
         <PressableScale
           onPress={handleContinue}
           disabled={picking || submitting}
@@ -295,12 +301,17 @@ export default function KycDocBackScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  scroll: {
+    flex: 1,
+  },
+  container: {
     paddingHorizontal: Spacing[6],
     paddingTop: 60,
-    paddingBottom: Spacing[8],
+    paddingBottom: Spacing[6],
   },
   title: {
     fontSize: FontSize.heading,
@@ -384,8 +395,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing[4],
   },
   footer: {
-    flex: 1,
-    justifyContent: "flex-end",
+    paddingHorizontal: Spacing[6],
+    paddingTop: Spacing[3],
   },
   btn: {
     paddingVertical: 14,
