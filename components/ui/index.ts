@@ -30,4 +30,5 @@ export { GiftClaimGate } from './GiftClaimSheet';
 export { MyGiftsModal } from './MyGiftsModal';
 export { DocPhotoTips } from './DocPhotoTips';
 export { GovBrPdfNote } from './GovBrPdfNote';
+export { VersionGate } from './VersionGate';
 
