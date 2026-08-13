@@ -17,6 +17,7 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useVersionGateStore } from "@/lib/stores/version-gate.store";
 import { setTokenProvider } from "@/lib/api/token";
 import { setSignRawHashProvider } from "@/lib/stellar/signer";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
@@ -58,7 +59,7 @@ import {
 } from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
 import "react-native-reanimated";
-import { GiftClaimGate } from "@/components/ui";
+import { GiftClaimGate, VersionGate } from "@/components/ui";
 
 setAudioModeAsync({
   playsInSilentMode: true,
@@ -197,6 +198,7 @@ export default function RootLayout() {
           </Stack>
           <StatusBar style="light" />
           <GiftClaimGate />
+          <VersionGate />
         </QueryClientProvider>
         <AppGate />
       </PrivyProvider>
@@ -206,6 +208,7 @@ export default function RootLayout() {
 
 function AppGate() {
   const segments = useSegments();
+  const forceUpdateRequired = useVersionGateStore((s) => s.forceUpdateRequired);
   const {
     error: privyError,
     getAccessToken,
@@ -420,6 +423,13 @@ function AppGate() {
 
     return () => subscription.remove();
   }, [biometricLocked, inAuthFlow, isAuthenticated, unlockWithBiometrics]);
+
+  if (forceUpdateRequired) {
+    // VersionGate (montado dentro do QueryClientProvider) já está exibindo o
+    // modal obrigatório — evita que splash/erro Privy/lock de biometria abram
+    // por cima dele.
+    return null;
+  }
 
   if (!splashDone) {
     return (

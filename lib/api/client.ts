@@ -8,7 +8,7 @@ export const apiClient = axios.create({
   timeout: 15_000,
 });
 
-const PUBLIC_ENDPOINTS = ['/auth/wallet'];
+const PUBLIC_ENDPOINTS = ['/auth/wallet', '/app-config/version'];
 
 apiClient.interceptors.request.use(async (config) => {
   const isPublic = PUBLIC_ENDPOINTS.some(e => (config.url ?? '').includes(e));
