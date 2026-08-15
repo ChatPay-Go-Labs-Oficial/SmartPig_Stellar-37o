@@ -48,6 +48,7 @@ import { swapXlmForUsdc, SwapError, SwapResult } from "@/lib/stellar/swap";
 import {
   findUsdcBalance,
   getActivationXdr,
+  getWallet,
   submitActivation,
 } from "@/lib/api/wallets";
 import { useSubmitTrustlineXdr } from "@/lib/queries/etherfuse-ramp.queries";
@@ -206,9 +207,26 @@ export default function ProfileScreen() {
       setIsActivated(true);
       setActivationMsg("Conta ativada com sucesso!");
     } catch (err: any) {
-      const detail =
-        err?.response?.data?.message ?? err?.message ?? "Erro desconhecido";
-      setActivationMsg("Nao foi possivel ativar: " + detail);
+      const isNetworkLevelError = !err?.response;
+      let activatedOnReconciliation = false;
+
+      if (isNetworkLevelError) {
+        try {
+          const walletDetails = await getWallet(walletAccountId);
+          activatedOnReconciliation = walletDetails.isActivated;
+        } catch {
+          // Reconciliation check itself failed; fall through to showing the error.
+        }
+      }
+
+      if (activatedOnReconciliation) {
+        setIsActivated(true);
+        setActivationMsg("Conta ativada com sucesso!");
+      } else {
+        const detail =
+          err?.response?.data?.message ?? err?.message ?? "Erro desconhecido";
+        setActivationMsg("Nao foi possivel ativar: " + detail);
+      }
     } finally {
       setActivationLoading(false);
     }

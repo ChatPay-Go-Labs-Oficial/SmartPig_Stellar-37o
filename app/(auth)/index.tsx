@@ -22,7 +22,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StarryBackground } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { walletLogin } from '@/lib/api/auth';
-import { getActivationXdr, submitActivation } from '@/lib/api/wallets';
+import { getActivationXdr, getWallet, submitActivation } from '@/lib/api/wallets';
 import { signXdr } from '@/lib/stellar/kit';
 import { useLoginWithOAuth, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
@@ -178,10 +178,26 @@ export default function OnboardingScreen() {
         });
         setIsActivated(true);
       } catch (activationErr: any) {
-        const detail = activationErr?.response?.data?.message ?? activationErr?.message ?? 'Unknown';
-        console.warn('Account activation failed:', detail);
-        activationMsg = detail;
-        setIsActivated(false);
+        const isNetworkLevelError = !activationErr?.response;
+        let activatedOnReconciliation = false;
+
+        if (isNetworkLevelError) {
+          try {
+            const walletDetails = await getWallet(wallet.id);
+            activatedOnReconciliation = walletDetails.isActivated;
+          } catch {
+            // Reconciliation check itself failed; fall through to showing the alert.
+          }
+        }
+
+        if (activatedOnReconciliation) {
+          setIsActivated(true);
+        } else {
+          const detail = activationErr?.response?.data?.message ?? activationErr?.message ?? 'Unknown';
+          console.warn('Account activation failed:', detail);
+          activationMsg = detail;
+          setIsActivated(false);
+        }
       }
     } else {
       setIsActivated(true);
