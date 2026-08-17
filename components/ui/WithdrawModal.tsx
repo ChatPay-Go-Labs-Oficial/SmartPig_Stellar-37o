@@ -323,7 +323,7 @@ export function WithdrawModal({
                 <Text style={styles.availableLabel}>
                   Investido neste porquinho:{" "}
                   <Text style={styles.availableValue}>
-                    ${parsedUnderlying.toFixed(2)}
+                    ${truncateDecimalString(underlyingBalance || "0")}
                   </Text>
                 </Text>
 
