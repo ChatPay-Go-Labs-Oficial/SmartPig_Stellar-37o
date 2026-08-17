@@ -34,6 +34,7 @@ import { useSound } from "@/hooks/use-sound";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
+import { truncateDecimalString } from "@/lib/utils/format";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 const QUICK_VALUES = [10, 50, 100];
@@ -344,7 +345,7 @@ export function DepositModal({
                     onPress={() => {
                       playClick();
                       setIsMaxSelected(true);
-                      setAmount(parseFloat(usdcBalance).toFixed(2));
+                      setAmount(truncateDecimalString(usdcBalance));
                     }}
                     style={{ flex: 1 }}
                   >

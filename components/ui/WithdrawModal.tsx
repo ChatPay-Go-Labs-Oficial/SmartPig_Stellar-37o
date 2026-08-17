@@ -33,6 +33,7 @@ import { signXdr } from "@/lib/stellar/kit";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
+import { truncateDecimalString } from "@/lib/utils/format";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 // Blue → purple gradient exclusive to the withdraw flow
@@ -183,7 +184,8 @@ export function WithdrawModal({
     setActiveChip(chip);
     if (chip === "25") setAmount((parsedUnderlying * 0.25).toFixed(2));
     if (chip === "50") setAmount((parsedUnderlying * 0.5).toFixed(2));
-    if (chip === "all") setAmount(parsedUnderlying.toFixed(2));
+    if (chip === "all")
+      setAmount(truncateDecimalString(underlyingBalance || "0"));
   };
 
   const handleAmountChange = (text: string) => {
