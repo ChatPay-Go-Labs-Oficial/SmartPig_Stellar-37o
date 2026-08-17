@@ -34,6 +34,7 @@ import { useSound } from "@/hooks/use-sound";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
+import { truncateDecimalString } from "@/lib/utils/format";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 const QUICK_VALUES = [10, 50, 100];
@@ -88,6 +89,7 @@ export function DepositModal({
   onSuccess,
 }: DepositModalProps) {
   const [amount, setAmount] = useState("");
+  const [isMaxSelected, setIsMaxSelected] = useState(false);
   const [step, setStep] = useState<Step>("input");
   const [errorMsg, setError] = useState("");
   const walletAddress = useAuthStore((s) => s.walletAddress);
@@ -96,6 +98,7 @@ export function DepositModal({
   const qc = useQueryClient();
   const { data: walletBalances } = useWalletBalance(walletAddress);
   const usdcBalance = walletBalances ? findUsdcBalance(walletBalances) : "0";
+  const parsedUsdcBalance = parseFloat(usdcBalance || "0");
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { playClick, playInvestirConfirmacao, playInvestirCoin } = useSound();
@@ -158,9 +161,18 @@ export function DepositModal({
     }
   }, [step]);
 
+  const amountNum = parseFloat(amount || "0");
+
+  // Mesmo padrão do WithdrawModal: no chip "Tudo" a exibição já é truncada
+  // pra baixo (nunca passa do saldo real), então só precisa checar se há
+  // saldo. Fora do "Tudo", compara o valor digitado contra o saldo real.
+  const isWithinBalance = isMaxSelected
+    ? parsedUsdcBalance > 0
+    : amountNum <= parsedUsdcBalance + 1e-6;
+
   const handleConfirm = async () => {
-    const value = parseFloat(amount);
-    if (!value || value <= 0 || !vaultId) return;
+    const value = isMaxSelected ? parseFloat(usdcBalance) : amountNum;
+    if (!value || value <= 0 || !vaultId || !isWithinBalance) return;
     setError("");
     setStep("processing");
     try {
@@ -200,17 +212,22 @@ export function DepositModal({
     }
   };
 
+  const handleAmountChange = (text: string) => {
+    setAmount(text);
+    setIsMaxSelected(false);
+  };
+
   const handleClose = () => {
     setStep("input");
     setAmount("");
+    setIsMaxSelected(false);
     setError("");
     onClose();
     onSuccess?.();
   };
 
-  const amountNum = parseFloat(amount || "0");
   const annualYield = amountNum * (apyValue / 100);
-  const isConfirmEnabled = !!amount && amountNum > 0;
+  const isConfirmEnabled = !!amount && amountNum > 0 && isWithinBalance;
   const isBlocked =
     step === "processing" || step === "signing" || step === "submitting";
   const insets = useSafeAreaInsets();
@@ -273,7 +290,9 @@ export function DepositModal({
               <View style={styles.body}>
                 <Text style={styles.availableLabel}>
                   Disponível na carteira:{" "}
-                  <Text style={styles.availableValue}>${usdcBalance}</Text>
+                  <Text style={styles.availableValue}>
+                    ${truncateDecimalString(usdcBalance)}
+                  </Text>
                 </Text>
 
                 {/* Big amount */}
@@ -284,7 +303,7 @@ export function DepositModal({
                     placeholder="0,00"
                     placeholderTextColor="rgba(255,255,255,0.2)"
                     value={amount}
-                    onChangeText={setAmount}
+                    onChangeText={handleAmountChange}
                     keyboardType="decimal-pad"
                     autoFocus
                     cursorColor={Accent.primary}
@@ -304,6 +323,7 @@ export function DepositModal({
                         key={v}
                         onPress={() => {
                           playClick();
+                          setIsMaxSelected(false);
                           setAmount(String(v));
                         }}
                         style={{ flex: 1 }}
@@ -333,11 +353,12 @@ export function DepositModal({
                   <Pressable
                     onPress={() => {
                       playClick();
-                      setAmount(usdcBalance);
+                      setIsMaxSelected(true);
+                      setAmount(truncateDecimalString(usdcBalance));
                     }}
                     style={{ flex: 1 }}
                   >
-                    {amount === usdcBalance && usdcBalance !== "0" ? (
+                    {isMaxSelected ? (
                       <LinearGradient
                         colors={Gradients.primary}
                         start={{ x: 0, y: 0 }}

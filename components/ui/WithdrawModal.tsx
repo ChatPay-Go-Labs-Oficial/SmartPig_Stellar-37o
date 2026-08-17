@@ -33,6 +33,7 @@ import { signXdr } from "@/lib/stellar/kit";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
+import { truncateDecimalString } from "@/lib/utils/format";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 // Blue → purple gradient exclusive to the withdraw flow
@@ -162,6 +163,16 @@ export function WithdrawModal({
   const parsedDfTokens = parseFloat(dfTokens || "0");
   const parsedAmount = parseFloat(amount || "0");
 
+  // O chip "all" exibe o saldo arredondado a 2 casas (para caber no campo),
+  // que pode arredondar pra cima e ficar levemente maior que o saldo real
+  // (ex.: 34.7091061 -> "34.71"). Nesse caso o saque em si já usa o valor
+  // exato via shareAmount/parsedDfTokens abaixo, então a validação de limite
+  // deve ignorar o texto exibido e só checar se há saldo.
+  const isWithinBalance =
+    activeChip === "all"
+      ? parsedUnderlying > 0
+      : parsedAmount <= parsedUnderlying + 1e-6;
+
   const shareAmount = useMemo(() => {
     if (!parsedAmount || parsedUnderlying <= 0 || parsedDfTokens <= 0) return 0;
     if (activeChip === "all") return parsedDfTokens;
@@ -173,7 +184,8 @@ export function WithdrawModal({
     setActiveChip(chip);
     if (chip === "25") setAmount((parsedUnderlying * 0.25).toFixed(2));
     if (chip === "50") setAmount((parsedUnderlying * 0.5).toFixed(2));
-    if (chip === "all") setAmount(String(parsedUnderlying));
+    if (chip === "all")
+      setAmount(truncateDecimalString(underlyingBalance || "0"));
   };
 
   const handleAmountChange = (text: string) => {
@@ -182,7 +194,7 @@ export function WithdrawModal({
   };
 
   const handleWithdraw = async () => {
-    if (parsedAmount <= 0 || parsedAmount > parsedUnderlying + 1e-6) return;
+    if (parsedAmount <= 0 || !isWithinBalance) return;
     setError("");
     setStep("authenticating");
     try {
@@ -243,8 +255,7 @@ export function WithdrawModal({
     onClose();
   };
 
-  const isConfirmEnabled =
-    !!amount && parsedAmount > 0 && parsedAmount <= parsedUnderlying + 1e-6;
+  const isConfirmEnabled = !!amount && parsedAmount > 0 && isWithinBalance;
   const isBlocked =
     step === "authenticating" ||
     step === "processing" ||
@@ -312,7 +323,7 @@ export function WithdrawModal({
                 <Text style={styles.availableLabel}>
                   Investido neste porquinho:{" "}
                   <Text style={styles.availableValue}>
-                    ${parsedUnderlying.toFixed(2)}
+                    ${truncateDecimalString(underlyingBalance || "0")}
                   </Text>
                 </Text>
 
