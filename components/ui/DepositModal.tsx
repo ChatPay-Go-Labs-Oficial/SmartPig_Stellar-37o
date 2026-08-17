@@ -98,6 +98,7 @@ export function DepositModal({
   const qc = useQueryClient();
   const { data: walletBalances } = useWalletBalance(walletAddress);
   const usdcBalance = walletBalances ? findUsdcBalance(walletBalances) : "0";
+  const parsedUsdcBalance = parseFloat(usdcBalance || "0");
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { playClick, playInvestirConfirmacao, playInvestirCoin } = useSound();
@@ -160,9 +161,18 @@ export function DepositModal({
     }
   }, [step]);
 
+  const amountNum = parseFloat(amount || "0");
+
+  // Mesmo padrão do WithdrawModal: no chip "Tudo" a exibição já é truncada
+  // pra baixo (nunca passa do saldo real), então só precisa checar se há
+  // saldo. Fora do "Tudo", compara o valor digitado contra o saldo real.
+  const isWithinBalance = isMaxSelected
+    ? parsedUsdcBalance > 0
+    : amountNum <= parsedUsdcBalance + 1e-6;
+
   const handleConfirm = async () => {
-    const value = isMaxSelected ? parseFloat(usdcBalance) : parseFloat(amount);
-    if (!value || value <= 0 || !vaultId) return;
+    const value = isMaxSelected ? parseFloat(usdcBalance) : amountNum;
+    if (!value || value <= 0 || !vaultId || !isWithinBalance) return;
     setError("");
     setStep("processing");
     try {
@@ -216,11 +226,8 @@ export function DepositModal({
     onSuccess?.();
   };
 
-  const amountNum = parseFloat(amount || "0");
   const annualYield = amountNum * (apyValue / 100);
-  const isConfirmEnabled =
-    !!amount &&
-    (isMaxSelected ? parseFloat(usdcBalance) > 0 : amountNum > 0);
+  const isConfirmEnabled = !!amount && amountNum > 0 && isWithinBalance;
   const isBlocked =
     step === "processing" || step === "signing" || step === "submitting";
   const insets = useSafeAreaInsets();
@@ -283,7 +290,9 @@ export function DepositModal({
               <View style={styles.body}>
                 <Text style={styles.availableLabel}>
                   Disponível na carteira:{" "}
-                  <Text style={styles.availableValue}>${usdcBalance}</Text>
+                  <Text style={styles.availableValue}>
+                    ${truncateDecimalString(usdcBalance)}
+                  </Text>
                 </Text>
 
                 {/* Big amount */}
