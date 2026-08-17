@@ -162,6 +162,16 @@ export function WithdrawModal({
   const parsedDfTokens = parseFloat(dfTokens || "0");
   const parsedAmount = parseFloat(amount || "0");
 
+  // O chip "all" exibe o saldo arredondado a 2 casas (para caber no campo),
+  // que pode arredondar pra cima e ficar levemente maior que o saldo real
+  // (ex.: 34.7091061 -> "34.71"). Nesse caso o saque em si já usa o valor
+  // exato via shareAmount/parsedDfTokens abaixo, então a validação de limite
+  // deve ignorar o texto exibido e só checar se há saldo.
+  const isWithinBalance =
+    activeChip === "all"
+      ? parsedUnderlying > 0
+      : parsedAmount <= parsedUnderlying + 1e-6;
+
   const shareAmount = useMemo(() => {
     if (!parsedAmount || parsedUnderlying <= 0 || parsedDfTokens <= 0) return 0;
     if (activeChip === "all") return parsedDfTokens;
@@ -182,7 +192,7 @@ export function WithdrawModal({
   };
 
   const handleWithdraw = async () => {
-    if (parsedAmount <= 0 || parsedAmount > parsedUnderlying + 1e-6) return;
+    if (parsedAmount <= 0 || !isWithinBalance) return;
     setError("");
     setStep("authenticating");
     try {
@@ -243,8 +253,7 @@ export function WithdrawModal({
     onClose();
   };
 
-  const isConfirmEnabled =
-    !!amount && parsedAmount > 0 && parsedAmount <= parsedUnderlying + 1e-6;
+  const isConfirmEnabled = !!amount && parsedAmount > 0 && isWithinBalance;
   const isBlocked =
     step === "authenticating" ||
     step === "processing" ||
