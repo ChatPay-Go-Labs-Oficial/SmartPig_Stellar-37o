@@ -88,6 +88,7 @@ export function DepositModal({
   onSuccess,
 }: DepositModalProps) {
   const [amount, setAmount] = useState("");
+  const [isMaxSelected, setIsMaxSelected] = useState(false);
   const [step, setStep] = useState<Step>("input");
   const [errorMsg, setError] = useState("");
   const walletAddress = useAuthStore((s) => s.walletAddress);
@@ -159,7 +160,7 @@ export function DepositModal({
   }, [step]);
 
   const handleConfirm = async () => {
-    const value = parseFloat(amount);
+    const value = isMaxSelected ? parseFloat(usdcBalance) : parseFloat(amount);
     if (!value || value <= 0 || !vaultId) return;
     setError("");
     setStep("processing");
@@ -200,9 +201,15 @@ export function DepositModal({
     }
   };
 
+  const handleAmountChange = (text: string) => {
+    setAmount(text);
+    setIsMaxSelected(false);
+  };
+
   const handleClose = () => {
     setStep("input");
     setAmount("");
+    setIsMaxSelected(false);
     setError("");
     onClose();
     onSuccess?.();
@@ -210,7 +217,9 @@ export function DepositModal({
 
   const amountNum = parseFloat(amount || "0");
   const annualYield = amountNum * (apyValue / 100);
-  const isConfirmEnabled = !!amount && amountNum > 0;
+  const isConfirmEnabled =
+    !!amount &&
+    (isMaxSelected ? parseFloat(usdcBalance) > 0 : amountNum > 0);
   const isBlocked =
     step === "processing" || step === "signing" || step === "submitting";
   const insets = useSafeAreaInsets();
@@ -284,7 +293,7 @@ export function DepositModal({
                     placeholder="0,00"
                     placeholderTextColor="rgba(255,255,255,0.2)"
                     value={amount}
-                    onChangeText={setAmount}
+                    onChangeText={handleAmountChange}
                     keyboardType="decimal-pad"
                     autoFocus
                     cursorColor={Accent.primary}
@@ -304,6 +313,7 @@ export function DepositModal({
                         key={v}
                         onPress={() => {
                           playClick();
+                          setIsMaxSelected(false);
                           setAmount(String(v));
                         }}
                         style={{ flex: 1 }}
@@ -333,11 +343,12 @@ export function DepositModal({
                   <Pressable
                     onPress={() => {
                       playClick();
-                      setAmount(usdcBalance);
+                      setIsMaxSelected(true);
+                      setAmount(parseFloat(usdcBalance).toFixed(2));
                     }}
                     style={{ flex: 1 }}
                   >
-                    {amount === usdcBalance && usdcBalance !== "0" ? (
+                    {isMaxSelected ? (
                       <LinearGradient
                         colors={Gradients.primary}
                         start={{ x: 0, y: 0 }}

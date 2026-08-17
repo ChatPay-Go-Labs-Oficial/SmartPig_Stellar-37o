@@ -173,7 +173,7 @@ export function WithdrawModal({
     setActiveChip(chip);
     if (chip === "25") setAmount((parsedUnderlying * 0.25).toFixed(2));
     if (chip === "50") setAmount((parsedUnderlying * 0.5).toFixed(2));
-    if (chip === "all") setAmount(String(parsedUnderlying));
+    if (chip === "all") setAmount(parsedUnderlying.toFixed(2));
   };
 
   const handleAmountChange = (text: string) => {
