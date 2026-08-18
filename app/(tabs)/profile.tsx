@@ -45,14 +45,9 @@ import { useAllVaultBalances } from "@/lib/queries/vaults.queries";
 import { usePrivy } from "@privy-io/expo";
 import { swapXlmForUsdc, SwapError, SwapResult } from "@/lib/stellar/swap";
 
-import {
-  findUsdcBalance,
-  getActivationXdr,
-  getWallet,
-  submitActivation,
-} from "@/lib/api/wallets";
+import { attemptActivation, findUsdcBalance } from "@/lib/api/wallets";
 import { useSubmitTrustlineXdr } from "@/lib/queries/etherfuse-ramp.queries";
-import { signTrustlineXdr, signXdr } from "@/lib/stellar/kit";
+import { signTrustlineXdr } from "@/lib/stellar/kit";
 import * as Clipboard from "expo-clipboard";
 
 const PIG_IMAGES: Record<string, any> = {
@@ -196,40 +191,20 @@ export default function ProfileScreen() {
     if (!walletAddress || !walletAccountId || !contractId) return;
     setActivationLoading(true);
     setActivationMsg("Ativando conta Stellar...");
-    try {
-      const { unsignedXdr } = await getActivationXdr({
-        userId: contractId,
-        walletAccountId,
-        stellarAddress: walletAddress,
-      });
-      const signed = await signXdr(unsignedXdr);
-      await submitActivation({ walletAccountId, signedXdr: signed });
+
+    const result = await attemptActivation({
+      userId: contractId,
+      walletAccountId,
+      stellarAddress: walletAddress,
+    });
+
+    if (result.success) {
       setIsActivated(true);
       setActivationMsg("Conta ativada com sucesso!");
-    } catch (err: any) {
-      const isNetworkLevelError = !err?.response;
-      let activatedOnReconciliation = false;
-
-      if (isNetworkLevelError) {
-        try {
-          const walletDetails = await getWallet(walletAccountId);
-          activatedOnReconciliation = walletDetails.isActivated;
-        } catch {
-          // Reconciliation check itself failed; fall through to showing the error.
-        }
-      }
-
-      if (activatedOnReconciliation) {
-        setIsActivated(true);
-        setActivationMsg("Conta ativada com sucesso!");
-      } else {
-        const detail =
-          err?.response?.data?.message ?? err?.message ?? "Erro desconhecido";
-        setActivationMsg("Nao foi possivel ativar: " + detail);
-      }
-    } finally {
-      setActivationLoading(false);
+    } else {
+      setActivationMsg("Nao foi possivel ativar: " + result.error);
     }
+    setActivationLoading(false);
   }
 
   return (

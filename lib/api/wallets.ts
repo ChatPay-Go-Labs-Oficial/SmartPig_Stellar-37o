@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import { signXdr } from '@/lib/stellar/kit';
 
 export interface WalletBalance {
   asset: string;
@@ -57,4 +58,66 @@ export async function submitActivation(params: {
 export async function getWallet(walletAccountId: string): Promise<WalletDetails> {
   const { data } = await apiClient.get(`/wallets/${walletAccountId}`);
   return data;
+}
+
+const RECONCILIATION_ATTEMPTS = 4;
+const RECONCILIATION_DELAY_MS = 2_000;
+
+// Quando o client desiste de esperar a resposta de /wallets/activate/submit
+// (timeout ou queda de rede), o backend pode ainda estar no meio do processo
+// de ativação — ele mantém um advisory lock e só grava isActivated=true ao
+// commitar, o que pode levar até ~30s (orçamento + retries de fee-bump no
+// Horizon). Uma única leitura logo após o timeout do client tem boa chance de
+// pegar esse estado intermediário e reportar falha por engano. Faz poll por
+// alguns segundos antes de desistir de verdade.
+export async function reconcileWalletActivation(
+  walletAccountId: string,
+  attempts = RECONCILIATION_ATTEMPTS,
+  delayMs = RECONCILIATION_DELAY_MS,
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const walletDetails = await getWallet(walletAccountId);
+      if (walletDetails.isActivated) return true;
+    } catch {
+      // Leitura de reconciliação falhou nesta tentativa; tenta de novo.
+    }
+    if (attempt < attempts) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  return false;
+}
+
+export interface ActivationAttemptResult {
+  success: boolean;
+  txHash?: string;
+  error?: string;
+}
+
+// Shared by the manual "ativar conta" retry (profile.tsx) and the automatic
+// on-app-open check (useAutoWalletActivation) — same XDR-fetch/sign/submit
+// sequence, same network-error reconciliation fallback.
+export async function attemptActivation(params: {
+  userId: string;
+  walletAccountId: string;
+  stellarAddress: string;
+}): Promise<ActivationAttemptResult> {
+  try {
+    const { unsignedXdr } = await getActivationXdr(params);
+    const signedXdr = await signXdr(unsignedXdr);
+    const { txHash } = await submitActivation({
+      walletAccountId: params.walletAccountId,
+      signedXdr,
+    });
+    return { success: true, txHash };
+  } catch (err: any) {
+    const isNetworkLevelError = !err?.response;
+    if (isNetworkLevelError) {
+      const reconciled = await reconcileWalletActivation(params.walletAccountId);
+      if (reconciled) return { success: true };
+    }
+    const error = err?.response?.data?.message ?? err?.message ?? 'Erro desconhecido';
+    return { success: false, error };
+  }
 }
