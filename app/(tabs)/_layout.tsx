@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Accent, Colors, Font } from '@/constants/theme';
+import { useAutoWalletActivation } from '@/hooks/use-auto-wallet-activation';
 
 type TabConfig = {
   name: string;
@@ -67,6 +68,8 @@ function PigFiTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 }
 
 export default function TabLayout() {
+  useAutoWalletActivation();
+
   return (
     <Tabs
       tabBar={(props) => <PigFiTabBar {...props} />}
