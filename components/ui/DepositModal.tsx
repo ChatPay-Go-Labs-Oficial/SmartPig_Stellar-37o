@@ -36,6 +36,7 @@ import { useAuthStore } from "@/lib/stores/auth.store";
 import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
 import { truncateDecimalString } from "@/lib/utils/format";
+import { useTerms } from "@/hooks/use-terms";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 const QUICK_VALUES = [10, 50, 100];
@@ -89,6 +90,7 @@ export function DepositModal({
   onClose,
   onSuccess,
 }: DepositModalProps) {
+  const { t, isPro } = useTerms();
   const [amount, setAmount] = useState("");
   const [isMaxSelected, setIsMaxSelected] = useState(false);
   const [step, setStep] = useState<Step>("input");
@@ -438,12 +440,16 @@ export function DepositModal({
               <View style={styles.centerBody}>
                 <ActivityIndicator color={Accent.primary} size="large" />
                 <Text style={styles.statusTitle}>
-                  {step === "processing" && "Gerando transação..."}
+                  {step === "processing" &&
+                    (isPro ? "Gerando transação..." : "Preparando...")}
                   {step === "signing" && "Assine com sua biometria..."}
-                  {step === "submitting" && "Confirmando na Stellar..."}
+                  {step === "submitting" && t("network.confirming")}
                 </Text>
                 <Text style={styles.statusSub}>
-                  {step === "processing" && "Preparando depósito no vault"}
+                  {step === "processing" &&
+                    (isPro
+                      ? "Preparando depósito no vault"
+                      : "Preparando seu depósito")}
                   {step === "signing" &&
                     "Use Face ID / Touch ID para autorizar"}
                   {step === "submitting" && "Transação em menos de 1s ⚡"}

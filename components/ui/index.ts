@@ -4,6 +4,8 @@ export { Card } from './Card';
 export { Input } from './Input';
 export { PressableScale } from './PressableScale';
 export { ConfirmModal } from './ConfirmModal';
+export { ModeSwitch } from './ModeSwitch';
+export { MonoText } from './MonoText';
 export { GradientText } from './GradientText';
 export { IconSymbol } from './icon-symbol';
 export { Collapsible } from './collapsible';

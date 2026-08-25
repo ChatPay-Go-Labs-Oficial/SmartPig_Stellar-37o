@@ -125,6 +125,7 @@ interface GiftClaimSheetProps {
 }
 
 function GiftClaimSheet({ code, canInvest, onInvest, onKeep, onDismiss }: GiftClaimSheetProps) {
+  const { t } = useTerms();
   const queryClient = useQueryClient();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const preview = useGiftPreview(code);
@@ -271,7 +272,7 @@ function GiftClaimSheet({ code, canInvest, onInvest, onKeep, onDismiss }: GiftCl
               {isConfirming && (
                 <View style={styles.confirmingRow}>
                   <ActivityIndicator size="small" color={Accent.secondary} />
-                  <Text style={styles.confirmingText}>Confirmando na rede Stellar...</Text>
+                  <Text style={styles.confirmingText}>{t('gift.claim.confirming')}</Text>
                 </View>
               )}
 

@@ -79,6 +79,7 @@ function errorMessage(error: unknown): string {
 }
 
 export function GiftModal({ visible, onClose }: GiftModalProps) {
+  const { t, p } = useTerms();
   const { height: windowHeight } = useWindowDimensions();
   const queryClient = useQueryClient();
   const walletAddress = useAuthStore((s) => s.walletAddress);
@@ -255,9 +256,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
                 <Text style={styles.headerTitle}>Presentear alguém</Text>
                 <View style={styles.networkBadge}>
                   <View style={styles.networkDot} />
-                  <Text style={styles.networkText}>
-                    Cofrinho em dólar · USDC
-                  </Text>
+                  <Text style={styles.networkText}>{t("network.badge")}</Text>
                 </View>
               </View>
               {!isBusy && (
@@ -311,7 +310,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
                       // útil — o teclado já sinaliza que o campo está ativo.
                       caretHidden
                     />
-                    <Text style={styles.amountAsset}>USDC</Text>
+                    <Text style={styles.amountAsset}>{t("asset.symbol")}</Text>
                   </View>
 
                   <View style={styles.warningRow}>
@@ -394,7 +393,9 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
                   Embrulhando o presente...
                 </Text>
                 <Text style={styles.statusSub}>
-                  Reservando ${gift?.amount ?? amount} USDC na rede Stellar
+                  {p("gift.reserving", {
+                    amount: String(gift?.amount ?? amount),
+                  })}
                 </Text>
               </View>
             )}

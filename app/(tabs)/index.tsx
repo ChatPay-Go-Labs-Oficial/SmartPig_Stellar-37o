@@ -25,6 +25,8 @@ import type { Vault } from "@/lib/api/vaults";
 import { useVaults, useAllVaultBalances } from "@/lib/queries/vaults.queries";
 import { useWalletBalance } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
+import { useTerms } from "@/hooks/use-terms";
+import { formatApy } from "@/lib/utils/format";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
 import { LinearGradient } from "expo-linear-gradient";
@@ -82,6 +84,8 @@ function ActiveVaultRow({
   vault: Vault;
   underlying?: number;
 }) {
+  const { t } = useTerms();
+
   return (
     <View style={styles.activeVaultRow}>
       <View style={styles.activeVaultPigWrap}>
@@ -108,7 +112,7 @@ function ActiveVaultRow({
               color={Accent.success}
             />
             <Text style={styles.activeVaultApyText}>
-              {parseFloat(vault.apy).toFixed(2)}% a.a
+              {formatApy(vault.apy)} {t("vault.apy.short")}
             </Text>
           </View>
         )}

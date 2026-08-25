@@ -33,7 +33,10 @@ import {
   validateTransferFields,
   validateUsdcDestination,
 } from "@/lib/stellar/transfers";
+import { getNetworkLabel } from "@/lib/stellar/config";
 import { useSound } from "@/hooks/use-sound";
+import { useTerms } from "@/hooks/use-terms";
+import { MonoText } from "./MonoText";
 
 interface TransferModalProps {
   visible: boolean;
@@ -52,10 +55,13 @@ function friendlyError(raw: string): string {
     return "Saldo insuficiente para realizar a transferencia.";
   if (s.includes("invalid") && s.includes("address"))
     return "Endereco de destino invalido. Verifique e tente novamente.";
+  // Estas mensagens vivem fora do componente, sem acesso ao hook de termos, e
+  // por isso são redigidas para servir aos dois modos — sem jargão, mas ainda
+  // precisas o bastante para o usuário Pro saber o que aconteceu.
   if (s.includes("no account") || s.includes("not found"))
-    return "Conta de destino nao encontrada na rede Stellar.";
+    return "Conta de destino nao encontrada. Confira o codigo.";
   if (s.includes("memo") || s.includes("text too long"))
-    return "O campo memo deve ter no maximo 28 caracteres.";
+    return "A mensagem deve ter no maximo 28 caracteres.";
   if (s.includes("network") || s.includes("timeout"))
     return "Erro de conexao. Verifique sua internet e tente novamente.";
   return "Nao foi possivel processar a transferencia. Tente novamente.";
@@ -68,6 +74,7 @@ function errorMessage(error: unknown): string {
 }
 
 export function TransferModal({ visible, onClose }: TransferModalProps) {
+  const { t, p, isPro } = useTerms();
   const queryClient = useQueryClient();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const { data: balances } = useWalletBalance(walletAddress);
@@ -198,10 +205,10 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
               <MaterialIcons name="send" size={18} color="#fff" />
             </LinearGradient>
             <View style={styles.headerTextBlock}>
-              <Text style={styles.headerTitle}>Transferir USDC</Text>
+              <Text style={styles.headerTitle}>{t("transfer.title")}</Text>
               <View style={styles.networkBadge}>
                 <View style={styles.networkDot} />
-                <Text style={styles.networkText}>Stellar · USDC</Text>
+                <Text style={styles.networkText}>{t("network.badge")}</Text>
               </View>
             </View>
             {!isBusy && (
@@ -261,11 +268,13 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
 
                 {/* Destination address */}
                 <View style={styles.fieldBlock}>
-                  <Text style={styles.fieldLabel}>Endereco de destino</Text>
+                  <Text style={styles.fieldLabel}>
+                    {t("transfer.dest.label")}
+                  </Text>
                   <View style={styles.addressInputRow}>
                     <TextInput
                       style={styles.addressInput}
-                      placeholder="G... (endereco Stellar)"
+                      placeholder={t("transfer.dest.placeholder")}
                       placeholderTextColor={Colors.mutedForeground}
                       value={toAddress}
                       onChangeText={setToAddress}
@@ -291,11 +300,12 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
                 {/* Memo */}
                 <View style={styles.fieldBlock}>
                   <Text style={styles.fieldLabel}>
-                    Memo <Text style={styles.fieldOptional}>(opcional)</Text>
+                    {t("transfer.memo.label")}{" "}
+                    <Text style={styles.fieldOptional}>(opcional)</Text>
                   </Text>
                   <TextInput
                     style={styles.memoInput}
-                    placeholder="Ex: pagamento, referencia..."
+                    placeholder={t("transfer.memo.placeholder")}
                     placeholderTextColor={Colors.mutedForeground}
                     value={memo}
                     onChangeText={setMemo}
@@ -303,7 +313,11 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
                     autoCorrect={false}
                     cursorColor={Accent.secondary}
                   />
-                  <Text style={styles.memoCount}>{memo.length}/28</Text>
+                  {/* O limite de 28 é da Stellar. No Lite o contador só faria
+                      o usuário se perguntar de onde saiu esse número. */}
+                  {isPro && (
+                    <Text style={styles.memoCount}>{memo.length}/28</Text>
+                  )}
                 </View>
 
                 {/* Warning */}
@@ -314,11 +328,7 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
                     color={Colors.mutedForeground}
                   />
                   <Text style={styles.warningText}>
-                    Envie somente para enderecos{" "}
-                    <Text style={styles.warningBold}>
-                      Stellar com trustline USDC
-                    </Text>
-                    . Transferencias sao irreversiveis.
+                    {t("transfer.warning")}
                   </Text>
                 </View>
 
@@ -374,7 +384,9 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
               <ActivityIndicator color={Accent.secondary} size="large" />
               <Text style={styles.statusTitle}>Validando destino...</Text>
               <Text style={styles.statusSub}>
-                Verificando conta e trustline USDC na Stellar
+                {isPro
+                  ? "Verificando conta e trustline USDC na Stellar"
+                  : "Verificando a conta de destino"}
               </Text>
             </View>
           )}
@@ -385,11 +397,21 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
               <View style={styles.reviewCard}>
                 <ReviewRow
                   label="Valor"
-                  value={`$${Number(amount).toFixed(2)} USDC`}
+                  value={p("balance.pill", {
+                    amount: Number(amount).toFixed(2),
+                  })}
                 />
                 <ReviewRow label="Destino" value={shortDestination} mono />
-                <ReviewRow label="Memo" value={memo || "Sem memo"} />
-                <ReviewRow label="Rede" value="Stellar Testnet" />
+                <ReviewRow
+                  label={t("transfer.memo.label")}
+                  value={memo || t("transfer.memo.empty")}
+                />
+                {/* A rede vem da passphrase configurada. Era string fixa
+                    "Stellar Testnet", que num build de produção dizia ao
+                    usuário que o dinheiro real estava em rede de teste. */}
+                {isPro && (
+                  <ReviewRow label="Rede" value={getNetworkLabel()} />
+                )}
               </View>
               <View style={styles.warningRow}>
                 <MaterialIcons
@@ -461,15 +483,17 @@ export function TransferModal({ visible, onClose }: TransferModalProps) {
               >
                 <MaterialIcons name="check" size={36} color="#fff" />
               </LinearGradient>
-              <Text style={styles.successTitle}>Transferencia enviada!</Text>
-              <Text style={styles.statusSub}>
-                ${amount} USDC enviados com sucesso{"\n"}para a carteira de
-                destino.
+              <Text style={styles.successTitle}>
+                {t("transfer.success.title")}
               </Text>
-              {txHash ? (
-                <Text style={styles.txHash} numberOfLines={1}>
-                  Tx: {txHash.slice(0, 12)}...{txHash.slice(-8)}
-                </Text>
+              <Text style={styles.statusSub}>
+                {p("balance.pill", { amount })} enviados com sucesso{"\n"}
+                {isPro ? "para a carteira de destino." : "para a conta de destino."}
+              </Text>
+              {isPro && txHash ? (
+                <MonoText style={styles.txHash} numberOfLines={1}>
+                  {p("tx.hash.short", { hash: txHash })}
+                </MonoText>
               ) : null}
               <Pressable onPress={handleClose} style={{ alignSelf: "stretch" }}>
                 <LinearGradient

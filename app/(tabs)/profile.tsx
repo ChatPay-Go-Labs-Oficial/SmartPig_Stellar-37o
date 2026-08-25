@@ -6,9 +6,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
-  TextInput,
-  Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -24,13 +21,21 @@ import {
 } from "@/constants/theme";
 import {
   Card,
-  Input,
   PressableScale,
   ConfirmModal,
+  ModeSwitch,
+  MonoText,
   TransferModal,
   MyGiftsModal,
   getPigLevel,
 } from "@/components/ui";
+import {
+  useAppMode,
+  useAppModeReady,
+  useAppModeActions,
+  type AppMode,
+} from "@/hooks/use-app-mode";
+import { useTerms } from "@/hooks/use-terms";
 import { useSmartAccount } from "@/hooks/use-smart-account";
 import { useSound } from "@/hooks/use-sound";
 import { usePixStore } from "@/lib/stores/pix.store";
@@ -39,15 +44,10 @@ import { useBlindPayStore } from "@/lib/stores/blindpay.store";
 import { useKycStatus } from "@/lib/queries/blindpay.queries";
 import type { KycStatusResponse } from "@/lib/api/blindpay";
 import { KycStatusBadge } from "@/components/ui/KycStatusBadge";
-import { useQueryClient } from "@tanstack/react-query";
-import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
+import { useWalletBalance } from "@/lib/queries/wallets.queries";
 import { useAllVaultBalances } from "@/lib/queries/vaults.queries";
 import { usePrivy } from "@privy-io/expo";
-import { swapXlmForUsdc, SwapError, SwapResult } from "@/lib/stellar/swap";
-
 import { attemptActivation, findUsdcBalance } from "@/lib/api/wallets";
-import { useSubmitTrustlineXdr } from "@/lib/queries/etherfuse-ramp.queries";
-import { signTrustlineXdr } from "@/lib/stellar/kit";
 import * as Clipboard from "expo-clipboard";
 
 const PIG_IMAGES: Record<string, any> = {
@@ -86,10 +86,9 @@ export default function ProfileScreen() {
   const isActivated = useAuthStore((s) => s.isActivated);
   const setIsActivated = useAuthStore((s) => s.setIsActivated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const { pixKey, setPixKey } = usePixStore();
   const { disconnect } = useSmartAccount();
   const { logout } = usePrivy();
-  const { playClick, playInvestirConfirmacao, playQuestaoErrada } = useSound();
+  const { playClick, playInvestirConfirmacao } = useSound();
 
   const { data: kyc, isLoading: kycLoading } = useKycStatus(contractId);
 
@@ -109,33 +108,20 @@ export default function ProfileScreen() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showGiftsModal, setShowGiftsModal] = useState(false);
-  const [pixInput, setPixInput] = useState(pixKey);
-  const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [trustlineLoading, setTrustlineLoading] = useState(false);
-  const [trustlineMsg, setTrustlineMsg] = useState("");
   const [activationLoading, setActivationLoading] = useState(false);
   const [activationMsg, setActivationMsg] = useState("");
+  const [showProExplainer, setShowProExplainer] = useState(false);
 
-  const [showSwapModal, setShowSwapModal] = useState(false);
-  const [swapAmount, setSwapAmount] = useState("");
-  const [swapStep, setSwapStep] = useState<
-    "input" | "review" | "signing" | "success" | "error"
-  >("input");
-  const [swapLoading, setSwapLoading] = useState(false);
-  const [swapError, setSwapError] = useState("");
-  const [swapResult, setSwapResult] = useState<SwapResult | null>(null);
-  const queryClient = useQueryClient();
-
-  const submitTrustline = useSubmitTrustlineXdr();
+  const mode = useAppMode();
+  const { t, p, isPro } = useTerms();
+  const modeReady = useAppModeReady();
+  const { setMode, markProExplainerSeen, hasSeenProExplainer } =
+    useAppModeActions();
 
   const shortAddress = walletAddress
     ? `${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}`
     : null;
-  const initials = walletAddress
-    ? walletAddress.slice(0, 2).toUpperCase()
-    : "??";
-
   const handleCopy = useCallback(async () => {
     if (!walletAddress) return;
     playClick();
@@ -144,11 +130,26 @@ export default function ProfileScreen() {
     setTimeout(() => setCopied(false), 2000);
   }, [walletAddress, playClick]);
 
-  function handleSavePix() {
-    if (!pixInput.trim()) return;
-    setPixKey(pixInput.trim());
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  /**
+   * O explicador é um portão *antes* da troca, não um aviso depois: quem toca
+   * em "Pro" sem saber o que muda pode recuar sem nunca ter visto endereço
+   * Stellar na tela. Voltar para o Lite nunca reabre o modal.
+   */
+  function handleSelectMode(next: AppMode) {
+    playClick();
+    if (next === mode) return;
+    if (next === "pro" && !hasSeenProExplainer) {
+      setShowProExplainer(true);
+      return;
+    }
+    setMode(next);
+  }
+
+  function handleConfirmProMode() {
+    setShowProExplainer(false);
+    markProExplainerSeen();
+    setMode("pro");
+    playInvestirConfirmacao();
   }
 
   async function handleConfirmLogout() {
@@ -164,33 +165,10 @@ export default function ProfileScreen() {
     router.replace("/(auth)");
   }
 
-  async function handleSetupTrustline() {
-    if (!walletAddress) return;
-    setTrustlineLoading(true);
-    setTrustlineMsg("Configurando trustline...");
-    try {
-      const signedXdr = await signTrustlineXdr(walletAddress);
-      const { hash } = await submitTrustline.mutateAsync({
-        signedXdr,
-        stellarAddress: walletAddress,
-      });
-      setTrustlineMsg(`Trustline ativada! Tx: ${hash.slice(0, 12)}...`);
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "";
-      if (msg.includes("already exists") || msg.includes("op_already_exists")) {
-        setTrustlineMsg("Trustline ja esta ativa");
-      } else {
-        setTrustlineMsg("Erro ao configurar trustline");
-      }
-    } finally {
-      setTrustlineLoading(false);
-    }
-  }
-
   async function handleRetryActivation() {
     if (!walletAddress || !walletAccountId || !contractId) return;
     setActivationLoading(true);
-    setActivationMsg("Ativando conta Stellar...");
+    setActivationMsg(t("wallet.activate.busy"));
 
     const result = await attemptActivation({
       userId: contractId,
@@ -200,9 +178,9 @@ export default function ProfileScreen() {
 
     if (result.success) {
       setIsActivated(true);
-      setActivationMsg("Conta ativada com sucesso!");
+      setActivationMsg(t("wallet.activate.ok"));
     } else {
-      setActivationMsg("Nao foi possivel ativar: " + result.error);
+      setActivationMsg(t("wallet.activate.fail") + result.error);
     }
     setActivationLoading(false);
   }
@@ -230,7 +208,14 @@ export default function ProfileScreen() {
               resizeMode="contain"
             />
           </View>
-          <Text style={styles.userName}>Investidor</Text>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName}>Investidor</Text>
+            {isPro && (
+              <View style={styles.proPill}>
+                <Text style={styles.proPillText}>PRO</Text>
+              </View>
+            )}
+          </View>
           {usdcBalance !== null && (
             <View style={styles.balancePill}>
               <MaterialIcons
@@ -238,10 +223,34 @@ export default function ProfileScreen() {
                 size={12}
                 color={Accent.primary}
               />
-              <Text style={styles.balancePillText}>${usdcBalance} USDC</Text>
+              <Text style={styles.balancePillText}>
+                {p("balance.pill", { amount: usdcBalance })}
+              </Text>
             </View>
           )}
         </LinearGradient>
+
+        {/* ── Modo do app ── */}
+        <Card style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardIconWrap}>
+              <MaterialIcons name="tune" size={16} color={Accent.primary} />
+            </View>
+            <Text style={styles.cardLabel}>Modo do app</Text>
+          </View>
+          <Text style={styles.hint}>
+            {isPro
+              ? "Você está no modo Pro: endereços, transações e termos técnicos ficam à vista."
+              : "Modo simples, do jeito que a maioria usa. Ative o Pro quando quiser ver os detalhes técnicos."}
+          </Text>
+          <View style={styles.modeSwitchWrap}>
+            <ModeSwitch
+              mode={mode}
+              onSelect={handleSelectMode}
+              disabled={!modeReady}
+            />
+          </View>
+        </Card>
 
         {/* ── Carteira ── */}
         <Card style={styles.card}>
@@ -253,20 +262,25 @@ export default function ProfileScreen() {
                 color={Accent.primary}
               />
             </View>
-            <Text style={styles.cardLabel}>Carteira Digital</Text>
+            <Text style={styles.cardLabel}>{t("wallet.title")}</Text>
           </View>
 
           {/* Address block */}
           <Pressable onPress={handleCopy} style={styles.addressBlock}>
             <View style={styles.addressContent}>
-              <Text style={styles.addressLabel}>Endereço Stellar</Text>
-              <Text style={styles.addressText} numberOfLines={1}>
-                {shortAddress ?? "Nenhuma carteira"}
+              <Text style={styles.addressLabel}>
+                {t("wallet.address.label")}
               </Text>
-              {walletAddress && (
-                <Text style={styles.addressFull} numberOfLines={2} selectable>
+              <MonoText style={styles.addressText} numberOfLines={1}>
+                {shortAddress ?? t("wallet.address.empty")}
+              </MonoText>
+              {/* O endereço por extenso só serve a quem vai conferi-lo
+                  caractere a caractere. No Lite a forma curta e o botão de
+                  copiar dão conta. */}
+              {isPro && walletAddress && (
+                <MonoText style={styles.addressFull} numberOfLines={2} selectable>
                   {walletAddress}
-                </Text>
+                </MonoText>
               )}
             </View>
             <View style={[styles.copyBtn, copied && styles.copyBtnDone]}>
@@ -299,7 +313,9 @@ export default function ProfileScreen() {
                     : styles.statusChipTextPending,
                 ]}
               >
-                {isActivated ? "Conta ativada" : "Conta nao ativada"}
+                {isActivated
+                  ? t("wallet.status.ok")
+                  : t("wallet.status.pending")}
               </Text>
             </View>
             {!isActivated && (
@@ -308,7 +324,7 @@ export default function ProfileScreen() {
                 hitSlop={8}
               >
                 <Text style={styles.activateLink}>
-                  {activationLoading ? "Ativando..." : "Ativar agora"}
+                  {activationLoading ? "Ativando..." : t("wallet.activate.cta")}
                 </Text>
               </Pressable>
             )}
@@ -317,24 +333,31 @@ export default function ProfileScreen() {
             <Text style={styles.statusMsg}>{activationMsg}</Text>
           ) : null}
 
-          {/* Divider + Transfer button */}
           <View style={styles.divider} />
-          <Pressable
-            onPress={() => {
-              playClick();
-              setShowTransferModal(true);
-            }}
-          >
-            <LinearGradient
-              colors={["hsl(220, 90%, 58%)", "hsl(270, 80%, 60%)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.transferBtn}
+
+          {/* No modo Pro a transferência entre carteiras é um CTA de primeira
+              classe. No Lite ela sai de destaque — o caminho de saque esperado
+              é o Pix — mas continua alcançável por um link discreto logo
+              abaixo, porque escondê-la de todo deixaria sem saída o usuário com
+              saldo e KYC recusado. */}
+          {isPro && (
+            <Pressable
+              onPress={() => {
+                playClick();
+                setShowTransferModal(true);
+              }}
             >
-              <MaterialIcons name="send" size={16} color="#fff" />
-              <Text style={styles.transferBtnText}>Transferir USDC</Text>
-            </LinearGradient>
-          </Pressable>
+              <LinearGradient
+                colors={["hsl(220, 90%, 58%)", "hsl(270, 80%, 60%)"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.transferBtn}
+              >
+                <MaterialIcons name="send" size={16} color="#fff" />
+                <Text style={styles.transferBtnText}>Transferir USDC</Text>
+              </LinearGradient>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => {
               playClick();
@@ -352,6 +375,19 @@ export default function ProfileScreen() {
               <Text style={styles.transferBtnText}>Meus presentes</Text>
             </LinearGradient>
           </Pressable>
+
+          {!isPro && (
+            <Pressable
+              onPress={() => {
+                playClick();
+                setShowTransferModal(true);
+              }}
+              style={styles.subtleLink}
+              hitSlop={8}
+            >
+              <Text style={styles.subtleLinkText}>{t("transfer.cta")}</Text>
+            </Pressable>
+          )}
         </Card>
 
         {/* ── Verificação de identidade (KYC) ── */}
@@ -383,93 +419,13 @@ export default function ProfileScreen() {
                   colors={Gradients.primary as [string, string]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.saveBtn}
+                  style={styles.ctaBtn}
                 >
                   <MaterialIcons name="refresh" size={16} color="#fff" />
-                  <Text style={styles.saveBtnText}>Refazer verificação</Text>
+                  <Text style={styles.ctaBtnText}>Refazer verificação</Text>
                 </LinearGradient>
               </PressableScale>
             )}
-          </Card>
-        )}
-
-        {/* ── Chave PIX ── */}
-        {false && (
-          <Card style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconWrap}>
-                <MaterialIcons name="key" size={16} color={Accent.primary} />
-              </View>
-              <Text style={styles.cardLabel}>Chave PIX para Saques</Text>
-            </View>
-            <Text style={styles.hint}>
-              Cadastre sua chave PIX aqui. Saques serao enviados exclusivamente
-              para esta chave.
-            </Text>
-            <Input
-              placeholder="CPF, e-mail, telefone ou chave aleatoria"
-              value={pixInput}
-              onChangeText={setPixInput}
-              style={styles.pixInput}
-            />
-            <Pressable
-              onPress={handleSavePix}
-              disabled={!pixInput.trim() || saved}
-            >
-              <LinearGradient
-                colors={
-                  saved
-                    ? [Accent.success, "hsl(145, 70%, 38%)"]
-                    : (Gradients.primary as [string, string])
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[
-                  styles.saveBtn,
-                  (!pixInput.trim() || saved) && styles.saveBtnDisabled,
-                ]}
-              >
-                <MaterialIcons
-                  name={saved ? "check" : "save"}
-                  size={16}
-                  color="#fff"
-                />
-                <Text style={styles.saveBtnText}>
-                  {saved ? "Salvo!" : "Salvar Chave PIX"}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-          </Card>
-        )}
-
-        {/* ── Trustline ── */}
-        {false && isActivated && walletAddress && (
-          <Card style={styles.card}>
-            <View style={styles.cardHeader}>
-              <View style={styles.cardIconWrap}>
-                <MaterialIcons name="link" size={16} color={Accent.primary} />
-              </View>
-              <Text style={styles.cardLabel}>Trustline USDC</Text>
-            </View>
-            <Text style={styles.hint}>
-              Necessaria para receber USDC na rede Stellar.
-            </Text>
-            <Pressable
-              onPress={trustlineLoading ? undefined : handleSetupTrustline}
-              style={styles.trustlineActionRow}
-            >
-              <MaterialIcons
-                name="settings"
-                size={14}
-                color={Accent.secondary}
-              />
-              <Text style={styles.trustlineAction}>
-                {trustlineLoading ? "Configurando..." : "Configurar Trustline"}
-              </Text>
-            </Pressable>
-            {trustlineMsg ? (
-              <Text style={styles.statusMsg}>{trustlineMsg}</Text>
-            ) : null}
           </Card>
         )}
 
@@ -487,6 +443,25 @@ export default function ProfileScreen() {
           </View>
         </Pressable>
       </ScrollView>
+
+      <ConfirmModal
+        visible={showProExplainer}
+        title="Ativar o modo Pro?"
+        description={
+          "O modo Pro mostra a engrenagem por trás do PigFi. Você passa a ver:\n\n" +
+          "•  O endereço completo da sua conta na rede\n" +
+          "•  O comprovante de cada transação\n" +
+          "•  Envio direto para outra conta, sem passar pelo Pix\n" +
+          "•  Números com precisão completa, e termos como APY e cotas\n\n" +
+          "Nada muda no seu dinheiro nem na sua conta — só no que aparece na tela. " +
+          "Você pode voltar para o modo simples quando quiser, aqui no Perfil."
+        }
+        confirmLabel="Ativar modo Pro"
+        cancelLabel="Agora não"
+        variant="primary"
+        onConfirm={handleConfirmProMode}
+        onCancel={() => setShowProExplainer(false)}
+      />
 
       <ConfirmModal
         visible={showLogoutModal}
@@ -508,214 +483,6 @@ export default function ProfileScreen() {
         visible={showGiftsModal}
         onClose={() => setShowGiftsModal(false)}
       />
-
-      {/* Swap XLM → USDC Modal */}
-      <Modal
-        visible={showSwapModal}
-        transparent
-        animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => {
-          setShowSwapModal(false);
-          setSwapLoading(false);
-        }}
-      >
-        <Pressable
-          style={styles.backdrop}
-          onPress={() => {
-            setShowSwapModal(false);
-            setSwapLoading(false);
-          }}
-        >
-          <Pressable style={styles.sheet} onPress={() => {}}>
-            <View style={styles.handle} />
-
-            <View style={styles.headerRow}>
-              <LinearGradient
-                colors={["hsl(150, 80%, 45%)", "hsl(190, 80%, 50%)"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.headerIcon}
-              >
-                <MaterialIcons name="swap-horiz" size={18} color="#fff" />
-              </LinearGradient>
-              <View style={styles.headerTextBlock}>
-                <Text style={styles.headerTitle}>Swap XLM → USDC</Text>
-                <View style={styles.networkBadge}>
-                  <View style={styles.networkDot} />
-                  <Text style={styles.networkText}>Stellar Testnet</Text>
-                </View>
-              </View>
-              <Pressable
-                onPress={() => {
-                  setShowSwapModal(false);
-                  setSwapLoading(false);
-                }}
-                hitSlop={12}
-                style={styles.closeBtn}
-              >
-                <MaterialIcons
-                  name="close"
-                  size={16}
-                  color={Colors.mutedForeground}
-                />
-              </Pressable>
-            </View>
-
-            {swapStep === "input" && (
-              <View style={styles.body2}>
-                <Text style={styles.fieldLabel}>
-                  Quanto USDC você quer receber?
-                </Text>
-                <View style={styles.amountRow}>
-                  <Text style={styles.amountDollar}>$</Text>
-                  <TextInput
-                    style={styles.amountInput}
-                    placeholder="0.00"
-                    placeholderTextColor="rgba(255,255,255,0.2)"
-                    value={swapAmount}
-                    onChangeText={setSwapAmount}
-                    keyboardType="decimal-pad"
-                    autoFocus
-                    cursorColor={Accent.secondary}
-                  />
-                  <Text style={styles.amountAsset}>USDC</Text>
-                </View>
-
-                <View style={styles.warningRow}>
-                  <MaterialIcons
-                    name="info-outline"
-                    size={14}
-                    color={Colors.mutedForeground}
-                  />
-                  <Text style={styles.warningText}>
-                    Você trocará XLM pelo valor equivalente em USDC com base na
-                    liquidez disponível na testnet.
-                  </Text>
-                </View>
-
-                {swapError ? (
-                  <View style={styles.errorCard}>
-                    <MaterialIcons
-                      name="error-outline"
-                      size={18}
-                      color={Accent.destructive}
-                    />
-                    <Text style={[styles.errorMsg, { flex: 1 }]}>
-                      {swapError}
-                    </Text>
-                  </View>
-                ) : null}
-
-                <Pressable
-                  onPress={() => {
-                    playClick();
-                    const amt = swapAmount.trim().replace(",", ".");
-                    if (!amt || Number(amt) <= 0) {
-                      setSwapError("Informe um valor válido.");
-                      return;
-                    }
-                    setSwapError("");
-                    setSwapLoading(true);
-                    setSwapStep("signing");
-                    (async () => {
-                      try {
-                        const result = await swapXlmForUsdc(
-                          walletAddress!,
-                          amt,
-                        );
-                        setSwapResult(result);
-                        await queryClient.invalidateQueries({
-                          queryKey: walletKeys.balance(walletAddress!),
-                        });
-                        setSwapStep("success");
-                        playInvestirConfirmacao();
-                      } catch (err: any) {
-                        setSwapError(
-                          err instanceof SwapError
-                            ? err.message
-                            : (err?.message ?? "Erro ao realizar swap."),
-                        );
-                        setSwapStep("input");
-                        playQuestaoErrada();
-                      } finally {
-                        setSwapLoading(false);
-                      }
-                    })();
-                  }}
-                  disabled={!swapAmount.trim() || swapLoading}
-                >
-                  <LinearGradient
-                    colors={["hsl(150, 80%, 45%)", "hsl(190, 80%, 50%)"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[
-                      styles.confirmBtn,
-                      (!swapAmount.trim() || swapLoading) && styles.btnDisabled,
-                    ]}
-                  >
-                    <MaterialIcons name="swap-horiz" size={16} color="#fff" />
-                    <Text style={styles.confirmBtnText}>Iniciar Swap</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            )}
-
-            {swapStep === "signing" && (
-              <View style={styles.centerBody}>
-                <ActivityIndicator color={Accent.secondary} size="large" />
-                <Text style={styles.statusTitle}>
-                  Assine com sua biometria...
-                </Text>
-                <Text style={styles.statusSub}>
-                  Use Face ID / Touch ID para autorizar a troca
-                </Text>
-              </View>
-            )}
-
-            {swapStep === "success" && swapResult && (
-              <View style={styles.centerBody}>
-                <LinearGradient
-                  colors={[Accent.success, "hsl(145, 70%, 38%)"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.successIcon}
-                >
-                  <MaterialIcons name="check" size={36} color="#fff" />
-                </LinearGradient>
-                <Text style={styles.successTitle}>Swap realizado!</Text>
-                <Text style={styles.statusSub}>
-                  {swapResult.usdcReceived} USDC recebidos{"\n"}
-                  Gastou ~{Number(swapResult.xlmSpent).toFixed(2)} XLM (taxa:{" "}
-                  {swapResult.rate} XLM/USDC)
-                </Text>
-                {swapResult.hash ? (
-                  <Text style={styles.txHash} numberOfLines={1}>
-                    Tx: {swapResult.hash.slice(0, 12)}...
-                    {swapResult.hash.slice(-8)}
-                  </Text>
-                ) : null}
-                <Pressable
-                  onPress={() => {
-                    setShowSwapModal(false);
-                    setSwapLoading(false);
-                  }}
-                  style={{ alignSelf: "stretch" }}
-                >
-                  <LinearGradient
-                    colors={[Accent.success, "hsl(145, 70%, 38%)"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.confirmBtn}
-                  >
-                    <Text style={styles.confirmBtnText}>Fechar</Text>
-                  </LinearGradient>
-                </Pressable>
-              </View>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </>
   );
 }
@@ -757,10 +524,31 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
   },
+  userNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   userName: {
     fontSize: FontSize.subheading,
     fontFamily: Font.black,
     color: Colors.foreground,
+  },
+  // Deixa o modo legível em qualquer screenshot — o suporte precisa saber em
+  // que modo o usuário está sem ter que perguntar.
+  proPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+    backgroundColor: "rgba(244,52,180,0.18)",
+    borderWidth: 1,
+    borderColor: Accent.primary,
+  },
+  proPillText: {
+    fontSize: 10,
+    fontFamily: Font.black,
+    color: Accent.primary,
+    letterSpacing: 0.5,
   },
   balancePill: {
     flexDirection: "row",
@@ -920,17 +708,32 @@ const styles = StyleSheet.create({
     fontFamily: Font.black,
   },
 
-  // PIX
+  // Texto de apoio compartilhado pelos cards
   hint: {
     fontSize: FontSize.label,
     fontFamily: Font.semiBold,
     color: Colors.mutedForeground,
     lineHeight: 18,
   },
-  pixInput: {
-    height: 48,
+
+  modeSwitchWrap: {
+    marginTop: Spacing[3],
   },
-  saveBtn: {
+
+  // Ação de baixa proeminência dentro de um card (saída alternativa no Lite)
+  subtleLink: {
+    marginTop: Spacing[3],
+    alignItems: "center",
+  },
+  subtleLinkText: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    textDecorationLine: "underline",
+  },
+
+  // CTA gradiente reusado dentro de cards
+  ctaBtn: {
     height: 50,
     borderRadius: Radius.md,
     flexDirection: "row",
@@ -938,25 +741,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: {
+  ctaBtnText: {
     color: "#fff",
     fontSize: FontSize.bodySmall,
     fontFamily: Font.black,
   },
-
-  // Trustline
-  trustlineActionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  trustlineAction: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Accent.secondary,
-  },
-
   // Logout
   logoutBtn: {
     marginHorizontal: Spacing[4],
@@ -979,213 +768,4 @@ const styles = StyleSheet.create({
     color: Accent.destructive,
   },
 
-  // Swap Modal styles
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: Spacing[6],
-    paddingTop: Spacing[3],
-    paddingBottom: Spacing[8],
-    borderTopWidth: 1,
-    borderColor: Colors.border,
-    maxHeight: "92%",
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: Radius.full,
-    backgroundColor: Colors.muted,
-    alignSelf: "center",
-    marginBottom: Spacing[4],
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    flexShrink: 0,
-  },
-  headerTextBlock: { flex: 1, gap: 4 },
-  headerTitle: {
-    fontSize: FontSize.body,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-  },
-  networkBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    alignSelf: "flex-start",
-    backgroundColor: Colors.muted,
-    borderRadius: Radius.full,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  networkDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "hsl(150, 80%, 45%)",
-  },
-  networkText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-  },
-  closeBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: Colors.muted,
-    justifyContent: "center",
-    alignItems: "center",
-    flexShrink: 0,
-  },
-  body2: { gap: Spacing[4] },
-  centerBody: {
-    alignItems: "center",
-    gap: 16,
-    paddingVertical: Spacing[8],
-  },
-  statusTitle: {
-    fontSize: FontSize.subheading,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-    textAlign: "center",
-  },
-  statusSub: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-  confirmBtn: {
-    height: 54,
-    borderRadius: Radius.lg,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-  },
-  btnDisabled: { opacity: 0.35 },
-  confirmBtnText: {
-    color: "#fff",
-    fontSize: FontSize.body,
-    fontFamily: Font.black,
-  },
-  successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  successTitle: {
-    fontSize: FontSize.heading,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-  },
-  txHash: {
-    fontSize: FontSize.label,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-  },
-  balanceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  balanceLabel: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-  },
-  balanceValue: {
-    fontFamily: Font.black,
-    color: Colors.foreground,
-  },
-  amountRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    paddingVertical: Spacing[2],
-  },
-  amountDollar: {
-    fontSize: 36,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-    lineHeight: 46,
-  },
-  amountInput: {
-    minWidth: 60,
-    maxWidth: 200,
-    fontFamily: Font.black,
-    fontSize: 46,
-    color: Colors.foreground,
-    padding: 0,
-    lineHeight: 54,
-  },
-  amountAsset: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-    alignSelf: "flex-end",
-    paddingBottom: 8,
-    marginLeft: 2,
-  },
-  fieldLabel: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Colors.foreground,
-  },
-  warningRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 7,
-    backgroundColor: Colors.muted,
-    borderRadius: Radius.sm,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-    lineHeight: 18,
-  },
-  errorCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    backgroundColor: "rgba(220,38,38,0.08)",
-    borderRadius: Radius.md,
-    padding: Spacing[3],
-    borderWidth: 1,
-    borderColor: "rgba(220,38,38,0.2)",
-  },
-  errorMsg: {
-    fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-    lineHeight: 18,
-  },
 });
