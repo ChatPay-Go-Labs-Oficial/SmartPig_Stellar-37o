@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { View, Text, StyleSheet, Dimensions, PanResponder, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Font, FontSize, Radius } from '@/constants/theme';
+import { Colors, Font, FontSize, Radius, scaleFont } from '@/constants/theme';
 import { flashcards } from '@/constants/flashcards';
 import { useSound } from '@/hooks/use-sound';
 
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emoji: {
-    fontSize: 48,
+    fontSize: scaleFont(48),
   },
   title: {
     fontSize: FontSize.subheading,

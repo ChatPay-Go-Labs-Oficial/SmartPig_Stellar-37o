@@ -19,7 +19,8 @@ import {
   FontSize,
   Gradients,
   Radius,
-} from "@/constants/theme";
+  scaleFont,
+} from '@/constants/theme';
 import type { Vault } from "@/lib/api/vaults";
 import { useVaults, useAllVaultBalances } from "@/lib/queries/vaults.queries";
 import { useWalletBalance } from "@/lib/queries/wallets.queries";
@@ -889,7 +890,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   balanceValueText: {
-    fontSize: 52,
+    fontSize: scaleFont(52),
     fontFamily: Font.extraBold,
     color: Colors.foreground,
     lineHeight: 58,

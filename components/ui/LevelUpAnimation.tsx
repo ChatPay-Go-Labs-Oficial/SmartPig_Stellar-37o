@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing } from "@/constants/theme";
+import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing, scaleFont } from "@/constants/theme";
 import { useSound } from "@/hooks/use-sound";
 
 interface LevelUpAnimationProps {
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   titleText: {
-    fontSize: 36,
+    fontSize: scaleFont(36),
     fontFamily: Font.black,
     color: Colors.foreground,
     letterSpacing: -0.5,

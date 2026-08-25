@@ -10,7 +10,7 @@ import { PressableScale } from '@/components/ui/PressableScale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing, scaleFont } from '@/constants/theme';
 import { StarryBackground } from '@/components/ui';
 import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   docPlaceholderIcon: {
-    fontSize: 32,
+    fontSize: scaleFont(32),
   },
   docPlaceholderText: {
     fontSize: FontSize.bodySmall,

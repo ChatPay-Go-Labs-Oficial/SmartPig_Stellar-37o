@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
+import { Colors, Accent, Font, FontSize, Gradients, Radius, Spacing, scaleFont } from '@/constants/theme';
 import { OnboardingBackButton } from '@/components/ui/OnboardingBackButton';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useGetKycStatus } from '@/lib/queries/etherfuse.queries';
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   icon: {
-    fontSize: 36,
+    fontSize: scaleFont(36),
   },
   title: {
     fontSize: FontSize.heading,

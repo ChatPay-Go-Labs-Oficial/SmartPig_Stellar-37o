@@ -23,7 +23,8 @@ import {
   Gradients,
   Radius,
   Spacing,
-} from "@/constants/theme";
+  scaleFont,
+} from '@/constants/theme';
 import {
   useCreateDeposit,
   useSubmitDeposit,
@@ -579,7 +580,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing[2],
   },
   amountDollar: {
-    fontSize: 38,
+    fontSize: scaleFont(38),
     fontFamily: Font.black,
     color: Colors.foreground,
     lineHeight: 48,
@@ -588,7 +589,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
     maxWidth: 240,
     fontFamily: Font.black,
-    fontSize: 48,
+    fontSize: scaleFont(48),
     color: Colors.foreground,
     padding: 0,
     lineHeight: 56,

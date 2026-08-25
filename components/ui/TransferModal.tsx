@@ -21,7 +21,8 @@ import {
   FontSize,
   Radius,
   Spacing,
-} from "@/constants/theme";
+  scaleFont,
+} from '@/constants/theme';
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
@@ -668,7 +669,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing[2],
   },
   amountDollar: {
-    fontSize: 36,
+    fontSize: scaleFont(36),
     fontFamily: Font.black,
     color: Colors.foreground,
     lineHeight: 46,
@@ -677,7 +678,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
     maxWidth: 200,
     fontFamily: Font.black,
-    fontSize: 46,
+    fontSize: scaleFont(46),
     color: Colors.foreground,
     padding: 0,
     lineHeight: 54,
