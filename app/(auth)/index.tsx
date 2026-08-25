@@ -22,7 +22,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StarryBackground } from '@/components/ui';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { walletLogin } from '@/lib/api/auth';
-import { getActivationXdr, getWallet, submitActivation } from '@/lib/api/wallets';
+import { getActivationXdr, reconcileWalletActivation, submitActivation } from '@/lib/api/wallets';
 import { signXdr } from '@/lib/stellar/kit';
 import { useLoginWithOAuth, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
@@ -182,12 +182,7 @@ export default function OnboardingScreen() {
         let activatedOnReconciliation = false;
 
         if (isNetworkLevelError) {
-          try {
-            const walletDetails = await getWallet(wallet.id);
-            activatedOnReconciliation = walletDetails.isActivated;
-          } catch {
-            // Reconciliation check itself failed; fall through to showing the alert.
-          }
+          activatedOnReconciliation = await reconcileWalletActivation(wallet.id);
         }
 
         if (activatedOnReconciliation) {
