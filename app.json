@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "icon": "./assets/images/icon.png",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.pigfi.app",
       "associatedDomains": [
         "webcredentials:pigfi.app",
