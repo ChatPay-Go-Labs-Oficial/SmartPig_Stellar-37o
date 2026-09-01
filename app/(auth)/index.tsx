@@ -1,4 +1,4 @@
-import { Colors, Font, FontSize, Spacing } from '@/constants/theme';
+import { Colors, Font, FontSize, Spacing, scaleFont } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   },
   brandText: {
     color: Colors.foreground,
-    fontSize: 30,
+    fontSize: scaleFont(30),
     fontFamily: Font.black,
     fontWeight: '900',
   },

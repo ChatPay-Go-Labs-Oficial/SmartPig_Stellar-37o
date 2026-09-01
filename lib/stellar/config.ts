@@ -12,6 +12,21 @@ export const STELLAR_CONFIG = {
     'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
 } as const;
 
+/**
+ * A rede real vem da passphrase, nunca de string fixa na tela. Builds de
+ * produção apontam para a mainnet e builds locais para a testnet — rotular
+ * errado numa tela de confirmação faz o usuário achar que está movendo
+ * dinheiro de mentira.
+ */
+export function isMainnetNetwork(): boolean {
+  return STELLAR_CONFIG.networkPassphrase === Networks.PUBLIC;
+}
+
+/** Rótulo técnico da rede. Só deve aparecer no modo Pro. */
+export function getNetworkLabel(): string {
+  return isMainnetNetwork() ? 'Stellar Public' : 'Stellar Testnet';
+}
+
 export function getUsdcConfig() {
   const code = STELLAR_CONFIG.usdcCode.trim().toUpperCase();
   const issuer = STELLAR_CONFIG.usdcIssuer.trim();

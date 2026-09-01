@@ -19,6 +19,7 @@ import {
   Gradients,
   Radius,
   Spacing,
+  scaleFont,
 } from '@/constants/theme';
 import type { TrilhaLesson, TrilhaQuestion } from '@/constants/trilha';
 
@@ -1014,7 +1015,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing[8],
   },
   completeXp: {
-    fontSize: 42,
+    fontSize: scaleFont(42),
     fontFamily: Font.black,
     color: Accent.primary,
     letterSpacing: -1,

@@ -23,8 +23,10 @@ import {
   FontSize,
   Radius,
   Spacing,
-} from "@/constants/theme";
+  scaleFont,
+} from '@/constants/theme';
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useTerms } from "@/hooks/use-terms";
 import { useWalletBalance, walletKeys } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
 import { useCreateGift, giftKeys } from "@/lib/queries/gifts.queries";
@@ -77,6 +79,7 @@ function errorMessage(error: unknown): string {
 }
 
 export function GiftModal({ visible, onClose }: GiftModalProps) {
+  const { t, p } = useTerms();
   const { height: windowHeight } = useWindowDimensions();
   const queryClient = useQueryClient();
   const walletAddress = useAuthStore((s) => s.walletAddress);
@@ -253,9 +256,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
                 <Text style={styles.headerTitle}>Presentear alguém</Text>
                 <View style={styles.networkBadge}>
                   <View style={styles.networkDot} />
-                  <Text style={styles.networkText}>
-                    Cofrinho em dólar · USDC
-                  </Text>
+                  <Text style={styles.networkText}>{t("network.badge")}</Text>
                 </View>
               </View>
               {!isBusy && (
@@ -309,7 +310,7 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
                       // útil — o teclado já sinaliza que o campo está ativo.
                       caretHidden
                     />
-                    <Text style={styles.amountAsset}>USDC</Text>
+                    <Text style={styles.amountAsset}>{t("asset.symbol")}</Text>
                   </View>
 
                   <View style={styles.warningRow}>
@@ -392,7 +393,9 @@ export function GiftModal({ visible, onClose }: GiftModalProps) {
                   Embrulhando o presente...
                 </Text>
                 <Text style={styles.statusSub}>
-                  Reservando ${gift?.amount ?? amount} USDC na rede Stellar
+                  {p("gift.reserving", {
+                    amount: String(gift?.amount ?? amount),
+                  })}
                 </Text>
               </View>
             )}
@@ -542,7 +545,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   amountDollar: {
-    fontSize: 36,
+    fontSize: scaleFont(36),
     fontFamily: Font.black,
     color: Colors.foreground,
     lineHeight: 46,
@@ -551,7 +554,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
     maxWidth: 200,
     fontFamily: Font.black,
-    fontSize: 46,
+    fontSize: scaleFont(46),
     color: Colors.foreground,
     padding: 0,
     lineHeight: 54,

@@ -4,47 +4,19 @@ import { Accent, Colors, Font, FontSize, Gradients, Glow, Spacing } from '@/cons
 import { normalizeStellarAmount } from '@/lib/api/vaults';
 import { useVault, useVaultApy, useVaultBalance, vaultKeys } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useTerms } from '@/hooks/use-terms';
+import {
+  formatAmountForMode,
+  formatApy,
+  formatTvlForMode,
+  formatVaultNameForMode,
+} from '@/lib/utils/format';
 import { useQueryClient } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-function formatVaultName(name: string): string {
-  if (!name) return '';
-  if (/^[A-Z0-9]{40,}$/.test(name)) {
-    return `${name.slice(0, 6)}…${name.slice(-4)}`;
-  }
-  const lower = name.replace(/[-_]+/g, ' ');
-  if (/pig/i.test(lower)) return 'Porquinho do PigFi';
-  return lower
-    .split(' ')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
-function formatApy(apy: number | string | null | undefined): string {
-  if (apy == null) return '—';
-  return `${parseFloat(String(apy)).toFixed(2)}%`;
-}
-
-function formatAmount(amount: string | null | undefined): string {
-  if (!amount) return '0.00';
-  const n = parseFloat(amount);
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(4)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(4)}K`;
-  return n.toFixed(4);
-}
-
-function formatFriendlyAmount(amount: string | null | undefined): string {
-  if (!amount) return '0';
-  const n = parseFloat(amount);
-  if (Number.isNaN(n)) return '0';
-  return new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(n);
-}
 
 // ─── Info Row Component ───────────────────────────────────────────────────────
 interface InfoRowProps {
@@ -111,6 +83,7 @@ const infoRowStyles = StyleSheet.create({
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function VaultDetailScreen() {
+  const { t, mode, isPro } = useTerms();
   const { id } = useLocalSearchParams<{ id: string }>();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const qc = useQueryClient();
@@ -161,7 +134,7 @@ export default function VaultDetailScreen() {
         </PressableScale>
         <View style={styles.headerLeft}>
           <Image source={require('@/assets/images/PigFi-porquinho.png')} style={styles.headerPig} />
-          <GradientText style={styles.vaultName}>{formatVaultName(vault.name)}</GradientText>
+          <GradientText style={styles.vaultName}>{formatVaultNameForMode(vault.name, mode)}</GradientText>
           <Text style={styles.assetSymbol}>{vault.assetSymbol}</Text>
         </View>
         <Badge label={formatApy(liveApy)} variant={apyBadge} />
@@ -203,16 +176,21 @@ export default function VaultDetailScreen() {
                 style={styles.amountHighlight}
               >
                 <Text style={styles.amountValue}>
-                  {formatFriendlyAmount(vaultBalance)}
+                  {formatAmountForMode(vaultBalance, mode)}
                 </Text>
-                <Text style={styles.amountSymbol}>{vault.assetSymbol}</Text>
+                <Text style={styles.amountSymbol}>
+                  {isPro ? vault.assetSymbol : t('asset.symbol')}
+                </Text>
               </LinearGradient>
 
-              {balanceData?.dfTokens != null && (
+              {/* dfTokens são as cotas do vault DeFindex — contabilidade por
+                  shares, não saldo. Só faz sentido para quem conhece o modelo. */}
+              {isPro && balanceData?.dfTokens != null && (
                 <View style={styles.sharesRow}>
                   <IconSymbol name="tag" size={12} color={Colors.mutedForeground} />
                   <Text style={styles.sharesHint}>
-                    {formatFriendlyAmount(normalizeStellarAmount(balanceData.dfTokens))} cotas do fundo
+                    {formatAmountForMode(normalizeStellarAmount(balanceData.dfTokens), mode)}{' '}
+                    {t('vault.shares.suffix')}
                   </Text>
                 </View>
               )}
@@ -284,7 +262,7 @@ export default function VaultDetailScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoTitle}>Detalhes do porquinho</Text>
-                <Text style={styles.infoSubtitle}>{formatVaultName(vault.name)}</Text>
+                <Text style={styles.infoSubtitle}>{formatVaultNameForMode(vault.name, mode)}</Text>
               </View>
             </View>
 
@@ -292,21 +270,21 @@ export default function VaultDetailScreen() {
             <View style={styles.infoCard}>
               <InfoRow
                 icon="percent"
-                label="Rendimento anual (APY)"
+                label={t('vault.apy.label')}
                 value={`${formatApy(liveApy)} ao ano`}
                 valueColor={liveApy && liveApy >= 5 ? Accent.gold : undefined}
               />
               <InfoRow
                 icon="arrow.up.forward.circle"
-                label="Total aplicado no fundo (TVL)"
-                value={vault.tvl ? `$${formatAmount(vault.tvl)}` : 'Não disponível'}
+                label={t('vault.tvl.label')}
+                value={vault.tvl ? formatTvlForMode(vault.tvl, mode) : 'Não disponível'}
               />
               <InfoRow
                 icon="wallet.pass"
-                label="Seu saldo aqui"
+                label={t('vault.balance.label')}
                 value={
                   hasInvestment
-                    ? `${formatFriendlyAmount(vaultBalance)} ${vault.assetSymbol}`
+                    ? `${formatAmountForMode(vaultBalance, mode)} ${isPro ? vault.assetSymbol : t('asset.symbol')}`
                     : 'Você ainda não investiu'
                 }
                 valueColor={hasInvestment ? Accent.success : undefined}
@@ -318,7 +296,7 @@ export default function VaultDetailScreen() {
             <View style={styles.infoNote}>
               <IconSymbol name="exclamationmark.triangle" size={13} color={Colors.mutedForeground} />
               <Text style={styles.infoNoteText}>
-                O TVL representa o total de todos os investidores neste fundo, não apenas o seu.
+                {t('vault.tvl.note')}
               </Text>
             </View>
 

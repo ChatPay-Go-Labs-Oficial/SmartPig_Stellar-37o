@@ -26,6 +26,7 @@ import {
   useKycStatus,
 } from "@/lib/queries/blindpay.queries";
 import { KycStatusBadge } from "./KycStatusBadge";
+import { useTerms } from "@/hooks/use-terms";
 
 interface RampMethodSelectorProps {
   visible: boolean;
@@ -42,6 +43,7 @@ export function RampMethodSelector({
   onSelectRamp,
   onClose,
 }: RampMethodSelectorProps) {
+  const { t } = useTerms();
   const isDeposit = type === "deposit";
   const contractId = useAuthStore((s) => s.contractId);
   const { data: receiver, isLoading: receiverLoading } = useBlindPayReceiver(
@@ -141,8 +143,8 @@ export function RampMethodSelector({
                   </Text>
                   <Text style={styles.optionDesc}>
                     {isDeposit
-                      ? "Invista USDC direto no seu cofrinho"
-                      : "Retire do cofrinho para sua carteira Stellar"}
+                      ? t("ramp.deposit.fromWallet")
+                      : t("ramp.withdraw.toWallet")}
                   </Text>
                 </View>
                 <MaterialIcons

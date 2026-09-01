@@ -62,14 +62,27 @@ export const Font = {
   black:     'Nunito_900Black',
 } as const;
 
+// ─── Escala tipográfica ──────────────────────────────────────────────────────
+// O app trava `allowFontScaling` em todo <Text>/<TextInput> via plugin Babel
+// (ver babel.config.js), então estes números são o tamanho final na tela: a
+// configuração de fonte do aparelho não os altera mais. Por isso a escala vive
+// num fator único — é o botão para deixar o texto do app inteiro maior ou
+// menor sem caçar valor por valor.
+export const TYPE_SCALE = 0.85;
+
+/** Aplica a escala global. Use em qualquer fontSize fora dos tokens abaixo. */
+export function scaleFont(px: number): number {
+  return Math.round(px * TYPE_SCALE);
+}
+
 export const FontSize = {
-  display:    35,
-  displaySm:  28,
-  heading:    24,
-  subheading: 18,
-  body:       16,
-  bodySmall:  14,
-  label:      12,
+  display:    scaleFont(35),
+  displaySm:  scaleFont(28),
+  heading:    scaleFont(24),
+  subheading: scaleFont(18),
+  body:       scaleFont(16),
+  bodySmall:  scaleFont(14),
+  label:      scaleFont(12),
 } as const;
 
 // ─── Shadows (glow effects) ──────────────────────────────────────────────────

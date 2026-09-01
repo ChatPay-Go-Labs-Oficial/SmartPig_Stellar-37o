@@ -6,6 +6,8 @@ import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useWithdrawals } from '@/lib/queries/withdrawals.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useUsdcTransfers } from '@/lib/queries/wallets.queries';
+import { useTerms } from '@/hooks/use-terms';
+import { MonoText } from '@/components/ui';
 
 type TxType = 'deposit' | 'withdrawal' | 'transfer-sent' | 'transfer-received';
 
@@ -44,6 +46,7 @@ function statusConfig(status: string) {
 }
 
 function TxRow({ item }: { item: TxItem }) {
+  const { t, p, isPro } = useTerms();
   const isIncoming = item.type === 'deposit' || item.type === 'transfer-received';
   const isTransfer = item.type === 'transfer-sent' || item.type === 'transfer-received';
   const amountColor = isIncoming ? Accent.success : Accent.destructive;
@@ -52,13 +55,14 @@ function TxRow({ item }: { item: TxItem }) {
   const status = statusConfig(item.status);
   const amountDisplay = isFinite(item.amount) ? item.amount.toFixed(2) : '0.00';
   const title = item.type === 'deposit'
-    ? 'Investimento'
+    ? t('history.deposit')
     : item.type === 'withdrawal'
-      ? 'Saque'
+      ? t('history.withdrawal')
       : item.type === 'transfer-sent'
-        ? 'USDC enviado'
-        : 'USDC recebido';
-  const subtitle = isTransfer && item.counterparty
+        ? t('history.sent')
+        : t('history.received');
+  // O endereço da contraparte só diz algo a quem reconhece um endereço Stellar.
+  const subtitle = isPro && isTransfer && item.counterparty
     ? `${item.counterparty.slice(0, 6)}...${item.counterparty.slice(-6)} · ${formatDate(item.createdAt)}`
     : formatDate(item.createdAt);
 
@@ -78,10 +82,12 @@ function TxRow({ item }: { item: TxItem }) {
         <View style={styles.txInfo}>
           <Text style={styles.txType}>{title}</Text>
           <Text style={styles.txDate} numberOfLines={1}>{subtitle}</Text>
-          {isTransfer && item.hash ? (
-            <Text style={styles.txHash} numberOfLines={1}>
-              Tx: {item.hash.slice(0, 8)}...{item.hash.slice(-6)}
-            </Text>
+          {/* O hash é texto inerte — não há link para explorer em lugar nenhum
+              do app. No Lite ele só ocupa espaço com um dado indecifrável. */}
+          {isPro && isTransfer && item.hash ? (
+            <MonoText style={styles.txHash} numberOfLines={1}>
+              {p('tx.hash.short', { hash: item.hash })}
+            </MonoText>
           ) : null}
         </View>
 

@@ -22,7 +22,8 @@ import {
   FontSize,
   Radius,
   Spacing,
-} from "@/constants/theme";
+  scaleFont,
+} from '@/constants/theme';
 import {
   useCreateWithdrawal,
   useSubmitWithdrawal,
@@ -34,6 +35,7 @@ import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
 import { truncateDecimalString } from "@/lib/utils/format";
+import { useTerms } from "@/hooks/use-terms";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 // Blue → purple gradient exclusive to the withdraw flow
@@ -94,6 +96,7 @@ export function WithdrawModal({
   apyValue = 0,
   onClose,
 }: WithdrawModalProps) {
+  const { t, isPro } = useTerms();
   const [amount, setAmount] = useState("");
   const [activeChip, setActiveChip] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("input");
@@ -457,17 +460,22 @@ export function WithdrawModal({
                 <ActivityIndicator color={WITHDRAW_GRADIENT[0]} size="large" />
                 <Text style={styles.statusTitle}>
                   {step === "authenticating" && "Confirme com sua biometria..."}
-                  {step === "processing" && "Gerando transação..."}
+                  {step === "processing" &&
+                    (isPro ? "Gerando transação..." : "Preparando...")}
                   {step === "signing" && "Assine com sua biometria..."}
-                  {step === "submitting" && "Processando na Stellar..."}
+                  {step === "submitting" && t("network.processing")}
                 </Text>
                 <Text style={styles.statusSub}>
                   {step === "authenticating" &&
                     "Protegendo seu saque antes de continuar"}
-                  {step === "processing" && "Preparando saque do vault"}
+                  {step === "processing" &&
+                    (isPro ? "Preparando saque do vault" : "Preparando seu saque")}
                   {step === "signing" &&
                     "Use Face ID / Touch ID para autorizar"}
-                  {step === "submitting" && "Enviando para sua carteira ⚡"}
+                  {step === "submitting" &&
+                    (isPro
+                      ? "Enviando para sua carteira ⚡"
+                      : "Enviando para sua conta ⚡")}
                 </Text>
               </View>
             )}
@@ -601,7 +609,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing[2],
   },
   amountDollar: {
-    fontSize: 38,
+    fontSize: scaleFont(38),
     fontFamily: Font.black,
     color: Colors.foreground,
     lineHeight: 48,
@@ -610,7 +618,7 @@ const styles = StyleSheet.create({
     minWidth: 60,
     maxWidth: 240,
     fontFamily: Font.black,
-    fontSize: 48,
+    fontSize: scaleFont(48),
     color: Colors.foreground,
     padding: 0,
     lineHeight: 56,

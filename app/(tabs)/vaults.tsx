@@ -5,6 +5,13 @@ import type { Vault } from '@/lib/api/vaults';
 import { useVaultApy, useVaultBalance, useVaults } from '@/lib/queries/vaults.queries';
 import { useWalletBalance } from '@/lib/queries/wallets.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useTerms } from '@/hooks/use-terms';
+import {
+  formatAmountForMode,
+  formatApy,
+  formatTvlForMode,
+  formatVaultNameForMode,
+} from '@/lib/utils/format';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Modal } from 'react-native';
@@ -76,37 +83,8 @@ const infoRowStyles = StyleSheet.create({
   },
 });
 
-function formatApy(apy: number | string | null): string {
-  if (!apy) return '—';
-  return `${parseFloat(String(apy)).toFixed(2)}%`;
-}
-
-function formatVaultName(name: string): string {
-  if (/^[A-Z0-9]{56}$/.test(name)) {
-    return `${name.slice(0, 6)}…${name.slice(-4)}`;
-  }
-  return name;
-}
-
-function formatTvl(tvl: string | null): string {
-  if (!tvl) return '—';
-  const n = parseFloat(tvl);
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  return `$${n.toFixed(2)}`;
-}
-
-function formatFriendlyAmount(amount: string | null | undefined): string {
-  if (!amount) return '0';
-  const n = parseFloat(amount);
-  if (Number.isNaN(n)) return '0';
-  return new Intl.NumberFormat('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  }).format(n);
-}
-
 function VaultCard({ vault }: { vault: Vault }) {
+  const { t, mode, isPro } = useTerms();
   const apy = parseFloat(vault.apy ?? '0');
   const apyBadge = apy >= 10 ? 'destaque' : apy >= 5 ? 'conquista' : 'muted';
 
@@ -115,21 +93,29 @@ function VaultCard({ vault }: { vault: Vault }) {
       <Card style={styles.vaultCard}>
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
-            <Text style={styles.vaultName} numberOfLines={1}>{formatVaultName(vault.name)}</Text>
-            <Text style={styles.assetSymbol}>{vault.assetSymbol}</Text>
+            <Text style={styles.vaultName} numberOfLines={1}>
+              {formatVaultNameForMode(vault.name, mode)}
+            </Text>
+            <Text style={styles.assetSymbol}>
+              {isPro ? vault.assetSymbol : t('asset.symbol')}
+            </Text>
           </View>
           <Badge label={formatApy(vault.apy)} variant={apyBadge} />
         </View>
 
         <View style={styles.cardStats}>
           <View style={styles.stat}>
-            <Text style={styles.statLabel}>APY</Text>
+            <Text style={styles.statLabel}>{t('vault.apy.short')}</Text>
             <Text style={styles.statValue}>{formatApy(vault.apy)}</Text>
           </View>
-          <View style={styles.stat}>
-            <Text style={styles.statLabel}>TVL</Text>
-            <Text style={styles.statValue}>{formatTvl(vault.tvl)}</Text>
-          </View>
+          {/* TVL é o total de todos os investidores. No Lite o número confunde
+              mais do que informa — o usuário lê como se fosse o saldo dele. */}
+          {isPro && (
+            <View style={styles.stat}>
+              <Text style={styles.statLabel}>TVL</Text>
+              <Text style={styles.statValue}>{formatTvlForMode(vault.tvl, mode)}</Text>
+            </View>
+          )}
         </View>
 
         {vault.description && (
@@ -190,6 +176,7 @@ export default function VaultsScreen() {
 }
 
 function VaultFeatured({ vault }: { vault: Vault }) {
+  const { t, mode, isPro } = useTerms();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const { data: balanceData } = useVaultBalance(vault.id, walletAddress);
   const { data: apyData } = useVaultApy(vault.id);
@@ -217,12 +204,12 @@ function VaultFeatured({ vault }: { vault: Vault }) {
           </View>
           <View style={styles.apyBlock}>
             <View style={styles.apyNumRow}>
-              <Text style={styles.apyBig}>{(apyValue ?? 0).toFixed(2).replace('.', ',')}%</Text>
+              <Text style={styles.apyBig}>{formatApy(apyValue)}</Text>
               <Pressable onPress={() => setInfoOpen(true)} hitSlop={10}>
                 <MaterialIcons name="info-outline" size={14} color={Colors.mutedForeground} />
               </Pressable>
             </View>
-            <Text style={styles.apyLabel}>AO ANO</Text>
+            <Text style={styles.apyLabel}>{t('vault.apy.short')}</Text>
           </View>
         </View>
 
@@ -233,7 +220,9 @@ function VaultFeatured({ vault }: { vault: Vault }) {
         <View>
           <Text style={styles.balanceLabel}>Você tem investido aqui</Text>
           <View style={styles.balanceRow}>
-            <Text style={styles.balanceValue}>${formatFriendlyAmount(vaultBalance)}</Text>
+            <Text style={styles.balanceValue}>
+              ${formatAmountForMode(vaultBalance, mode)}
+            </Text>
             {hasBalance && (
               <View style={styles.earningsChip}>
                 <MaterialIcons name="trending-up" size={12} color={Accent.success} />
@@ -316,19 +305,23 @@ function VaultFeatured({ vault }: { vault: Vault }) {
             <View style={styles.infoCard}>
               <InfoRow
                 icon="percent"
-                label="Rendimento anual (APY)"
+                label={t('vault.apy.label')}
                 value={`${formatApy(apyValue)} ao ano`}
                 valueColor={apyValue >= 5 ? Accent.gold : undefined}
               />
               <InfoRow
                 icon="arrow.up.forward.circle"
-                label="Volume total de investidores"
-                value={vault.tvl ? formatTvl(vault.tvl) : 'Não disponível'}
+                label={t('vault.tvl.label')}
+                value={vault.tvl ? formatTvlForMode(vault.tvl, mode) : 'Não disponível'}
               />
               <InfoRow
                 icon="wallet.pass"
                 label="Total que você tem nesse porquinho"
-                value={hasBalance ? `${formatFriendlyAmount(vaultBalance)} ${vault.assetSymbol}` : 'Você ainda não investiu'}
+                value={
+                  hasBalance
+                    ? `${formatAmountForMode(vaultBalance, mode)} ${isPro ? vault.assetSymbol : t('asset.symbol')}`
+                    : 'Você ainda não investiu'
+                }
                 valueColor={hasBalance ? Accent.success : undefined}
                 isLast
               />

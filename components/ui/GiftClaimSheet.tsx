@@ -11,8 +11,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useQueryClient } from '@tanstack/react-query';
-import { Colors, Accent, Font, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Colors, Accent, Font, FontSize, Radius, Spacing, scaleFont } from '@/constants/theme';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useTerms } from '@/hooks/use-terms';
 import { useGiftStore } from '@/lib/stores/gift.store';
 import { useGiftPreview, useClaimGift } from '@/lib/queries/gifts.queries';
 import { walletKeys } from '@/lib/queries/wallets.queries';
@@ -124,6 +125,7 @@ interface GiftClaimSheetProps {
 }
 
 function GiftClaimSheet({ code, canInvest, onInvest, onKeep, onDismiss }: GiftClaimSheetProps) {
+  const { t } = useTerms();
   const queryClient = useQueryClient();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const preview = useGiftPreview(code);
@@ -270,7 +272,7 @@ function GiftClaimSheet({ code, canInvest, onInvest, onKeep, onDismiss }: GiftCl
               {isConfirming && (
                 <View style={styles.confirmingRow}>
                   <ActivityIndicator size="small" color={Accent.secondary} />
-                  <Text style={styles.confirmingText}>Confirmando na rede Stellar...</Text>
+                  <Text style={styles.confirmingText}>{t('gift.claim.confirming')}</Text>
                 </View>
               )}
 
@@ -391,7 +393,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   amount: {
-    fontSize: 46,
+    fontSize: scaleFont(46),
     fontFamily: Font.black,
     color: Colors.foreground,
     lineHeight: 54,
