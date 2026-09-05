@@ -191,6 +191,7 @@ export default function RootLayout() {
               options={{ gestureEnabled: false, animation: "fade" }}
             />
             <Stack.Screen name="vault/[id]" />
+            <Stack.Screen name="account/delete" />
             <Stack.Screen name="(etherfuse-onboarding)" />
             <Stack.Screen name="(blindpay-onboarding)" />
             <Stack.Screen name="education" />

@@ -3,6 +3,7 @@ import { apiClient } from './client';
 /** Mirrors the backend's blocker codes, B-1 to B-11. */
 export type BlockerCode =
   | 'VAULT_BALANCE'
+  | 'VAULT_BALANCE_UNKNOWN'
   | 'WALLET_USDC_BALANCE'
   | 'WALLET_ASSET_BALANCE'
   | 'GIFT_LOCKED'
@@ -25,16 +26,32 @@ export interface BlockerAction {
   vaultId?: string;
 }
 
+/** Raw values for the sentence the screen writes. Amounts are unformatted. */
+export interface BlockerParams {
+  amountUsd?: string;
+  assetCode?: string;
+  vaultId?: string;
+  vaultName?: string;
+  /** ISO date from which a locked gift can be reclaimed. */
+  availableAt?: string;
+}
+
+/**
+ * A reason the account cannot be deleted.
+ *
+ * The API sends no display text: the wording depends on the Lite/Pro mode, and
+ * only the client knows which one is on. The screen writes the sentence from
+ * `code` and `params`, taking crypto terms from `lib/copy/terms.ts`.
+ */
 export interface Blocker {
   code: BlockerCode;
-  title: string;
-  detail: string;
   /**
    * `false` means there is nothing the user can do but wait — a gift still locked
    * on the network, an operation in flight. The screen must not offer a button.
    */
   resolvable: boolean;
   action: BlockerAction | null;
+  params?: BlockerParams;
 }
 
 export interface VaultShareResidual {
