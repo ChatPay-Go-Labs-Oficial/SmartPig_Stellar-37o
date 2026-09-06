@@ -1,5 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { getAccountDeletionEligibility } from '@/lib/api/account-deletion';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import {
+  confirmAccountDeletion,
+  getAccountDeletionEligibility,
+  requestAccountDeletion,
+} from '@/lib/api/account-deletion';
 
 export const accountDeletionKeys = {
   eligibility: ['account-deletion', 'eligibility'] as const,
@@ -21,5 +25,26 @@ export const useAccountDeletionEligibility = (enabled = true) =>
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',
+    retry: false,
+  });
+
+/**
+ * Opens the deletion request.
+ *
+ * No retry: a failed attempt must surface to the user rather than silently open a
+ * second request behind their back. The idempotency key protects the server, but
+ * the decision to try again is the user's.
+ */
+export const useRequestAccountDeletion = () =>
+  useMutation({
+    mutationFn: (idempotencyKey: string) =>
+      requestAccountDeletion(idempotencyKey),
+    retry: false,
+  });
+
+/** Executes the deletion. Never retried automatically — this one is irreversible. */
+export const useConfirmAccountDeletion = () =>
+  useMutation({
+    mutationFn: confirmAccountDeletion,
     retry: false,
   });
