@@ -191,6 +191,7 @@ export default function RootLayout() {
               options={{ gestureEnabled: false, animation: "fade" }}
             />
             <Stack.Screen name="vault/[id]" />
+            <Stack.Screen name="account/index" options={{ animation: "fade" }} />
             <Stack.Screen name="(etherfuse-onboarding)" />
             <Stack.Screen name="(blindpay-onboarding)" />
             <Stack.Screen name="education" />
@@ -614,7 +615,9 @@ function PrivyRecoveryModal({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  // Opaca de propósito: transparente, revela o fundo cinza da janela nativa em
+  // qualquer frame que uma tela não pinte.
+  root: { flex: 1, backgroundColor: Colors.background },
   splash: { flex: 1, backgroundColor: Colors.background },
   gateLoading: {
     flex: 1,

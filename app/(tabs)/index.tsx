@@ -6,6 +6,7 @@ import {
   RampMethodSelector,
   BlindPayOnrampModal,
   BlindPayOfframpModal,
+  TransferModal,
   getPigLevel,
   PressableScale,
   LevelUpAnimation,
@@ -30,7 +31,7 @@ import { formatApy } from "@/lib/utils/format";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
@@ -249,6 +250,18 @@ export default function HomeScreen() {
   const [showWithdrawMethod, setShowWithdrawMethod] = useState(false);
   const [onrampOpen, setOnrampOpen] = useState(false);
   const [offrampOpen, setOfframpOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+
+  // Quem precisa sacar antes de excluir a conta chega aqui pelo bloqueio, e
+  // deve cair direto no seletor de saque. O ref garante que fechar o seletor
+  // não o reabra enquanto o parâmetro seguir na rota.
+  const { sacar } = useLocalSearchParams<{ sacar?: string }>();
+  const handledSacarParam = useRef(false);
+  useEffect(() => {
+    if (sacar !== "1" || handledSacarParam.current) return;
+    handledSacarParam.current = true;
+    setShowWithdrawMethod(true);
+  }, [sacar]);
 
   const [refreshing, setRefreshing] = useState(false);
   const [displayBalance, setDisplayBalance] = useState(0);
@@ -693,6 +706,10 @@ export default function HomeScreen() {
           setShowWithdrawMethod(false);
           setOfframpOpen(true);
         }}
+        onSelectTransfer={() => {
+          setShowWithdrawMethod(false);
+          setTransferOpen(true);
+        }}
         onClose={() => setShowWithdrawMethod(false)}
       />
       <DepositModal
@@ -719,6 +736,10 @@ export default function HomeScreen() {
         visible={offrampOpen}
         maxAmount={parsedWalletUsdc}
         onClose={() => setOfframpOpen(false)}
+      />
+      <TransferModal
+        visible={transferOpen}
+        onClose={() => setTransferOpen(false)}
       />
       <LevelUpAnimation
         visible={levelUpModalVisible}

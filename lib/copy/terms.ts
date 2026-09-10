@@ -129,6 +129,82 @@ export const TERMS = {
     lite: 'Confirmando seu presente...',
     pro: 'Confirmando na rede Stellar...',
   },
+
+  // ── Exclusão de conta · títulos dos bloqueios ─────────────────────────
+  'deletion.blocker.vaultBalance.title': {
+    lite: 'Você ainda tem dinheiro guardado',
+    pro: 'Você ainda tem saldo em vault',
+  },
+  'deletion.blocker.vaultUnknown.title': {
+    lite: 'Não conseguimos verificar um porquinho',
+    pro: 'Não conseguimos ler o saldo de um vault',
+  },
+  'deletion.blocker.walletUsdc.title': {
+    lite: 'Você ainda tem dinheiro na conta',
+    pro: 'Você ainda tem USDC na carteira',
+  },
+  'deletion.blocker.walletAsset.title': {
+    lite: 'Você ainda tem dinheiro na conta',
+    pro: 'Você tem saldo de outro ativo na carteira',
+  },
+  'deletion.blocker.giftLocked.title': {
+    lite: 'Você tem um presente aguardando resgate',
+    pro: 'Você tem um presente aguardando resgate',
+  },
+  'deletion.blocker.giftRefundable.title': {
+    lite: 'Você tem um presente para recuperar',
+    pro: 'Você tem um presente para recuperar',
+  },
+  'deletion.blocker.deposit.title': {
+    lite: 'Você tem uma aplicação em andamento',
+    pro: 'Depósito em vault em andamento',
+  },
+  'deletion.blocker.withdrawal.title': {
+    lite: 'Você tem um resgate em andamento',
+    pro: 'Saque de vault em andamento',
+  },
+  'deletion.blocker.tx.title': {
+    lite: 'Uma movimentação está sendo confirmada',
+    pro: 'Transação on-chain ainda não conciliada',
+  },
+  'deletion.blocker.onramp.title': {
+    lite: 'Você tem um Pix de entrada em aberto',
+    pro: 'Payin Pix em aberto',
+  },
+  'deletion.blocker.offramp.title': {
+    lite: 'Você tem um saque via Pix em andamento',
+    pro: 'Payout Pix em andamento',
+  },
+  'deletion.blocker.etherfuse.title': {
+    lite: 'Você tem uma ordem em andamento',
+    pro: 'Ordem Etherfuse em andamento',
+  },
+
+  // ── Exclusão de conta · detalhes sem valor ────────────────────────────
+  'deletion.blocker.deposit.detail': {
+    lite: 'Espere a aplicação terminar para poder excluir a conta.',
+    pro: 'Aguarde a confirmação do depósito para excluir a conta.',
+  },
+  'deletion.blocker.withdrawal.detail': {
+    lite: 'Espere o resgate terminar para poder excluir a conta.',
+    pro: 'Aguarde a confirmação do saque para excluir a conta.',
+  },
+  'deletion.blocker.tx.detail': {
+    lite: 'Espere a confirmação para poder excluir a conta.',
+    pro: 'Aguarde a conciliação da transação na rede.',
+  },
+  'deletion.blocker.onramp.detail': {
+    lite: 'Conclua o pagamento ou espere a cobrança expirar. Se você pagar depois de excluir a conta, o dinheiro se perde.',
+    pro: 'Conclua ou deixe expirar o payin. Um Pix pago após a exclusão chega numa carteira sem dono.',
+  },
+  'deletion.blocker.offramp.detail': {
+    lite: 'Espere o dinheiro cair na sua conta bancária.',
+    pro: 'Aguarde a liquidação do payout.',
+  },
+  'deletion.blocker.etherfuse.detail': {
+    lite: 'Espere a ordem terminar para poder excluir a conta.',
+    pro: 'Aguarde a conclusão da ordem.',
+  },
 } as const satisfies Record<string, TermPair>;
 
 export type TermKey = keyof typeof TERMS;
@@ -156,6 +232,46 @@ export const PHRASES = {
     lite: (v: { amount: string }) => `Guardando $${v.amount} no seu cofrinho...`,
     pro: (v: { amount: string }) =>
       `Reservando ${v.amount} USDC na rede Stellar`,
+  } as PhraseFn<{ amount: string }>,
+
+  'deletion.blocker.vaultBalance.detail': {
+    lite: (v: { amount: string; vaultName: string }) =>
+      `US$ ${v.amount} guardados em ${v.vaultName}`,
+    pro: (v: { amount: string; vaultName: string }) =>
+      `${v.amount} USDC no vault ${v.vaultName}`,
+  } as PhraseFn<{ amount: string; vaultName: string }>,
+
+  'deletion.blocker.vaultUnknown.detail': {
+    lite: (v: { vaultName: string }) =>
+      `Não foi possível consultar ${v.vaultName} agora. Tente de novo em alguns minutos.`,
+    pro: (v: { vaultName: string }) =>
+      `A consulta de saldo do vault ${v.vaultName} falhou. Tente de novo em alguns minutos.`,
+  } as PhraseFn<{ vaultName: string }>,
+
+  'deletion.blocker.walletUsdc.detail': {
+    lite: (v: { amount: string }) => `US$ ${v.amount} na sua conta`,
+    pro: (v: { amount: string }) => `${v.amount} USDC na carteira`,
+  } as PhraseFn<{ amount: string }>,
+
+  'deletion.blocker.walletAsset.detail': {
+    lite: (v: { amount: string; assetCode: string }) =>
+      `${v.amount} de ${v.assetCode} na sua conta`,
+    pro: (v: { amount: string; assetCode: string }) =>
+      `${v.amount} ${v.assetCode} na carteira`,
+  } as PhraseFn<{ amount: string; assetCode: string }>,
+
+  'deletion.blocker.giftLocked.detail': {
+    lite: (v: { amount: string; date: string }) =>
+      `US$ ${v.amount} presos até ${v.date}. Peça para quem recebeu resgatar, ou espere essa data para recuperar.`,
+    pro: (v: { amount: string; date: string }) =>
+      `${v.amount} USDC em claimable balance até ${v.date}. Só é possível reaver depois dessa data.`,
+  } as PhraseFn<{ amount: string; date: string }>,
+
+  'deletion.blocker.giftRefundable.detail': {
+    lite: (v: { amount: string }) =>
+      `US$ ${v.amount} esperando você recuperar.`,
+    pro: (v: { amount: string }) =>
+      `${v.amount} USDC em claimable balance expirada, prontos para reaver.`,
   } as PhraseFn<{ amount: string }>,
 } as const;
 
