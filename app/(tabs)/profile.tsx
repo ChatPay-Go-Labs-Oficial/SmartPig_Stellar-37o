@@ -22,6 +22,7 @@ import {
 import {
   Card,
   PressableScale,
+  SettingsRow,
   ConfirmModal,
   ModeSwitch,
   MonoText,
@@ -429,6 +430,18 @@ export default function ProfileScreen() {
           </Card>
         )}
 
+        {/* ── Ajustes da conta ── */}
+        <View style={styles.settingsRowWrap}>
+          <SettingsRow
+            icon="settings"
+            title="Configurações da conta"
+            onPress={() => {
+              playClick();
+              router.push("/account");
+            }}
+          />
+        </View>
+
         {/* ── Logout ── */}
         <Pressable
           onPress={() => {
@@ -442,32 +455,6 @@ export default function ProfileScreen() {
             <Text style={styles.logoutText}>Sair da Conta</Text>
           </View>
         </Pressable>
-
-        {/*
-          Zona de risco. A Apple exige que a exclusão de conta seja fácil de
-          achar — enterrar em submenu é motivo de reprovação na revisão. Fica
-          junto do logout, que é onde o usuário procura por "sair daqui".
-        */}
-        <View style={styles.dangerZone}>
-          <View style={styles.dangerDivider} />
-          <Text style={styles.dangerLabel}>Zona de risco</Text>
-          <Pressable
-            onPress={() => {
-              playClick();
-              router.push("/account/delete");
-            }}
-            style={styles.dangerBtn}
-          >
-            <View style={styles.logoutInner}>
-              <MaterialIcons
-                name="delete-outline"
-                size={18}
-                color={Accent.destructive}
-              />
-              <Text style={styles.dangerText}>Excluir minha conta</Text>
-            </View>
-          </Pressable>
-        </View>
       </ScrollView>
 
       <ConfirmModal
@@ -514,29 +501,9 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  dangerZone: {
-    marginTop: Spacing[8],
-    paddingHorizontal: Spacing[4],
-    gap: Spacing[3],
-  },
-  dangerDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  dangerLabel: {
-    fontFamily: Font.semiBold,
-    fontSize: FontSize.label,
-    color: Colors.mutedForeground,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  dangerBtn: {
-    paddingVertical: Spacing[3],
-  },
-  dangerText: {
-    fontFamily: Font.semiBold,
-    fontSize: FontSize.bodySmall,
-    color: Accent.destructive,
+  settingsRowWrap: {
+    marginHorizontal: Spacing[4],
+    marginBottom: Spacing[3],
   },
 
   screen: {

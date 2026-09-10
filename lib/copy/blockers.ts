@@ -1,7 +1,7 @@
 import type { AppMode } from '@/lib/stores/app-mode.store';
 import type { Blocker, BlockerCode } from '@/lib/api/account-deletion';
 import { phrase, term, type TermKey } from './terms';
-import { formatAmountForMode, formatVaultNameForMode } from '@/lib/utils/format';
+import { formatBlockingAmount, formatVaultNameForMode } from '@/lib/utils/format';
 
 /**
  * Turns a blocker into the sentence the user reads.
@@ -62,7 +62,7 @@ function titleKey(code: BlockerCode): TermKey {
 
 function detailFor(blocker: Blocker, mode: AppMode): string {
   const params = blocker.params ?? {};
-  const amount = formatAmountForMode(params.amountUsd, mode);
+  const amount = formatBlockingAmount(params.amountUsd, mode);
 
   switch (blocker.code) {
     case 'VAULT_BALANCE':
