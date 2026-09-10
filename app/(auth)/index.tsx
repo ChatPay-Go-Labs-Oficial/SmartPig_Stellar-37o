@@ -24,6 +24,10 @@ import { useAuthStore } from '@/lib/stores/auth.store';
 import { walletLogin } from '@/lib/api/auth';
 import { getActivationXdr, reconcileWalletActivation, submitActivation } from '@/lib/api/wallets';
 import { signXdr } from '@/lib/stellar/kit';
+import {
+  consumeSessionRestoreBlock,
+  isSessionRestoreBlocked,
+} from '@/lib/security/session-restore-guard';
 import { useLoginWithOAuth, usePrivy } from '@privy-io/expo';
 import { useCreateWallet } from '@privy-io/expo/extended-chains';
 import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passkey';
@@ -237,7 +241,10 @@ export default function OnboardingScreen() {
       !user ||
       isAuthenticated ||
       authPromiseRef.current ||
-      reconciledUserIdRef.current === user.id
+      reconciledUserIdRef.current === user.id ||
+      // Depois de excluir a conta, o usuário do Privy ainda vive em memória e
+      // restaurar aqui recriaria a conta recém-destruída.
+      isSessionRestoreBlocked()
     ) return;
 
     reconciledUserIdRef.current = user.id;
@@ -274,7 +281,11 @@ export default function OnboardingScreen() {
     try {
       redirectUrl = Linking.createURL(OAUTH_REDIRECT_PATH);
 
-      loggedInUser = user ?? await loginWithOAuth({
+      // Depois de uma exclusão o usuário em cache aponta para uma identidade
+      // que não existe mais, então o login é refeito do zero.
+      const afterDeletion = consumeSessionRestoreBlock();
+
+      loggedInUser = (afterDeletion ? undefined : user) ?? await loginWithOAuth({
         provider,
         redirectUri: OAUTH_REDIRECT_PATH,
       });
