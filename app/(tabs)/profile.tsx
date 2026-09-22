@@ -22,6 +22,7 @@ import {
 import {
   Card,
   PressableScale,
+  SettingsRow,
   ConfirmModal,
   ModeSwitch,
   MonoText,
@@ -429,6 +430,18 @@ export default function ProfileScreen() {
           </Card>
         )}
 
+        {/* ── Ajustes da conta ── */}
+        <View style={styles.settingsRowWrap}>
+          <SettingsRow
+            icon="settings"
+            title="Configurações da conta"
+            onPress={() => {
+              playClick();
+              router.push("/account");
+            }}
+          />
+        </View>
+
         {/* ── Logout ── */}
         <Pressable
           onPress={() => {
@@ -488,6 +501,11 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  settingsRowWrap: {
+    marginHorizontal: Spacing[4],
+    marginBottom: Spacing[3],
+  },
+
   screen: {
     flex: 1,
     backgroundColor: Colors.background,

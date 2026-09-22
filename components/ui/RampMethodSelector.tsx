@@ -34,6 +34,11 @@ interface RampMethodSelectorProps {
   onSelectStellar: () => void;
   onSelectRamp: () => void;
   onClose: () => void;
+  /**
+   * Transferência para outro endereço da rede. Só aparece no saque, e só no
+   * modo Pro: é o único caminho aqui que exige entender o que é uma carteira.
+   */
+  onSelectTransfer?: () => void;
 }
 
 export function RampMethodSelector({
@@ -42,8 +47,9 @@ export function RampMethodSelector({
   onSelectStellar,
   onSelectRamp,
   onClose,
+  onSelectTransfer,
 }: RampMethodSelectorProps) {
-  const { t } = useTerms();
+  const { t, isPro } = useTerms();
   const isDeposit = type === "deposit";
   const contractId = useAuthStore((s) => s.contractId);
   const { data: receiver, isLoading: receiverLoading } = useBlindPayReceiver(
@@ -195,6 +201,34 @@ export function RampMethodSelector({
                 )}
               </View>
             </PressableScale>
+
+            {/* Transferir para outra carteira */}
+            {!isDeposit && isPro && onSelectTransfer && (
+              <PressableScale onPress={onSelectTransfer}>
+                <View style={styles.optionCard}>
+                  <View style={styles.optionIconWrap}>
+                    <MaterialIcons
+                      name="send"
+                      size={22}
+                      color={Accent.primary}
+                    />
+                  </View>
+                  <View style={styles.optionText}>
+                    <Text style={styles.optionLabel}>
+                      Transferir para outra carteira
+                    </Text>
+                    <Text style={styles.optionDesc}>
+                      Envie USDC para outro endereço da rede
+                    </Text>
+                  </View>
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={20}
+                    color={Colors.mutedForeground}
+                  />
+                </View>
+              </PressableScale>
+            )}
           </View>
         </Pressable>
       </Pressable>
