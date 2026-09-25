@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/lib/stores/auth.store';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getVaults, getVault, getVaultApy, getVaultBalance, getVaultManagerVaults } from '@/lib/api/vaults';
 
@@ -9,11 +10,15 @@ export const vaultKeys = {
   manager: ['vaults', 'manager'] as const,
 };
 
-export const useVaults = () =>
-  useQuery({ queryKey: vaultKeys.all, queryFn: getVaults });
+export const useVaults = () => {
+  const userId = useAuthStore((s) => s.contractId);
+  return useQuery({ queryKey: [...vaultKeys.all, 'catalog', userId], queryFn: getVaults, enabled: !!userId });
+};
 
-export const useVault = (id: string) =>
-  useQuery({ queryKey: vaultKeys.detail(id), queryFn: () => getVault(id), enabled: !!id });
+export const useVault = (id: string) => {
+  const userId = useAuthStore((s) => s.contractId);
+  return useQuery({ queryKey: [...vaultKeys.detail(id), 'detail', userId], queryFn: () => getVault(id), enabled: !!id && !!userId });
+};
 
 export const useVaultApy = (id: string) =>
   useQuery({

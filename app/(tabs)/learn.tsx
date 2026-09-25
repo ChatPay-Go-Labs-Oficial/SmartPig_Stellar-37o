@@ -1,32 +1,29 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { useState, useEffect } from 'react';
+import { ScrollView, StyleSheet, Text, View, Pressable, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing } from '@/constants/theme';
-import { TRILHA_LESSONS } from '@/constants/trilha';
-import { LessonPlayer } from '@/components/ui/LessonPlayer';
-import type { TrilhaLesson } from '@/constants/trilha';
-import { getLearningProgress, useLearningStore } from '@/lib/stores/learning.store';
+import { LearningLessonPlayer } from '@/components/ui/LearningLessonPlayer';
+import type { LearningLesson } from '@/lib/api/learning';
+import { useLearning } from '@/lib/queries/learning.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function TrilhaScreen() {
   const insets = useSafeAreaInsets();
-  const [openLesson, setOpenLesson] = useState<TrilhaLesson | null>(null);
-  const contractId = useAuthStore((state) => state.contractId);
-  const walletAddress = useAuthStore((state) => state.walletAddress);
-  const learningUserId = contractId ?? walletAddress;
-  const progress = useLearningStore((state) =>
-    getLearningProgress(state.progressByUser, learningUserId),
-  );
-  const completeLesson = useLearningStore((state) => state.completeLesson);
-  const completedIds = progress.completedLessonIds;
-  const totalXp = progress.totalXp;
+  const [openLesson, setOpenLesson] = useState<LearningLesson | null>(null);
+  const userId = useAuthStore((state) => state.contractId);
+  useEffect(() => { setOpenLesson(null); }, [userId]);
+  const { lessons: lessonQuery, progress: progressQuery } = useLearning();
+  const lessons = lessonQuery.data ?? [];
+  const progress = progressQuery.data;
+  const completedIds = progress?.completedLessonIds ?? [];
+  const totalXp = progress?.points ?? 0;
 
-  const trailDone = completedIds.length === TRILHA_LESSONS.length;
+  const trailDone = lessons.length > 0 && completedIds.length === lessons.length;
   const currentId = trailDone
     ? null
-    : TRILHA_LESSONS.find((l) => !completedIds.includes(l.id))?.id ?? null;
+    : lessons.find((l) => !completedIds.includes(l.id))?.id ?? null;
 
   const getLessonState = (id: number): 'completed' | 'current' | 'locked' => {
     if (completedIds.includes(id)) return 'completed';
@@ -34,13 +31,9 @@ export default function TrilhaScreen() {
     return 'locked';
   };
 
-  const handleComplete = (xp: number) => {
-    if (!openLesson || !learningUserId) return;
-    completeLesson(learningUserId, openLesson.id, xp);
-    setOpenLesson(null);
-  };
-
-  const progressPct = completedIds.length / TRILHA_LESSONS.length;
+  const progressPct = lessons.length ? completedIds.length / lessons.length : 0;
+  const loading = lessonQuery.isPending || progressQuery.isPending;
+  const failed = lessonQuery.isError || progressQuery.isError;
 
   return (
     <View style={styles.screen}>
@@ -58,14 +51,14 @@ export default function TrilhaScreen() {
           </View>
           <View style={styles.xpPill}>
             <MaterialIcons name="star" size={14} color={Accent.gold} />
-            <Text style={styles.xpPillText}>{totalXp} XP</Text>
+            <Text style={styles.xpPillText}>{totalXp} pontos</Text>
           </View>
         </View>
 
         <View style={styles.headerProgress}>
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>
-              {trailDone ? 'Trilha concluída!' : `${completedIds.length} de ${TRILHA_LESSONS.length} lições`}
+              {trailDone ? 'Trilha concluída!' : `${completedIds.length} de ${lessons.length} lições`}
             </Text>
             <Text style={styles.progressPct}>{Math.round(progressPct * 100)}%</Text>
           </View>
@@ -80,19 +73,23 @@ export default function TrilhaScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
         showsVerticalScrollIndicator={false}
       >
+        {!userId && <Text style={styles.progressLabel}>Entre na sua conta para salvar seu progresso.</Text>}
+        {userId && loading && <ActivityIndicator color={Accent.primary} />}
+        {userId && failed && <Pressable onPress={() => { void lessonQuery.refetch(); void progressQuery.refetch(); }}><Text style={styles.bannerSub}>Não foi possível carregar seu progresso. Toque para tentar novamente.</Text></Pressable>}
+        {progress && <View style={styles.trailCompleteBanner}><View style={{ flex: 1 }}><Text style={styles.bannerTitle}>USDC liberado desde o início</Text>{['EURC', 'XLM'].map((symbol) => <Text key={symbol} style={styles.bannerSub}>{symbol}: {progress.vaultAccess[symbol]?.unlocked ? 'liberado' : `faltam ${progress.vaultAccess[symbol]?.pointsRemaining ?? '—'} pontos`}</Text>)}</View></View>}
         {trailDone && (
           <View style={styles.trailCompleteBanner}>
             <MaterialIcons name="workspace-premium" size={24} color={Accent.gold} />
             <View style={{ flex: 1 }}>
               <Text style={styles.bannerTitle}>Trilha concluída!</Text>
-              <Text style={styles.bannerSub}>Badge &quot;Porquinho Iniciante&quot; desbloqueado</Text>
+              <Text style={styles.bannerSub}>Continue escolhendo seus investimentos com consciência dos riscos.</Text>
             </View>
           </View>
         )}
 
-        {TRILHA_LESSONS.map((lesson, index) => {
+        {!failed && !loading && lessons.map((lesson, index) => {
           const state = getLessonState(lesson.id);
-          const isLast = index === TRILHA_LESSONS.length - 1;
+          const isLast = index === lessons.length - 1;
           return (
             <TrailNode
               key={lesson.id}
@@ -109,9 +106,10 @@ export default function TrilhaScreen() {
 
       {/* ── Lesson player modal ── */}
       {openLesson && (
-        <LessonPlayer
+        <LearningLessonPlayer
+          key={`${userId}-${openLesson.id}`}
           lesson={openLesson}
-          onComplete={handleComplete}
+          completedQuestionIds={progress?.completedQuestionIds ?? []}
           onClose={() => setOpenLesson(null)}
         />
       )}
@@ -126,7 +124,7 @@ function TrailNode({
   isLast,
   onPress,
 }: {
-  lesson: TrilhaLesson;
+  lesson: LearningLesson;
   state: 'completed' | 'current' | 'locked';
   isLast: boolean;
   onPress: () => void;
@@ -194,7 +192,7 @@ function TrailNode({
         <View style={nodeStyles.metaChip}>
           <MaterialIcons name="star" size={12} color={isLocked ? Colors.mutedForeground : Accent.gold} />
           <Text style={[nodeStyles.metaText, isLocked && nodeStyles.metaTextLocked]}>
-            {lesson.xp} XP
+            {lesson.xp} pontos
           </Text>
         </View>
         <View style={nodeStyles.metaChip}>
