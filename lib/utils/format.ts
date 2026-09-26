@@ -36,6 +36,52 @@ export function formatAmountForMode(
 }
 
 /**
+ * Valor que está no caminho da exclusão da conta.
+ *
+ * Duas casas nos dois modos. As sete casas do Pro existem para conferir saldo;
+ * aqui o número serve para decidir o que fazer com ele, e o resto é ruído.
+ */
+export function formatBlockingAmount(
+  raw: string | null | undefined,
+  mode: AppMode,
+): string {
+  const truncated = truncateDecimalString(raw ?? "0", 2);
+  if (mode === "pro") return truncated;
+
+  const n = parseFloat(truncated);
+  if (Number.isNaN(n)) return "0,00";
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+/** Quatro casas bastam para um valor que, por definição, é menor que a poeira. */
+const RESIDUAL_DECIMALS = 4;
+
+/**
+ * Valor residual — o que será varrido ou perdido ao excluir a conta.
+ *
+ * Duas casas exibiriam sempre zero, já que o valor é sempre menor que o limite
+ * de poeira. Mostra até quatro, sem zeros à direita e nunca menos que duas. O
+ * que não couber em quatro vira "menor que", em vez de virar zero.
+ */
+export function formatResidualAmount(
+  raw: string | null | undefined,
+  mode: AppMode,
+): string {
+  const separator = (value: string) =>
+    mode === "pro" ? value : value.replace(".", ",");
+
+  const truncated = truncateDecimalString(raw ?? "0", RESIDUAL_DECIMALS);
+  if (Number(truncated) === 0 && Number(raw ?? 0) > 0) {
+    return separator(`< 0.${"0".repeat(RESIDUAL_DECIMALS - 1)}1`);
+  }
+
+  return separator(truncated.replace(/(.d{2}d*?)0+$/, "$1"));
+}
+
+/**
  * Rendimento anual — mesmo formato nos dois modos.
  *
  * Chegou a variar por modo (quatro casas no Pro), mas o número comprido
