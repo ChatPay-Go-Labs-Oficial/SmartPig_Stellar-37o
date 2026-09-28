@@ -17,8 +17,9 @@ This is an Expo/React Native project with TypeScript, using React Navigation, Ta
 ## CI Configuration
 
 - CI workflow: `.github/workflows/ci.yml` - Runs lint and build checks on PRs
-- Branch protection: Main branch requires PR approval from code owner and passing CI checks
+- Branch protection: Main branch requires PR approval from code owner and passing CI checks (build-check)
 - CODEOWNERS: `.github/CODEOWNERS` - Requires @Maycon-Rodrigues approval for all changes
+- Note: Lint runs but doesn't block merge (existing code has lint errors to be fixed later)
 
 ## GitHub Repository
 

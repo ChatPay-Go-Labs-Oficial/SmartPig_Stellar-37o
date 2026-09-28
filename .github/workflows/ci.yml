@@ -45,7 +45,7 @@ jobs:
         run: npm ci
 
       - name: Run Expo doctor
-        run: npx expo doctor
+        run: npx expo-doctor
 
       - name: TypeScript check
         run: npx tsc --noEmit
