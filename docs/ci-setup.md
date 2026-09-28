@@ -22,8 +22,8 @@ O pipeline de CI é executado automaticamente em:
 
 1. **Lint**: Executa `npm run lint` para verificar estilo e qualidade do código
 2. **Build Check**: 
-   - Executa `npx expo doctor` para verificar configuração do Expo
    - Executa `npx tsc --noEmit` para verificação de TypeScript
+   - Nota: Expo doctor não é executado (problemas existentes no projeto serão corrigidos separadamente)
 
 Todos os jobs devem passar para que o PR possa ser merged.
 
