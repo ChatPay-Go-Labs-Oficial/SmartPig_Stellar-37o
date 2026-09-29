@@ -72,7 +72,7 @@ export const TRILHA_LESSONS: TrilhaLesson[] = [
         type: 'tf',
         statement: '"Preciso de muito dinheiro para começar a investir."',
         correct: false,
-        feedback: 'Falso mesmo! No PigFi você começa com R$10. O hábito importa mais que o valor.',
+        feedback: 'Falso mesmo! No PigFi você começa com US$10. O hábito importa mais que o valor.',
       },
       {
         type: 'mc',
@@ -140,7 +140,7 @@ export const TRILHA_LESSONS: TrilhaLesson[] = [
     xp: 20,
     duration: '2 min',
     icon: 'bolt',
-    intro: 'É só um Pix. O resto é com a gente.\n\nVocê manda um Pix a partir de R$10. A PigFi converte em dólar e seu porquinho começa a crescer. Sem banco, sem agência, sem burocracia.',
+    intro: 'É só um Pix. O resto é com a gente.\n\nVocê manda um Pix em reais com valor equivalente a partir de US$10. A PigFi converte em dólar e seu porquinho começa a crescer. Sem banco, sem agência, sem burocracia.',
     questions: [
       {
         type: 'order',
@@ -162,12 +162,12 @@ export const TRILHA_LESSONS: TrilhaLesson[] = [
         options: [
           { id: 'a', text: 'R$50' },
           { id: 'b', text: 'R$100' },
-          { id: 'c', text: 'R$10' },
+          { id: 'c', text: 'US$10' },
           { id: 'd', text: 'R$1.000' },
         ],
         correctId: 'c',
-        feedbackCorrect: 'Isso! R$10. O café que você tomaria amanhã pode virar dólar hoje.',
-        feedbackWrong: 'Muito menos que isso! No PigFi você começa com só R$10.',
+        feedbackCorrect: 'Isso! US$10. Com esse valor, você já pode começar a guardar em dólar.',
+        feedbackWrong: 'Muito menos que isso! No PigFi você começa com só US$10.',
       },
       {
         type: 'tf',
@@ -185,7 +185,7 @@ export const TRILHA_LESSONS: TrilhaLesson[] = [
     xp: 20,
     duration: '2 min',
     icon: 'repeat',
-    intro: 'Não é sobre quanto. É sobre sempre.\n\nGuardar R$10 todo mês por 12 meses é melhor do que guardar R$200 uma vez e esquecer. O hábito constrói mais do que o valor.',
+    intro: 'Não é sobre quanto. É sobre sempre.\n\nGuardar US$10 todo mês por 12 meses é melhor do que guardar R$200 uma vez e esquecer. O hábito constrói mais do que o valor.',
     questions: [
       {
         type: 'mc',
@@ -193,7 +193,7 @@ export const TRILHA_LESSONS: TrilhaLesson[] = [
         options: [
           { id: 'a', text: 'Guardar R$500 uma vez por ano' },
           { id: 'b', text: 'Esperar ter bastante dinheiro para começar' },
-          { id: 'c', text: 'Guardar R$10 todo mês, sem falhar' },
+          { id: 'c', text: 'Guardar US$10 todo mês, sem falhar' },
           { id: 'd', text: 'Investir só quando a economia está boa' },
         ],
         correctId: 'c',
@@ -256,7 +256,7 @@ export const TRILHA_LESSONS: TrilhaLesson[] = [
           { id: 'a', text: 'Rentabilidade garantida acima de tudo' },
           { id: 'b', text: 'Foco em investidores experientes' },
           { id: 'c', text: 'Processo burocrático com mais segurança' },
-          { id: 'd', text: 'Simplicidade, gamificação e acessibilidade a partir de R$10' },
+          { id: 'd', text: 'Simplicidade, gamificação e acessibilidade a partir de US$10' },
         ],
         correctId: 'd',
         feedbackCorrect: 'Perfeito! Simples, divertido e acessível. Esse é o PigFi.',

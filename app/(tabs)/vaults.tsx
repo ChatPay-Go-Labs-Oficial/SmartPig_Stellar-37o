@@ -3,7 +3,6 @@ import { Badge, Button, Card, DepositModal, IconSymbol, PressableScale, Withdraw
 import { Accent, Colors, Font, FontSize, Gradients, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useVaultApy, useVaultBalance, useVaults } from '@/lib/queries/vaults.queries';
-import { useWalletBalance } from '@/lib/queries/wallets.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useTerms } from '@/hooks/use-terms';
 import {
@@ -14,10 +13,9 @@ import {
 } from '@/lib/utils/format';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Modal } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 // ─── InfoRow ─────────────────────────────────────────────────────────────────
 function InfoRow({
@@ -97,7 +95,7 @@ function VaultCard({ vault }: { vault: Vault }) {
               {formatVaultNameForMode(vault.name, mode)}
             </Text>
             <Text style={styles.assetSymbol}>
-              {isPro ? vault.assetSymbol : t('asset.symbol')}
+              {vault.assetSymbol}
             </Text>
           </View>
           <Badge label={formatApy(vault.apy)} variant={apyBadge} />
@@ -118,6 +116,7 @@ function VaultCard({ vault }: { vault: Vault }) {
           )}
         </View>
 
+        {vault.access && !vault.access.canDeposit && <Text style={styles.description}>{!vault.access.depositsEnabled ? 'Novos depósitos pausados' : `Aprenda para liberar: faltam ${vault.access.pointsRemaining ?? '—'} pontos`}</Text>}
         {vault.description && (
           <Text style={styles.description} numberOfLines={2}>{vault.description}</Text>
         )}
@@ -128,6 +127,8 @@ function VaultCard({ vault }: { vault: Vault }) {
 
 export default function VaultsScreen() {
   const { data: vaults, isLoading, isError, refetch } = useVaults();
+  const featured = vaults?.find((vault) => vault.assetSymbol.toUpperCase() === 'USDC');
+  const otherVaults = vaults?.filter((vault) => vault.id !== featured?.id) ?? [];
 
   return (
     <ScreenContainer scrollable contentStyle={{ padding: 0, paddingBottom: 120 }}>
@@ -160,11 +161,11 @@ export default function VaultsScreen() {
 
       {vaults && vaults.length > 0 && (
         <View style={styles.featureWrapper}>
-          <VaultFeatured vault={vaults[0]} />
+          {featured && <VaultFeatured vault={featured} />}
 
-          {vaults.length > 1 && (
+          {otherVaults.length > 0 && (
             <View style={styles.list}>
-              {vaults.slice(1).map((item) => (
+              {otherVaults.map((item) => (
                 <VaultCard key={item.id} vault={item} />
               ))}
             </View>
@@ -176,14 +177,13 @@ export default function VaultsScreen() {
 }
 
 function VaultFeatured({ vault }: { vault: Vault }) {
-  const { t, mode, isPro } = useTerms();
+  const { t, mode } = useTerms();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const { data: balanceData } = useVaultBalance(vault.id, walletAddress);
   const { data: apyData } = useVaultApy(vault.id);
   const apyValue = apyData?.apy ?? (vault.apy ? parseFloat(vault.apy) : 0);
   const vaultBalance = balanceData?.underlyingBalance?.[0] ?? '0';
   const hasBalance = parseFloat(vaultBalance) > 0;
-  const walletBalance = useWalletBalance(walletAddress);
   const dailyEarnings = hasBalance ? parseFloat(vaultBalance) * (apyValue / 100) / 365 : 0;
   const [infoOpen, setInfoOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
@@ -234,11 +234,11 @@ function VaultFeatured({ vault }: { vault: Vault }) {
 
         {/* Side-by-side action buttons */}
         <View style={styles.actionRow}>
-          <PressableScale onPress={() => setDepositOpen(true)} style={styles.actionBtnWrap}>
+          <PressableScale onPress={() => { if (!vault.access || vault.access.canDeposit) setDepositOpen(true); else if (vault.access.depositsEnabled) router.push('/(tabs)/learn'); }} style={styles.actionBtnWrap}>
             <LinearGradient colors={Gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.investBtn}>
               <MaterialIcons name="arrow-downward" size={22} color="rgba(255,255,255,0.9)" />
               <View style={styles.btnTextBlock}>
-                <Text style={styles.investBtnText}>Investir</Text>
+                <Text style={styles.investBtnText}>{vault.access?.depositsEnabled === false ? 'Pausado' : 'Investir'}</Text>
                 <Text style={styles.investBtnSub}>no porquinho</Text>
               </View>
             </LinearGradient>
@@ -319,7 +319,7 @@ function VaultFeatured({ vault }: { vault: Vault }) {
                 label="Total que você tem nesse porquinho"
                 value={
                   hasBalance
-                    ? `${formatAmountForMode(vaultBalance, mode)} ${isPro ? vault.assetSymbol : t('asset.symbol')}`
+                    ? `${formatAmountForMode(vaultBalance, mode)} ${vault.assetSymbol}`
                     : 'Você ainda não investiu'
                 }
                 valueColor={hasBalance ? Accent.success : undefined}

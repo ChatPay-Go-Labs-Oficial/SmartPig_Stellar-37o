@@ -80,5 +80,10 @@
     "patch-package": "^8.0.1",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "postcss@8": "^8.5.28",
+    "brace-expansion@1": "^1.1.21",
+    "ws@8": "^8.21.3"
+  }
 }
