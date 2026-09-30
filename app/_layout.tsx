@@ -259,7 +259,10 @@ function AppGate() {
         );
       }
     } catch {
-      setBiometricLocked(false);
+      setBiometricLocked(true);
+      setBiometricMessage(
+        "Biometria indisponível no momento. Tente novamente.",
+      );
     } finally {
       setBiometricChecking(false);
       authenticatingRef.current = false;
@@ -333,7 +336,10 @@ function AppGate() {
     }
 
     if (!isReady) {
-      if (privyError || privyReadyTimedOut) {
+      // Privy can surface a transient initialization error before session
+      // restoration finishes, especially on iOS. Keep the neutral loading
+      // screen until the timeout expires instead of flashing a fatal error.
+      if (privyReadyTimedOut) {
         requestAnimationFrame(() => setSplashDone(true));
       }
       return;
@@ -359,7 +365,6 @@ function AppGate() {
     gateOpen,
     isAuthenticated,
     isReady,
-    privyError,
     privyReadyTimedOut,
   ]);
 
