@@ -234,6 +234,8 @@ function AppGate() {
   const restoredSessionRequiresBiometricsRef = useRef(false);
   const hydrationCapturedRef = useRef(false);
   const inAuthFlow = segments[0] === "(auth)";
+  const iosSessionPending =
+    Platform.OS === "ios" && isAuthenticated && (!isReady || !user);
 
   const unlockWithBiometrics = useCallback(async () => {
     if (authenticatingRef.current) return;
@@ -309,6 +311,9 @@ function AppGate() {
   }, [clearAuth, hydrated, isAuthenticated, isReady, user]);
 
   useEffect(() => {
+    // On iOS, elapsed time does not mean session restoration has failed.
+    // Keep the existing timeout/recovery behavior on Android.
+    if (Platform.OS === "ios") return;
     if (!gateOpen || !isAuthenticated || isReady) {
       setPrivyReadyTimedOut(false);
       return;
@@ -335,10 +340,11 @@ function AppGate() {
       return;
     }
 
+    if (iosSessionPending) return;
+
     if (!isReady) {
       // Privy can surface a transient initialization error before session
-      // restoration finishes, especially on iOS. Keep the neutral loading
-      // screen until the timeout expires instead of flashing a fatal error.
+      // restoration finishes. Non-iOS platforms keep the existing timeout.
       if (privyReadyTimedOut) {
         requestAnimationFrame(() => setSplashDone(true));
       }
@@ -365,6 +371,7 @@ function AppGate() {
     gateOpen,
     isAuthenticated,
     isReady,
+    iosSessionPending,
     privyReadyTimedOut,
   ]);
 
@@ -373,6 +380,7 @@ function AppGate() {
       !splashDone ||
       !gateOpen ||
       !isReady ||
+      iosSessionPending ||
       !isAuthenticated ||
       !biometricLocked ||
       !restoredSessionRequiresBiometricsRef.current
@@ -395,6 +403,7 @@ function AppGate() {
     gateOpen,
     isAuthenticated,
     isReady,
+    iosSessionPending,
     splashDone,
     unlockWithBiometrics,
   ]);
@@ -437,10 +446,12 @@ function AppGate() {
     return null;
   }
 
-  if (!splashDone) {
+  if (!splashDone || iosSessionPending) {
     return (
       <GateLoadingModal
         message={hydrated ? "Preparando acesso..." : "Restaurando sessão..."}
+        onLogout={Platform.OS === "ios" && isAuthenticated ? handleLogout : undefined}
+        loggingOut={biometricChecking}
       />
     );
   }
@@ -526,7 +537,15 @@ function AppGate() {
   return null;
 }
 
-function GateLoadingModal({ message }: { message: string }) {
+function GateLoadingModal({
+  message,
+  onLogout,
+  loggingOut = false,
+}: {
+  message: string;
+  onLogout?: () => void;
+  loggingOut?: boolean;
+}) {
   return (
     <Modal
       visible
@@ -537,6 +556,17 @@ function GateLoadingModal({ message }: { message: string }) {
       <View style={styles.gateLoading}>
         <ActivityIndicator color={Accent.primary} size="large" />
         <Text style={styles.gateLoadingText}>{message}</Text>
+        {onLogout ? (
+          <Pressable
+            onPress={onLogout}
+            disabled={loggingOut}
+            style={styles.lockSecondaryBtn}
+          >
+            <Text style={styles.lockSecondaryText}>
+              {loggingOut ? "Saindo..." : "Sair da conta"}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </Modal>
   );
