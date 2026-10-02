@@ -16,6 +16,7 @@ import {
   Radius,
   Spacing,
 } from "@/constants/theme";
+import { PrivyGateDiagnostic } from "@/components/privy-gate-diagnostic";
 import { useHasBeenForegrounded } from "@/hooks/use-has-been-foregrounded";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useVersionGateStore } from "@/lib/stores/version-gate.store";
@@ -634,6 +635,7 @@ function PrivyRecoveryContent({
       {errorDetail ? (
         <Text style={styles.diagnosticText}>{errorDetail}</Text>
       ) : null}
+      <PrivyGateDiagnostic style={styles.diagnosticText} />
 
       <Pressable
         onPress={onRetry}
