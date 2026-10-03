@@ -3,7 +3,7 @@ import "react-native-get-random-values";
 import "react-native-url-polyfill/auto";
 import { setAudioModeAsync } from "expo-audio";
 
-import { PrivyProvider, usePrivy } from "@privy-io/expo";
+import { PrivyProvider, usePrivy, usePrivyClient } from "@privy-io/expo";
 import { useSignRawHash } from "@privy-io/expo/extended-chains";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -225,6 +225,7 @@ function AppGate() {
     logout,
     user,
   } = usePrivy();
+  const privyClient = usePrivyClient();
   const { signRawHash } = useSignRawHash();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hydrated = useAuthStore((s) => s._hydrated);
@@ -241,6 +242,7 @@ function AppGate() {
   const initialPromptScheduledRef = useRef(false);
   const restoredSessionRequiresBiometricsRef = useRef(false);
   const hydrationCapturedRef = useRef(false);
+  const walletReloadAttemptedRef = useRef(false);
   const inAuthFlow = segments[0] === "(auth)";
 
   const unlockWithBiometrics = useCallback(async () => {
@@ -328,6 +330,20 @@ function AppGate() {
     const startTimer = () => {
       if (timer) return;
       timer = setTimeout(() => {
+        timer = null;
+
+        // O `isReady` depende da WebView oculta da carteira embarcada. Se a
+        // carga dela falha ou o processo dela morre, o SDK só a recarrega ao
+        // voltar para "active" — sem isso, o usuário precisava sair e voltar ao
+        // app. Antes de mostrar o erro, o gate faz essa recarga uma vez e
+        // espera de novo.
+        if (!walletReloadAttemptedRef.current) {
+          walletReloadAttemptedRef.current = true;
+          privyClient.embeddedWallet.reload();
+          startTimer();
+          return;
+        }
+
         setPrivyReadyTimedOut(true);
         requestAnimationFrame(() => setSplashDone(true));
       }, PRIVY_READY_TIMEOUT_MS);
@@ -350,7 +366,7 @@ function AppGate() {
       stopTimer();
       subscription.remove();
     };
-  }, [gateOpen, isAuthenticated, isReady, privyRetryCount]);
+  }, [gateOpen, isAuthenticated, isReady, privyClient, privyRetryCount]);
 
   useEffect(() => {
     if (!gateOpen) return;
@@ -487,6 +503,7 @@ function AppGate() {
         }
         errorDetail={getPrivyErrorDetail(privyError)}
         onRetry={() => {
+          privyClient.embeddedWallet.reload();
           setPrivyReadyTimedOut(false);
           setPrivyRetryCount((count) => count + 1);
           setSplashDone(false);
