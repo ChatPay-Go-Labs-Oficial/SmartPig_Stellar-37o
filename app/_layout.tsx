@@ -3,7 +3,7 @@ import "react-native-get-random-values";
 import "react-native-url-polyfill/auto";
 import { setAudioModeAsync } from "expo-audio";
 
-import { PrivyProvider, usePrivy } from "@privy-io/expo";
+import { PrivyProvider, usePrivy, usePrivyClient } from "@privy-io/expo";
 import { useSignRawHash } from "@privy-io/expo/extended-chains";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -16,6 +16,8 @@ import {
   Radius,
   Spacing,
 } from "@/constants/theme";
+import { PrivyGateDiagnostic } from "@/components/privy-gate-diagnostic";
+import { useHasBeenForegrounded } from "@/hooks/use-has-been-foregrounded";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useVersionGateStore } from "@/lib/stores/version-gate.store";
 import { setTokenProvider } from "@/lib/api/token";
@@ -45,7 +47,7 @@ import { enableFreeze } from "react-native-screens";
 // chamada cobre navegadores aninhados, que não herdam aquela opção.
 enableFreeze(false);
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -147,6 +149,7 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
     Nunito_900Black,
   });
+  const hasBeenForegrounded = useHasBeenForegrounded();
 
   // App é dark-only (ver Colors.background em constants/theme.ts), então os
   // ícones da barra de navegação do Android devem ser sempre claros para
@@ -156,7 +159,12 @@ export default function RootLayout() {
     NavigationBar.setButtonStyleAsync("light").catch(() => {});
   }, []);
 
-  if (!fontsLoaded) {
+  // O PrivyProvider só monta com o app em primeiro plano. Iniciado em segundo
+  // plano (prewarming do iOS), a WebView da carteira embarcada começa a carregar
+  // e é suspensa no meio; o `isReady` depende dela, e o SDK só a recupera numa
+  // corrida de `ping` ao voltar para `active`. Pelo mesmo motivo, o timeout do
+  // AppGate começava a contar antes do toque do usuário e já vencia na abertura.
+  if (!fontsLoaded || !hasBeenForegrounded) {
     return <View style={styles.splash} />;
   }
 
@@ -217,6 +225,7 @@ function AppGate() {
     logout,
     user,
   } = usePrivy();
+  const privyClient = usePrivyClient();
   const { signRawHash } = useSignRawHash();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hydrated = useAuthStore((s) => s._hydrated);
@@ -233,6 +242,7 @@ function AppGate() {
   const initialPromptScheduledRef = useRef(false);
   const restoredSessionRequiresBiometricsRef = useRef(false);
   const hydrationCapturedRef = useRef(false);
+  const walletReloadAttemptedRef = useRef(false);
   const inAuthFlow = segments[0] === "(auth)";
 
   const unlockWithBiometrics = useCallback(async () => {
@@ -311,13 +321,52 @@ function AppGate() {
       return;
     }
 
-    const timer = setTimeout(() => {
-      setPrivyReadyTimedOut(true);
-      requestAnimationFrame(() => setSplashDone(true));
-    }, PRIVY_READY_TIMEOUT_MS);
+    // Conta só o tempo em primeiro plano. No iOS o setTimeout mira um horário
+    // de relógio: suspenso no meio da inicialização, o app volta com o timer
+    // vencido e mostraria o erro de sessão na hora, sem o Privy ter tido tempo
+    // de responder. "inactive" (Face ID, central de controle) não interrompe.
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    return () => clearTimeout(timer);
-  }, [gateOpen, isAuthenticated, isReady, privyRetryCount]);
+    const startTimer = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+
+        // O `isReady` depende da WebView oculta da carteira embarcada. Se a
+        // carga dela falha ou o processo dela morre, o SDK só a recarrega ao
+        // voltar para "active" — sem isso, o usuário precisava sair e voltar ao
+        // app. Antes de mostrar o erro, o gate faz essa recarga uma vez e
+        // espera de novo.
+        if (!walletReloadAttemptedRef.current) {
+          walletReloadAttemptedRef.current = true;
+          privyClient.embeddedWallet.reload();
+          startTimer();
+          return;
+        }
+
+        setPrivyReadyTimedOut(true);
+        requestAnimationFrame(() => setSplashDone(true));
+      }, PRIVY_READY_TIMEOUT_MS);
+    };
+
+    const stopTimer = () => {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+    };
+
+    if (AppState.currentState !== "background") startTimer();
+
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "background") stopTimer();
+      else startTimer();
+    });
+
+    return () => {
+      stopTimer();
+      subscription.remove();
+    };
+  }, [gateOpen, isAuthenticated, isReady, privyClient, privyRetryCount]);
 
   useEffect(() => {
     if (!gateOpen) return;
@@ -432,25 +481,29 @@ function AppGate() {
     return null;
   }
 
+  let gateContent: ReactNode = null;
+
   if (!splashDone) {
-    return (
-      <GateLoadingModal
+    gateContent = (
+      <GateLoadingContent
         message={hydrated ? "Preparando acesso..." : "Restaurando sessão..."}
       />
     );
-  }
-
-  if (isAuthenticated && !isReady && (privyError || privyReadyTimedOut)) {
-    const detail = getPrivyErrorDetail(privyError);
-    return (
-      <PrivyRecoveryModal
+  } else if (
+    isAuthenticated &&
+    !isReady &&
+    (privyError || privyReadyTimedOut)
+  ) {
+    gateContent = (
+      <PrivyRecoveryContent
         errorMessage={
           privyError
             ? "Não foi possível inicializar a sessão Privy."
             : "A sessão Privy demorou para responder."
         }
-        errorDetail={detail}
+        errorDetail={getPrivyErrorDetail(privyError)}
         onRetry={() => {
+          privyClient.embeddedWallet.reload();
           setPrivyReadyTimedOut(false);
           setPrivyRetryCount((count) => count + 1);
           setSplashDone(false);
@@ -459,81 +512,95 @@ function AppGate() {
         loading={biometricChecking}
       />
     );
-  }
-
-  if (
+  } else if (
     isAuthenticated &&
     biometricLocked &&
     restoredSessionRequiresBiometricsRef.current
   ) {
-    return (
-      <Modal
-        visible
-        animationType="none"
-        transparent={false}
-        statusBarTranslucent
-        onRequestClose={() => {}}
-      >
-        <View style={styles.lockOverlay}>
-          <LinearGradient
-            colors={Gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.lockIconWrap}
-          >
-            <MaterialIcons name="fingerprint" size={36} color="#fff" />
-          </LinearGradient>
-
-          <Text style={styles.lockTitle}>Confirme que é você</Text>
-          <Text style={styles.lockText}>
-            Use a biometria do aparelho para acessar sua conta PigFi.
-          </Text>
-
-          {biometricMessage ? (
-            <Text style={styles.lockMessage}>{biometricMessage}</Text>
-          ) : null}
-
-          <Pressable
-            onPress={unlockWithBiometrics}
-            disabled={biometricChecking}
-            style={[
-              styles.lockPrimaryBtn,
-              biometricChecking && styles.lockBtnDisabled,
-            ]}
-          >
-            <Text style={styles.lockPrimaryText}>
-              {biometricChecking ? "Verificando..." : "Desbloquear"}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={handleLogout}
-            disabled={biometricChecking}
-            style={styles.lockSecondaryBtn}
-          >
-            <Text style={styles.lockSecondaryText}>Sair da conta</Text>
-          </Pressable>
-        </View>
-      </Modal>
+    gateContent = (
+      <BiometricLockContent
+        message={biometricMessage}
+        checking={biometricChecking}
+        onUnlock={unlockWithBiometrics}
+        onLogout={handleLogout}
+      />
     );
   }
 
-  return null;
-}
+  if (!gateContent) return null;
 
-function GateLoadingModal({ message }: { message: string }) {
+  // Um único Modal para todos os estados do gate, trocando só o conteúdo.
+  // Um Modal por estado fazia o iOS fechar um e apresentar o outro a cada
+  // transição, e no intervalo aparecia a rota de baixo — a tela de login.
   return (
     <Modal
       visible
       animationType="none"
       transparent={false}
       statusBarTranslucent
+      onRequestClose={() => {}}
     >
-      <View style={styles.gateLoading}>
-        <ActivityIndicator color={Accent.primary} size="large" />
-        <Text style={styles.gateLoadingText}>{message}</Text>
-      </View>
+      {gateContent}
     </Modal>
+  );
+}
+
+function GateLoadingContent({ message }: { message: string }) {
+  return (
+    <View style={styles.gateLoading}>
+      <ActivityIndicator color={Accent.primary} size="large" />
+      <Text style={styles.gateLoadingText}>{message}</Text>
+    </View>
+  );
+}
+
+function BiometricLockContent({
+  message,
+  checking,
+  onUnlock,
+  onLogout,
+}: {
+  message: string;
+  checking: boolean;
+  onUnlock: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <View style={styles.lockOverlay}>
+      <LinearGradient
+        colors={Gradients.primary}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.lockIconWrap}
+      >
+        <MaterialIcons name="fingerprint" size={36} color="#fff" />
+      </LinearGradient>
+
+      <Text style={styles.lockTitle}>Confirme que é você</Text>
+      <Text style={styles.lockText}>
+        Use a biometria do aparelho para acessar sua conta PigFi.
+      </Text>
+
+      {message ? <Text style={styles.lockMessage}>{message}</Text> : null}
+
+      <Pressable
+        onPress={onUnlock}
+        disabled={checking}
+        style={[styles.lockPrimaryBtn, checking && styles.lockBtnDisabled]}
+      >
+        <Text style={styles.lockPrimaryText}>
+          {checking ? "Verificando..." : "Desbloquear"}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        onPress={onLogout}
+        disabled={checking}
+        style={styles.lockSecondaryBtn}
+      >
+        <Text style={styles.lockSecondaryText}>Sair da conta</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -554,7 +621,7 @@ function MissingPrivyConfigScreen() {
   );
 }
 
-function PrivyRecoveryModal({
+function PrivyRecoveryContent({
   errorDetail,
   errorMessage,
   loading,
@@ -568,49 +635,43 @@ function PrivyRecoveryModal({
   onRetry: () => void;
 }) {
   return (
-    <Modal
-      visible
-      animationType="none"
-      transparent={false}
-      statusBarTranslucent
-    >
-      <View style={styles.lockOverlay}>
-        <View style={styles.recoveryIconWrap}>
-          <MaterialIcons
-            name="sync-problem"
-            size={34}
-            color={Accent.destructive}
-          />
-        </View>
-        <Text style={styles.lockTitle}>Sessão não carregou</Text>
-        <Text style={styles.lockText}>{errorMessage}</Text>
-        <Text style={styles.lockMessage}>
-          Seus dados financeiros continuam bloqueados. Tente novamente ou saia
-          da conta.
-        </Text>
-        {errorDetail ? (
-          <Text style={styles.diagnosticText}>{errorDetail}</Text>
-        ) : null}
-
-        <Pressable
-          onPress={onRetry}
-          disabled={loading}
-          style={[styles.lockPrimaryBtn, loading && styles.lockBtnDisabled]}
-        >
-          <Text style={styles.lockPrimaryText}>Tentar novamente</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={onLogout}
-          disabled={loading}
-          style={styles.lockSecondaryBtn}
-        >
-          <Text style={styles.lockSecondaryText}>
-            {loading ? "Saindo..." : "Sair da conta"}
-          </Text>
-        </Pressable>
+    <View style={styles.lockOverlay}>
+      <View style={styles.recoveryIconWrap}>
+        <MaterialIcons
+          name="sync-problem"
+          size={34}
+          color={Accent.destructive}
+        />
       </View>
-    </Modal>
+      <Text style={styles.lockTitle}>Sessão não carregou</Text>
+      <Text style={styles.lockText}>{errorMessage}</Text>
+      <Text style={styles.lockMessage}>
+        Seus dados financeiros continuam bloqueados. Tente novamente ou saia
+        da conta.
+      </Text>
+      {errorDetail ? (
+        <Text style={styles.diagnosticText}>{errorDetail}</Text>
+      ) : null}
+      <PrivyGateDiagnostic style={styles.diagnosticText} />
+
+      <Pressable
+        onPress={onRetry}
+        disabled={loading}
+        style={[styles.lockPrimaryBtn, loading && styles.lockBtnDisabled]}
+      >
+        <Text style={styles.lockPrimaryText}>Tentar novamente</Text>
+      </Pressable>
+
+      <Pressable
+        onPress={onLogout}
+        disabled={loading}
+        style={styles.lockSecondaryBtn}
+      >
+        <Text style={styles.lockSecondaryText}>
+          {loading ? "Saindo..." : "Sair da conta"}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
