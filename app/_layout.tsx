@@ -17,6 +17,7 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { PrivyGateDiagnostic } from "@/components/privy-gate-diagnostic";
+import { useAppLockStore } from "@/lib/stores/app-lock.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useVersionGateStore } from "@/lib/stores/version-gate.store";
 import { setTokenProvider } from "@/lib/api/token";
@@ -223,6 +224,7 @@ function AppGate() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hydrated = useAuthStore((s) => s._hydrated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
+  const setAppLocked = useAppLockStore((s) => s.setLocked);
   const [gateOpen, setGateOpen] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
   const [privyReadyTimedOut, setPrivyReadyTimedOut] = useState(false);
@@ -235,7 +237,9 @@ function AppGate() {
   const initialPromptScheduledRef = useRef(false);
   const restoredSessionRequiresBiometricsRef = useRef(false);
   const hydrationCapturedRef = useRef(false);
+  const navigatedUnderLockRef = useRef(false);
   const inAuthFlow = segments[0] === "(auth)";
+  const hasPrivyUser = Boolean(user);
 
   const unlockWithBiometrics = useCallback(async () => {
     if (authenticatingRef.current) return;
@@ -279,6 +283,7 @@ function AppGate() {
     setBiometricMessage("");
     restoredSessionRequiresBiometricsRef.current = false;
     initialPromptScheduledRef.current = false;
+    navigatedUnderLockRef.current = false;
     setBiometricChecking(false);
     router.replace("/(auth)");
   }, [clearAuth, logout]);
@@ -356,6 +361,7 @@ function AppGate() {
       setBiometricMessage("");
       restoredSessionRequiresBiometricsRef.current = false;
       initialPromptScheduledRef.current = false;
+      navigatedUnderLockRef.current = false;
       requestAnimationFrame(() => setSplashDone(true));
       return;
     }
@@ -377,14 +383,24 @@ function AppGate() {
       router.replace("/(tabs)");
       requestAnimationFrame(() => setSplashDone(true));
     } else if (!biometricLocked) {
-      router.replace("/(tabs)");
+      // Já navegou por baixo do cadeado: navegar de novo remontaria as abas.
+      if (!navigatedUnderLockRef.current) router.replace("/(tabs)");
+      navigatedUnderLockRef.current = false;
       requestAnimationFrame(() => setSplashDone(true));
     } else {
+      // Navega para as abas por baixo do cadeado. Ao desbloquear, o Modal sai
+      // revelando a home — não a rota que estava embaixo, como a de login na
+      // abertura do app, que piscava enquanto as abas entravam em fade.
+      if (hasPrivyUser && !navigatedUnderLockRef.current) {
+        navigatedUnderLockRef.current = true;
+        router.replace("/(tabs)");
+      }
       requestAnimationFrame(() => setSplashDone(true));
     }
   }, [
     biometricLocked,
     gateOpen,
+    hasPrivyUser,
     isAuthenticated,
     isReady,
     privyError,
@@ -453,6 +469,18 @@ function AppGate() {
     return () => subscription.remove();
   }, [biometricLocked, inAuthFlow, isAuthenticated, unlockWithBiometrics]);
 
+  const showPrivyRecovery =
+    isAuthenticated && !isReady && Boolean(privyError || privyReadyTimedOut);
+  const showBiometricLock =
+    isAuthenticated &&
+    biometricLocked &&
+    restoredSessionRequiresBiometricsRef.current;
+  const gateCovering = !splashDone || showPrivyRecovery || showBiometricLock;
+
+  useEffect(() => {
+    setAppLocked(gateCovering);
+  }, [gateCovering, setAppLocked]);
+
   if (forceUpdateRequired) {
     // VersionGate (montado dentro do QueryClientProvider) já está exibindo o
     // modal obrigatório — evita que splash/erro Privy/lock de biometria abram
@@ -468,11 +496,7 @@ function AppGate() {
         message={hydrated ? "Preparando acesso..." : "Restaurando sessão..."}
       />
     );
-  } else if (
-    isAuthenticated &&
-    !isReady &&
-    (privyError || privyReadyTimedOut)
-  ) {
+  } else if (showPrivyRecovery) {
     gateContent = (
       <PrivyRecoveryContent
         errorMessage={
@@ -493,11 +517,7 @@ function AppGate() {
         loading={biometricChecking}
       />
     );
-  } else if (
-    isAuthenticated &&
-    biometricLocked &&
-    restoredSessionRequiresBiometricsRef.current
-  ) {
+  } else if (showBiometricLock) {
     gateContent = (
       <BiometricLockContent
         message={biometricMessage}
