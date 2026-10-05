@@ -17,7 +17,6 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { PrivyGateDiagnostic } from "@/components/privy-gate-diagnostic";
-import { useHasBeenForegrounded } from "@/hooks/use-has-been-foregrounded";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useVersionGateStore } from "@/lib/stores/version-gate.store";
 import { setTokenProvider } from "@/lib/api/token";
@@ -149,7 +148,6 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
     Nunito_900Black,
   });
-  const hasBeenForegrounded = useHasBeenForegrounded();
 
   // App é dark-only (ver Colors.background em constants/theme.ts), então os
   // ícones da barra de navegação do Android devem ser sempre claros para
@@ -159,12 +157,7 @@ export default function RootLayout() {
     NavigationBar.setButtonStyleAsync("light").catch(() => {});
   }, []);
 
-  // O PrivyProvider só monta com o app em primeiro plano. Iniciado em segundo
-  // plano (prewarming do iOS), a WebView da carteira embarcada começa a carregar
-  // e é suspensa no meio; o `isReady` depende dela, e o SDK só a recupera numa
-  // corrida de `ping` ao voltar para `active`. Pelo mesmo motivo, o timeout do
-  // AppGate começava a contar antes do toque do usuário e já vencia na abertura.
-  if (!fontsLoaded || !hasBeenForegrounded) {
+  if (!fontsLoaded) {
     return <View style={styles.splash} />;
   }
 
@@ -242,7 +235,6 @@ function AppGate() {
   const initialPromptScheduledRef = useRef(false);
   const restoredSessionRequiresBiometricsRef = useRef(false);
   const hydrationCapturedRef = useRef(false);
-  const walletReloadAttemptedRef = useRef(false);
   const inAuthFlow = segments[0] === "(auth)";
 
   const unlockWithBiometrics = useCallback(async () => {
@@ -331,19 +323,6 @@ function AppGate() {
       if (timer) return;
       timer = setTimeout(() => {
         timer = null;
-
-        // O `isReady` depende da WebView oculta da carteira embarcada. Se a
-        // carga dela falha ou o processo dela morre, o SDK só a recarrega ao
-        // voltar para "active" — sem isso, o usuário precisava sair e voltar ao
-        // app. Antes de mostrar o erro, o gate faz essa recarga uma vez e
-        // espera de novo.
-        if (!walletReloadAttemptedRef.current) {
-          walletReloadAttemptedRef.current = true;
-          privyClient.embeddedWallet.reload();
-          startTimer();
-          return;
-        }
-
         setPrivyReadyTimedOut(true);
         requestAnimationFrame(() => setSplashDone(true));
       }, PRIVY_READY_TIMEOUT_MS);
@@ -366,7 +345,7 @@ function AppGate() {
       stopTimer();
       subscription.remove();
     };
-  }, [gateOpen, isAuthenticated, isReady, privyClient, privyRetryCount]);
+  }, [gateOpen, isAuthenticated, isReady, privyRetryCount]);
 
   useEffect(() => {
     if (!gateOpen) return;
@@ -503,6 +482,8 @@ function AppGate() {
         }
         errorDetail={getPrivyErrorDetail(privyError)}
         onRetry={() => {
+          // Refaz a carga da WebView da carteira embarcada, de que o `isReady`
+          // depende: cobre carga que falhou e processo da WebView que morreu.
           privyClient.embeddedWallet.reload();
           setPrivyReadyTimedOut(false);
           setPrivyRetryCount((count) => count + 1);
@@ -532,15 +513,25 @@ function AppGate() {
   // Um único Modal para todos os estados do gate, trocando só o conteúdo.
   // Um Modal por estado fazia o iOS fechar um e apresentar o outro a cada
   // transição, e no intervalo aparecia a rota de baixo — a tela de login.
+  //
+  // `overFullScreen` mantém a árvore do app na janela por baixo do gate. No
+  // padrão (`fullScreen`) o UIKit a retira da janela, e a WebView oculta do
+  // Privy — de que o `isReady` depende — só cria a WKWebView ao entrar numa
+  // janela (`didMoveToWindow` do react-native-webview). Montada pelo Privy com
+  // o gate já aberto, ela nunca era criada e o `isReady` não chegava.
+  // `accessibilityViewIsModal` impede o VoiceOver de alcançar o app por trás.
   return (
     <Modal
       visible
       animationType="none"
       transparent={false}
+      presentationStyle="overFullScreen"
       statusBarTranslucent
       onRequestClose={() => {}}
     >
-      {gateContent}
+      <View style={styles.gateRoot} accessibilityViewIsModal>
+        {gateContent}
+      </View>
     </Modal>
   );
 }
@@ -680,6 +671,7 @@ const styles = StyleSheet.create({
   // qualquer frame que uma tela não pinte.
   root: { flex: 1, backgroundColor: Colors.background },
   splash: { flex: 1, backgroundColor: Colors.background },
+  gateRoot: { flex: 1, backgroundColor: Colors.background },
   gateLoading: {
     flex: 1,
     backgroundColor: Colors.background,
