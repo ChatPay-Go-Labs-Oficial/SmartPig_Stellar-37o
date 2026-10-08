@@ -28,6 +28,7 @@ import { useWalletBalance } from "@/lib/queries/wallets.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
 import { useTerms } from "@/hooks/use-terms";
 import { formatApy } from "@/lib/utils/format";
+import { useAppLockStore } from "@/lib/stores/app-lock.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
 import { LinearGradient } from "expo-linear-gradient";
@@ -156,6 +157,7 @@ export default function HomeScreen() {
     walletAddress ? s.lastSeenPigLevelByWallet[walletAddress] : undefined,
   );
   const setLastSeenPigLevel = useAuthStore((s) => s.setLastSeenPigLevel);
+  const appLocked = useAppLockStore((s) => s.locked);
   const balances = useAllVaultBalances(walletAddress);
   const balancesReady =
     !!walletAddress &&
@@ -276,7 +278,9 @@ export default function HomeScreen() {
   const [levelDirection, setLevelDirection] = useState<"up" | "down">("up");
 
   useEffect(() => {
-    if (!balancesReady || !walletAddress) return;
+    // Montada por baixo do cadeado, a home espera o app ser liberado: aberto
+    // antes, o Modal da animação seria descartado pelo iOS sem aparecer.
+    if (!balancesReady || !walletAddress || appLocked) return;
 
     if (!lastSeenPigLevel) {
       setLastSeenPigLevel(walletAddress, level.label);
@@ -302,6 +306,7 @@ export default function HomeScreen() {
     setLevelDirection(newIdx > oldIdx ? "up" : "down");
     setLevelUpModalVisible(true);
   }, [
+    appLocked,
     balancesReady,
     lastSeenPigLevel,
     level.label,
