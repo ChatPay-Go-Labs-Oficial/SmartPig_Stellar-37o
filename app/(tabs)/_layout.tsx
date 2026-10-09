@@ -17,7 +17,7 @@ const TABS: TabConfig[] = [
   { name: 'index',   title: 'Home',      icon: 'home' },
   { name: 'vaults',  title: 'Investir',  icon: 'bar-chart' },
   { name: 'learn',   title: 'Trilha',    icon: 'school' },
-  { name: 'history', title: 'Histórico', icon: 'history' },
+  { name: 'wallet',  title: 'Carteira',  icon: 'account-balance-wallet' },
   { name: 'profile', title: 'Perfil',    icon: 'person' },
 ];
 

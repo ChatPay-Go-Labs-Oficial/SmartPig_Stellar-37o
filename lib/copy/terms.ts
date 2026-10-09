@@ -85,17 +85,37 @@ export const TERMS = {
   // ── Transação ─────────────────────────────────────────────────────────
   'tx.hash.label': { lite: 'Comprovante', pro: 'Tx' },
 
+  // ── Carteira (V2) ─────────────────────────────────────────────────────
+  'carteira.balance.label': { lite: 'Saldo na carteira', pro: 'Total estimado' },
+  'carteira.assets.title': { lite: 'Suas moedas', pro: 'Ativos' },
+  'carteira.action.swap': { lite: 'Trocar', pro: 'Swap' },
+  'carteira.action.send': { lite: 'Enviar', pro: 'Transferir' },
+  'carteira.swap.title': { lite: 'Trocar moedas', pro: 'Swap' },
+  'carteira.swap.soon': {
+    lite: 'Em breve você vai poder converter dólar em euro e em outras moedas, direto da sua carteira.',
+    pro: 'Em breve: swap entre os ativos da carteira (USDC, EURC e XLM) pelas rotas da rede Stellar.',
+  },
+  'carteira.asset.USDC.name': { lite: 'Dólar', pro: 'USDC' },
+  'carteira.asset.USDC.caption': { lite: 'Pronto pra guardar', pro: 'Dólar digital' },
+  'carteira.asset.EURC.name': { lite: 'Euro', pro: 'EURC' },
+  'carteira.asset.EURC.caption': { lite: 'Euro digital', pro: 'Euro digital' },
+  'carteira.asset.XLM.name': { lite: 'Criptomoeda', pro: 'XLM' },
+  'carteira.asset.XLM.caption': { lite: 'Moeda da rede', pro: 'Stellar' },
+
   // ── Histórico ─────────────────────────────────────────────────────────
   'history.deposit': {
-    lite: 'Guardado no cofrinho',
-    pro: 'Investimento (vault)',
+    lite: 'Guardado no porquinho',
+    pro: 'Depósito no vault',
   },
   'history.withdrawal': {
-    lite: 'Retirado do cofrinho',
-    pro: 'Saque (vault)',
+    lite: 'Tirado do porquinho',
+    pro: 'Saque do vault',
   },
-  'history.sent': { lite: 'Enviado', pro: 'USDC enviado' },
-  'history.received': { lite: 'Recebido', pro: 'USDC recebido' },
+  'history.sent': { lite: 'Dinheiro enviado', pro: 'USDC enviado' },
+  'history.received': { lite: 'Dinheiro recebido', pro: 'USDC recebido' },
+  'history.gift.sent': { lite: 'Presente enviado', pro: 'Presente enviado' },
+  'history.gift.received': { lite: 'Presente recebido', pro: 'Presente recebido' },
+  'history.filter.vaults': { lite: 'Porquinhos', pro: 'Vaults' },
 
   // ── Cofrinho / vault ──────────────────────────────────────────────────
   'vault.apy.label': { lite: 'Quanto rende por ano', pro: 'APY (anualizado)' },
