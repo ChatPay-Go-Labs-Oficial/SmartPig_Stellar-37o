@@ -1,6 +1,8 @@
+import type { VaultAccess } from './learning';
 import { apiClient } from './client';
 
 export interface Vault {
+  access?: VaultAccess & { depositsEnabled: boolean; canDeposit: boolean };
   id: string;
   defindexVaultId: string;
   name: string;

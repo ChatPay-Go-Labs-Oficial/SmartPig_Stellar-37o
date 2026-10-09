@@ -1,6 +1,6 @@
 import { ScreenContainer } from '@/components/layout';
 import { Badge, Button, Card, DepositModal, GradientText, IconSymbol, PressableScale } from '@/components/ui';
-import { Accent, Colors, Font, FontSize, Gradients, Glow, Spacing } from '@/constants/theme';
+import { Accent, Colors, Font, FontSize, Spacing } from '@/constants/theme';
 import { normalizeStellarAmount } from '@/lib/api/vaults';
 import { useVault, useVaultApy, useVaultBalance, vaultKeys } from '@/lib/queries/vaults.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
@@ -179,7 +179,7 @@ export default function VaultDetailScreen() {
                   {formatAmountForMode(vaultBalance, mode)}
                 </Text>
                 <Text style={styles.amountSymbol}>
-                  {isPro ? vault.assetSymbol : t('asset.symbol')}
+                  {vault.assetSymbol}
                 </Text>
               </LinearGradient>
 
@@ -224,11 +224,12 @@ export default function VaultDetailScreen() {
       {/* ── CTA ── */}
       <View style={styles.actions}>
         <Button
-          label="Investir neste porquinho"
+          label={vault.access?.depositsEnabled === false ? 'Novos depósitos pausados' : vault.access?.unlocked === false ? `Aprender: faltam ${vault.access.pointsRemaining ?? '—'} pontos` : 'Investir neste porquinho'}
+          disabled={vault.access?.depositsEnabled === false}
           variant="primary"
           size="lg"
           fullWidth
-          onPress={() => setDepositOpen(true)}
+          onPress={() => vault.access?.unlocked === false ? router.push('/(tabs)/learn') : setDepositOpen(true)}
         />
       </View>
 
@@ -284,7 +285,7 @@ export default function VaultDetailScreen() {
                 label={t('vault.balance.label')}
                 value={
                   hasInvestment
-                    ? `${formatAmountForMode(vaultBalance, mode)} ${isPro ? vault.assetSymbol : t('asset.symbol')}`
+                    ? `${formatAmountForMode(vaultBalance, mode)} ${vault.assetSymbol}`
                     : 'Você ainda não investiu'
                 }
                 valueColor={hasInvestment ? Accent.success : undefined}
