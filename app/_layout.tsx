@@ -32,6 +32,13 @@ import {
   Nunito_900Black,
   useFonts,
 } from "@expo-google-fonts/nunito";
+// Inter (Design System V2) por subcaminho: o índice do pacote faz require dos
+// 18 arquivos da família (~6 MB) e o Metro empacota todos.
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { Inter_800ExtraBold } from "@expo-google-fonts/inter/800ExtraBold";
+import { Inter_900Black } from "@expo-google-fonts/inter/900Black";
 import {
   MutationCache,
   QueryCache,
@@ -147,6 +154,12 @@ export default function RootLayout() {
     Nunito_700Bold,
     Nunito_800ExtraBold,
     Nunito_900Black,
+    // Fonte do Design System V2 (constants/theme-v2.ts)
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+    Inter_900Black,
   });
 
   // App é dark-only (ver Colors.background em constants/theme.ts), então os

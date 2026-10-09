@@ -139,3 +139,25 @@ export function formatVaultNameForMode(name: string, mode: AppMode): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
+
+// ─── Design System V2 ───────────────────────────────────────────────────────
+
+/**
+ * Dólar no padrão das telas V2 ("$1,234.56", separadores americanos, como no
+ * Figma). Trunca em duas casas, nunca arredonda para cima. Sem sinal: quem
+ * chama decide entre "+" e "-".
+ */
+export function formatUsdV2(value: number | string): string {
+  const n = typeof value === "number" ? value : parseFloat(value);
+  if (!Number.isFinite(n)) return "$0.00";
+  const truncated = truncateDecimalString(Math.abs(n).toFixed(7), 2);
+  const [integerPart, decimalPart] = truncated.split(".");
+  const grouped = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `$${grouped}.${decimalPart}`;
+}
+
+/** Endereço Stellar abreviado: "GAB3…K9Q2" (`edge` caracteres em cada ponta). */
+export function shortAddress(address: string, edge = 4): string {
+  if (address.length <= edge * 2 + 1) return address;
+  return `${address.slice(0, edge)}…${address.slice(-edge)}`;
+}
