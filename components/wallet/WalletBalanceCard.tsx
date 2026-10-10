@@ -10,9 +10,9 @@ import { V2Icon } from '@/components/v2';
 import { formatUsdV2, shortAddress } from '@/lib/utils/format';
 
 interface WalletBalanceCardProps {
-  /** Lite: saldo em dólar. Pro: total estimado de todos os ativos. */
-  amountUsd: number;
-  /** Pro: o total depende de cotação (vale o "≈" e o selo de estimativa). */
+  /** Total em USD; null quando alguma moeda com saldo não pôde ser cotada. */
+  amountUsd: number | null;
+  /** O total inclui pelo menos uma moeda convertida por cotação. */
   estimated: boolean;
   address: string | null;
 }
@@ -37,8 +37,10 @@ export function WalletBalanceCard({ amountUsd, estimated, address }: WalletBalan
     copiedTimer.current = setTimeout(() => setCopied(false), 1500);
   }
 
-  const showEstimate = isPro && estimated;
-  const formatted = `${showEstimate ? '≈ ' : ''}${formatUsdV2(amountUsd)}`;
+  const showEstimate = estimated && amountUsd !== null;
+  const formatted = amountUsd === null
+    ? 'Saldo indisponível'
+    : `${showEstimate ? '≈ ' : ''}${formatUsdV2(amountUsd)}`;
 
   return (
     <View style={styles.card}>
@@ -68,6 +70,10 @@ export function WalletBalanceCard({ amountUsd, estimated, address }: WalletBalan
       >
         {formatted}
       </Text>
+
+      {amountUsd === null && (
+        <Text style={styles.hint}>Não foi possível cotar todas as suas moedas agora.</Text>
+      )}
 
       {!isPro && amountUsd === 0 && (
         <Text style={styles.hint}>Deposite para começar a guardar.</Text>

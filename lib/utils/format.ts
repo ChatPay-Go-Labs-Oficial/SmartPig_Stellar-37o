@@ -130,14 +130,7 @@ export function formatVaultNameForMode(name: string, mode: AppMode): string {
       ? `${name.slice(0, 6)}…${name.slice(-4)}`
       : "Porquinho do PigFi";
   }
-  if (mode === "pro") return name;
-
-  const lower = name.replace(/[-_]+/g, " ");
-  if (/pig/i.test(lower)) return "Porquinho do PigFi";
-  return lower
-    .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  return name;
 }
 
 // ─── Design System V2 ───────────────────────────────────────────────────────

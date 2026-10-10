@@ -16,11 +16,13 @@ import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
 import { usePixRampGate } from '@/hooks/use-pix-ramp-gate';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
 import { useUsdcPrice, useWalletAssets } from '@/lib/queries/wallets.queries';
 import { isMainnetNetwork } from '@/lib/stellar/config';
 import { ActionKey3D, ListCard, ScreenGlow, V2Icon } from '@/components/v2';
 import { WalletBalanceCard } from '@/components/wallet/WalletBalanceCard';
 import { WalletAssetRow } from '@/components/wallet/WalletAssetRow';
+import { WalletPortfolioCard } from '@/components/wallet/WalletPortfolioCard';
 import { SwapSoonSheet } from '@/components/wallet/SwapSoonSheet';
 import { BlindPayOnrampModal, BlindPayOfframpModal, TransferModal } from '@/components/ui';
 
@@ -34,6 +36,7 @@ export default function WalletScreen() {
   const walletAddress = useAuthStore((s) => s.walletAddress);
 
   const assetsQuery = useWalletAssets(walletAddress);
+  const portfolioQuery = usePortfolioSummary(!!walletAddress);
   const assets = assetsQuery.data?.assets ?? [];
   const hasEurc = assets.some((a) => a.id === 'EURC');
   const xlmPrice = useUsdcPrice('XLM');
@@ -42,9 +45,11 @@ export default function WalletScreen() {
 
   const usdcBalance = parseFloat(assets.find((a) => a.id === 'USDC')?.balance ?? '0') || 0;
 
-  // Pro: soma de tudo que tem cotação. Ativo sem cotação fica fora do total —
-  // por isso o valor é marcado como estimativa.
-  const totalUsd = assets.reduce((sum, asset) => {
+  const hasUnpricedBalance = assets.some((asset) => {
+    const amount = parseFloat(asset.balance);
+    return Number.isFinite(amount) && amount > 0 && prices[asset.id] == null;
+  });
+  const totalUsd = hasUnpricedBalance ? null : assets.reduce((sum, asset) => {
     const price = prices[asset.id];
     const amount = parseFloat(asset.balance);
     return price != null && Number.isFinite(amount) ? sum + amount * price : sum;
@@ -77,7 +82,12 @@ export default function WalletScreen() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    await Promise.allSettled([assetsQuery.refetch(), xlmPrice.refetch(), eurcPrice.refetch()]);
+    await Promise.allSettled([
+      assetsQuery.refetch(),
+      portfolioQuery.refetch(),
+      xlmPrice.refetch(),
+      eurcPrice.refetch(),
+    ]);
     setRefreshing(false);
   }
 
@@ -123,7 +133,7 @@ export default function WalletScreen() {
         ) : (
           <>
             <WalletBalanceCard
-              amountUsd={isPro ? totalUsd : usdcBalance}
+              amountUsd={totalUsd}
               estimated={assets.some((a) => a.id !== 'USDC' && parseFloat(a.balance) > 0)}
               address={walletAddress}
             />
@@ -176,6 +186,19 @@ export default function WalletScreen() {
                   <WalletAssetRow key={asset.id} asset={asset} usdPrice={prices[asset.id]} />
                 ))}
               </ListCard>
+            </View>
+
+            <View style={styles.assetsSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{isPro ? 'Posições nos vaults' : 'Nos porquinhos'}</Text>
+              </View>
+
+              <WalletPortfolioCard
+                summary={portfolioQuery.data}
+                isLoading={portfolioQuery.isLoading}
+                isError={portfolioQuery.isError}
+                onRetry={() => portfolioQuery.refetch()}
+              />
             </View>
           </>
         )}

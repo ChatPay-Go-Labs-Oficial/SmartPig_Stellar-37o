@@ -3,7 +3,6 @@ import { Badge, Button, Card, DepositModal, IconSymbol, PressableScale, Withdraw
 import { Accent, Colors, Font, FontSize, Gradients, Spacing } from '@/constants/theme';
 import type { Vault } from '@/lib/api/vaults';
 import { useVaultApy, useVaultBalance, useVaults } from '@/lib/queries/vaults.queries';
-import { useWalletBalance } from '@/lib/queries/wallets.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useTerms } from '@/hooks/use-terms';
 import {
@@ -14,10 +13,9 @@ import {
 } from '@/lib/utils/format';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Modal } from 'react-native';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 // ─── InfoRow ─────────────────────────────────────────────────────────────────
 function InfoRow({
@@ -97,7 +95,7 @@ function VaultCard({ vault }: { vault: Vault }) {
               {formatVaultNameForMode(vault.name, mode)}
             </Text>
             <Text style={styles.assetSymbol}>
-              {isPro ? vault.assetSymbol : t('asset.symbol')}
+              {vault.assetSymbol}
             </Text>
           </View>
           <Badge label={formatApy(vault.apy)} variant={apyBadge} />
@@ -128,6 +126,9 @@ function VaultCard({ vault }: { vault: Vault }) {
 
 export default function VaultsScreen() {
   const { data: vaults, isLoading, isError, refetch } = useVaults();
+  const featuredVault =
+    vaults?.find((vault) => vault.assetSymbol.toUpperCase() === 'USDC') ?? vaults?.[0];
+  const otherVaults = vaults?.filter((vault) => vault.id !== featuredVault?.id) ?? [];
 
   return (
     <ScreenContainer scrollable contentStyle={{ padding: 0, paddingBottom: 120 }}>
@@ -160,11 +161,11 @@ export default function VaultsScreen() {
 
       {vaults && vaults.length > 0 && (
         <View style={styles.featureWrapper}>
-          <VaultFeatured vault={vaults[0]} />
+          {featuredVault && <VaultFeatured vault={featuredVault} />}
 
-          {vaults.length > 1 && (
+          {otherVaults.length > 0 && (
             <View style={styles.list}>
-              {vaults.slice(1).map((item) => (
+              {otherVaults.map((item) => (
                 <VaultCard key={item.id} vault={item} />
               ))}
             </View>
@@ -183,7 +184,6 @@ function VaultFeatured({ vault }: { vault: Vault }) {
   const apyValue = apyData?.apy ?? (vault.apy ? parseFloat(vault.apy) : 0);
   const vaultBalance = balanceData?.underlyingBalance?.[0] ?? '0';
   const hasBalance = parseFloat(vaultBalance) > 0;
-  const walletBalance = useWalletBalance(walletAddress);
   const dailyEarnings = hasBalance ? parseFloat(vaultBalance) * (apyValue / 100) / 365 : 0;
   const [infoOpen, setInfoOpen] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
@@ -199,7 +199,9 @@ function VaultFeatured({ vault }: { vault: Vault }) {
         <View style={styles.pigInfoRow}>
           <Image source={require('@/assets/images/PigFi-porquinho.png')} style={styles.pigAvatar} />
           <View style={styles.pigNameBlock}>
-            <Text style={styles.featureTitle} numberOfLines={1}>Porquinho do PigFi</Text>
+            <Text style={styles.featureTitle} numberOfLines={1}>
+              {formatVaultNameForMode(vault.name, mode)}
+            </Text>
             <Text style={styles.featureSubtitle}>Dólar rendendo todo dia</Text>
           </View>
           <View style={styles.apyBlock}>
@@ -297,7 +299,9 @@ function VaultFeatured({ vault }: { vault: Vault }) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoTitle}>Detalhes do porquinho</Text>
-                <Text style={styles.infoTitleSub}>Porquinho do PigFi</Text>
+                <Text style={styles.infoTitleSub}>
+                  {formatVaultNameForMode(vault.name, mode)}
+                </Text>
               </View>
             </View>
 
@@ -364,7 +368,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing[1],
   },
   list: {
-    paddingHorizontal: Spacing[6],
     paddingBottom: Spacing[8],
     gap: Spacing[3],
   },
