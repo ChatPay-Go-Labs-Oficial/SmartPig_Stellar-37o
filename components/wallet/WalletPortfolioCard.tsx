@@ -3,8 +3,13 @@ import { AssetIcon, type AssetLogoId } from '@/components/v2';
 import { V2Colors, V2Font, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
+import { useVaultAccess } from '@/hooks/use-vault-access';
 import type { PortfolioSummary } from '@/lib/api/portfolio';
 import { formatUsdV2, truncateDecimalString } from '@/lib/utils/format';
+import {
+  portfolioPositionUsdValue,
+  positionUsesMarketPrice,
+} from '@/lib/utils/portfolio';
 
 interface WalletPortfolioCardProps {
   summary: PortfolioSummary | undefined;
@@ -19,6 +24,12 @@ function hasAssetLogo(symbol: string): symbol is AssetLogoId {
   return ASSET_LOGOS.includes(symbol as AssetLogoId);
 }
 
+function formatCompactAssetAmount(raw: string): string {
+  const compact = truncateDecimalString(raw, 2);
+  const hiddenDecimals = raw.split('.')[1]?.slice(2) ?? '';
+  return hiddenDecimals.replace(/0+$/, '').length > 0 ? `${compact}…` : compact;
+}
+
 export function WalletPortfolioCard({
   summary,
   isLoading,
@@ -27,6 +38,21 @@ export function WalletPortfolioCard({
 }: WalletPortfolioCardProps) {
   const accent = useAccent();
   const { isPro } = useTerms();
+  const { canAccessVaultAsset } = useVaultAccess();
+  const positions = summary?.positions.filter((position) =>
+    canAccessVaultAsset(position.assetSymbol),
+  );
+  const visibleTotalUsd = positions?.some(
+    (position) => portfolioPositionUsdValue(position) === null,
+  )
+    ? null
+    : positions
+        ?.reduce(
+          (total, position) => total + (portfolioPositionUsdValue(position) ?? 0),
+          0,
+        )
+        .toString();
+  const usesMarketPricing = positions?.some(positionUsesMarketPrice) ?? false;
 
   if (!summary && isLoading) {
     return (
@@ -47,7 +73,7 @@ export function WalletPortfolioCard({
     );
   }
 
-  if (!summary || summary.positions.length === 0) {
+  if (!summary || !positions || positions.length === 0) {
     return (
       <View style={[styles.card, styles.empty]}>
         <Text style={styles.emptyTitle}>Nenhum valor investido</Text>
@@ -58,31 +84,39 @@ export function WalletPortfolioCard({
 
   return (
     <View style={styles.card}>
-      <View style={styles.totalBlock}>
-        <View style={styles.totalLabelRow}>
-          <Text style={styles.totalLabel}>{isPro ? 'Total nos vaults' : 'Total guardado'}</Text>
-          {summary.stale && (
-            <View style={styles.staleChip}>
-              <Text style={styles.staleText}>pode estar desatualizado</Text>
-            </View>
+      {positions.length > 1 && (
+        <View style={styles.totalBlock}>
+          <View style={styles.totalLabelRow}>
+            <Text style={styles.totalLabel}>
+              {isPro
+                ? usesMarketPricing
+                  ? 'Valor estimado nos vaults'
+                  : 'Total nos vaults'
+                : 'Total guardado'}
+            </Text>
+            {summary.stale && (
+              <View style={styles.staleChip}>
+                <Text style={styles.staleText}>pode estar desatualizado</Text>
+              </View>
+            )}
+          </View>
+
+          {visibleTotalUsd === null ? (
+            <>
+              <Text style={styles.unavailable}>Total indisponível</Text>
+              <Text style={styles.totalHint}>Confira os valores por moeda abaixo.</Text>
+            </>
+          ) : (
+            <Text style={styles.total}>{formatUsdV2(visibleTotalUsd ?? '0')}</Text>
+          )}
+
+          {isPro && usesMarketPricing && summary.priceSource && (
+            <Text style={styles.source}>Estimativa em USD · {formatPriceSource(summary.priceSource)}</Text>
           )}
         </View>
+      )}
 
-        {summary.totalUsd === null ? (
-          <>
-            <Text style={styles.unavailable}>Total indisponível</Text>
-            <Text style={styles.totalHint}>Confira os valores por moeda abaixo.</Text>
-          </>
-        ) : (
-          <Text style={styles.total}>{formatUsdV2(summary.totalUsd)}</Text>
-        )}
-
-        {isPro && summary.priceSource && (
-          <Text style={styles.source}>Preço: {summary.priceSource}</Text>
-        )}
-      </View>
-
-      {summary.positions.map((position) => {
+      {positions.map((position) => {
         const symbol = position.assetSymbol.toUpperCase();
         return (
           <View key={position.vaultId} style={styles.position}>
@@ -96,24 +130,68 @@ export function WalletPortfolioCard({
 
             <View style={styles.positionText}>
               <Text style={styles.vaultName} numberOfLines={1}>{position.vaultName}</Text>
-              <Text style={styles.assetAmount} numberOfLines={1}>
-                {truncateDecimalString(position.amountAsset, isPro ? 7 : 2)} {symbol}
-              </Text>
+              {positions.length === 1 && summary.stale && (
+                <Text style={styles.staleInline}>pode estar desatualizado</Text>
+              )}
+              {isPro && (
+                <Text style={styles.shares} numberOfLines={1}>
+                  {truncateDecimalString(position.shares, 7)} cotas
+                </Text>
+              )}
             </View>
 
             <View style={styles.usdValue}>
-              {position.amountUsd !== null ? (
-                <Text style={styles.usdText}>{formatUsdV2(position.amountUsd)}</Text>
-              ) : (
-                <Text style={styles.unpriced}>sem cotação</Text>
-              )}
-              {isPro && <Text style={styles.shares}>{truncateDecimalString(position.shares, 7)} cotas</Text>}
+              <Text style={styles.usdText}>
+                {isPro
+                  ? `${formatCompactAssetAmount(position.amountAsset)} ${symbol}`
+                  : formatUsdV2(position.amountAsset)}
+              </Text>
+              {isPro && positionUsesMarketPrice(position)
+                ? position.amountUsd !== null
+                  ? (
+                    <>
+                      <Text style={styles.estimate}>≈ {formatUsdV2(position.amountUsd)}</Text>
+                      <Text style={styles.positionSource}>
+                        {formatPositionPrice(
+                          position.amountAsset,
+                          position.amountUsd,
+                          symbol,
+                          summary.priceSource,
+                        )}
+                      </Text>
+                    </>
+                  )
+                  : <Text style={styles.unpriced}>sem cotação</Text>
+                : null}
             </View>
           </View>
         );
       })}
     </View>
   );
+}
+
+function formatPriceSource(source: PortfolioSummary['priceSource']): string {
+  if (source === 'REFLECTOR') return 'Reflector';
+  if (source === 'STATIC') return 'cotação fixa';
+  if (source === 'MIXED') return 'fontes combinadas';
+  return 'fonte indisponível';
+}
+
+function formatPositionPrice(
+  amountAsset: string,
+  amountUsd: string,
+  symbol: string,
+  source: PortfolioSummary['priceSource'],
+): string {
+  const asset = Number(amountAsset);
+  const usd = Number(amountUsd);
+  if (!Number.isFinite(asset) || asset <= 0 || !Number.isFinite(usd)) {
+    return formatPriceSource(source);
+  }
+
+  const unitPrice = truncateDecimalString((usd / asset).toFixed(7), 4);
+  return `${formatPriceSource(source)} · 1 ${symbol} ≈ US$ ${unitPrice}`;
 }
 
 const styles = StyleSheet.create({
@@ -193,6 +271,16 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: V2Colors.textTertiary,
   },
+  estimate: {
+    fontFamily: V2Font.medium,
+    fontSize: 11.5,
+    color: V2Colors.textTertiary,
+  },
+  positionSource: {
+    fontFamily: V2Font.medium,
+    fontSize: 9.5,
+    color: V2Colors.textTertiary,
+  },
   staleChip: {
     paddingHorizontal: 7,
     paddingVertical: 2,
@@ -202,6 +290,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,194,75,0.22)',
   },
   staleText: {
+    fontFamily: V2Font.bold,
+    fontSize: 9.5,
+    color: V2Colors.warning,
+  },
+  staleInline: {
     fontFamily: V2Font.bold,
     fontSize: 9.5,
     color: V2Colors.warning,
