@@ -23,6 +23,7 @@ import { ActionKey3D, ListCard, ScreenGlow, V2Icon } from '@/components/v2';
 import { WalletBalanceCard } from '@/components/wallet/WalletBalanceCard';
 import { WalletAssetRow } from '@/components/wallet/WalletAssetRow';
 import { WalletPortfolioCard } from '@/components/wallet/WalletPortfolioCard';
+import { SwapSheet } from '@/components/wallet/SwapSheet';
 import { SwapSoonSheet } from '@/components/wallet/SwapSoonSheet';
 import { BlindPayOnrampModal, BlindPayOfframpModal, TransferModal } from '@/components/ui';
 
@@ -34,6 +35,7 @@ export default function WalletScreen() {
   const { t, isPro } = useTerms();
   const isFocused = useIsFocused();
   const walletAddress = useAuthStore((s) => s.walletAddress);
+  const walletAccountId = useAuthStore((s) => s.walletAccountId);
 
   const assetsQuery = useWalletAssets(walletAddress);
   const portfolioQuery = usePortfolioSummary(!!walletAddress);
@@ -155,9 +157,9 @@ export default function WalletScreen() {
               <ActionKey3D
                 icon="refresh-cw"
                 label={t('carteira.action.swap')}
-                locked
+                locked={!isPro}
                 onPress={() => setSwapSheetOpen(true)}
-                accessibilityHint="Em breve"
+                accessibilityHint={isPro ? 'Trocar ativos da carteira' : 'Em breve'}
               />
               <ActionKey3D
                 icon="send"
@@ -212,7 +214,17 @@ export default function WalletScreen() {
         onClose={() => setOfframpOpen(false)}
       />
       <TransferModal visible={transferOpen} onClose={() => setTransferOpen(false)} />
-      <SwapSoonSheet visible={swapSheetOpen} onClose={() => setSwapSheetOpen(false)} />
+      {isPro ? (
+        <SwapSheet
+          visible={swapSheetOpen}
+          assets={assets}
+          walletAddress={walletAddress}
+          walletAccountId={walletAccountId}
+          onClose={() => setSwapSheetOpen(false)}
+        />
+      ) : (
+        <SwapSoonSheet visible={swapSheetOpen} onClose={() => setSwapSheetOpen(false)} />
+      )}
     </View>
   );
 }
