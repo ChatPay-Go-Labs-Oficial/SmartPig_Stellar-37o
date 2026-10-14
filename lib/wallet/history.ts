@@ -88,25 +88,26 @@ export function buildHistory(sources: {
   withdrawals?: Withdrawal[];
   transfers?: UsdcTransferRecord[];
   gifts?: GiftListItem[];
+  vaultAssetById?: ReadonlyMap<string, string>;
 }): HistoryItem[] {
   const items: HistoryItem[] = [
     ...(sources.deposits ?? []).map((d) => ({
       key: `vault-deposit-${d.id}`,
       kind: 'vault-deposit' as const,
       amount: toNumber(d.amount),
-      assetCode: 'USDC',
+      assetCode: d.assetSymbol || sources.vaultAssetById?.get(d.vaultId) || 'USDC',
       status: vaultStatus(d.status),
       createdAt: d.createdAt,
       vaultId: d.vaultId,
     })),
-    // `shares` são cotas do vault, não USDC: com a cota perto de 1 o número
+    // `shareAmount` são cotas do vault, não USDC: com a cota perto de 1 o número
     // bate, mas não é o valor resgatado. Mesmo comportamento do histórico
     // anterior — corrigir pede o valor em USDC vindo do backend.
     ...(sources.withdrawals ?? []).map((w) => ({
       key: `vault-withdrawal-${w.id}`,
       kind: 'vault-withdrawal' as const,
-      amount: toNumber(w.shares),
-      assetCode: 'USDC',
+      amount: toNumber(w.requestedAmount ?? w.shareAmount ?? w.shares),
+      assetCode: sources.vaultAssetById?.get(w.vaultId) || 'USDC',
       status: vaultStatus(w.status),
       createdAt: w.createdAt,
       vaultId: w.vaultId,

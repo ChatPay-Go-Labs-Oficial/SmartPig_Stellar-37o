@@ -57,7 +57,15 @@ export const useWithdrawal = (id: string) =>
 export const useCreateWithdrawal = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ vaultId, shares }: { vaultId: string; shares: number }) => {
+    mutationFn: async ({
+      vaultId,
+      shares,
+      amount,
+    }: {
+      vaultId: string;
+      shares: number;
+      amount: number;
+    }) => {
       const { contractId, walletAccountId } = useAuthStore.getState();
       return createWithdrawal({
         idempotencyKey: randomUUID(),
@@ -65,6 +73,7 @@ export const useCreateWithdrawal = () => {
         walletAccountId: walletAccountId!,
         vaultId,
         shareAmount: toStellarAmountString(shares),
+        requestedAmount: toStellarAmountString(amount),
       });
     },
     onSuccess: () => {

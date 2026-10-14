@@ -220,6 +220,7 @@ export function WithdrawModal({
       const result = await createWithdrawal.mutateAsync({
         vaultId,
         shares: shareAmount,
+        amount: parsedAmount,
       });
 
       if (!result.unsignedXdr) throw new Error("XDR não gerado");

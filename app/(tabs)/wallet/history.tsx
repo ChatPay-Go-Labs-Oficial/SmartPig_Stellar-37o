@@ -53,6 +53,12 @@ export default function WalletHistoryScreen() {
   const vaults = useVaults();
   const sources = [deposits, withdrawals, transfers, gifts];
 
+  const vaultAssetById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const vault of vaults.data ?? []) map.set(vault.id, vault.assetSymbol);
+    return map;
+  }, [vaults.data]);
+
   const items = useMemo(
     () =>
       buildHistory({
@@ -60,8 +66,9 @@ export default function WalletHistoryScreen() {
         withdrawals: withdrawals.data,
         transfers: transfers.data,
         gifts: gifts.data,
+        vaultAssetById,
       }),
-    [deposits.data, withdrawals.data, transfers.data, gifts.data],
+    [deposits.data, withdrawals.data, transfers.data, gifts.data, vaultAssetById],
   );
   const groups = useMemo(() => groupByMonth(filterHistory(items, filter)), [items, filter]);
 
