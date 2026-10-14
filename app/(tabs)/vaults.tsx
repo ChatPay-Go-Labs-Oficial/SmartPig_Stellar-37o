@@ -83,8 +83,12 @@ const infoRowStyles = StyleSheet.create({
 
 function VaultCard({ vault }: { vault: Vault }) {
   const { t, mode, isPro } = useTerms();
+  const walletAddress = useAuthStore((s) => s.walletAddress);
+  const { data: balanceData } = useVaultBalance(vault.id, walletAddress);
   const apy = parseFloat(vault.apy ?? '0');
   const apyBadge = apy >= 10 ? 'destaque' : apy >= 5 ? 'conquista' : 'muted';
+  const vaultBalance = balanceData?.underlyingBalance?.[0] ?? '0';
+  const hasBalance = Number(vaultBalance) > 0;
 
   return (
     <PressableScale onPress={() => router.push(`/vault/${vault.id}`)} style={styles.cardWrapper}>
@@ -115,6 +119,18 @@ function VaultCard({ vault }: { vault: Vault }) {
             </View>
           )}
         </View>
+
+        {hasBalance && (
+          <>
+            <View style={styles.cardDivider} />
+            <View style={styles.cardInvestment}>
+              <Text style={styles.balanceLabel}>Você tem investido aqui</Text>
+              <Text style={styles.cardBalanceValue}>
+                {formatAmountForMode(vaultBalance, mode)} {vault.assetSymbol}
+              </Text>
+            </View>
+          </>
+        )}
 
         {vault.description && (
           <Text style={styles.description} numberOfLines={2}>{vault.description}</Text>
@@ -397,6 +413,18 @@ const styles = StyleSheet.create({
   cardStats: {
     flexDirection: 'row',
     gap: Spacing[6],
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  cardInvestment: {
+    gap: 2,
+  },
+  cardBalanceValue: {
+    fontSize: FontSize.heading,
+    fontFamily: Font.black,
+    color: Colors.foreground,
   },
   stat: { gap: 2 },
   statLabel: {
