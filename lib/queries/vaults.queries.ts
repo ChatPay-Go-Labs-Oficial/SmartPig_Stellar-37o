@@ -1,5 +1,6 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { getVaults, getVault, getVaultApy, getVaultBalance, getVaultManagerVaults } from '@/lib/api/vaults';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export const vaultKeys = {
   all: ['vaults'] as const,
@@ -9,8 +10,15 @@ export const vaultKeys = {
   manager: ['vaults', 'manager'] as const,
 };
 
-export const useVaults = () =>
-  useQuery({ queryKey: vaultKeys.all, queryFn: getVaults });
+/**
+ * GET /vaults exige token. Telas montam por um instante antes de o AppGate
+ * redirecionar para o login (e o GiftClaimGate vive na raiz), então a consulta
+ * só roda com sessão.
+ */
+export const useVaults = () => {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  return useQuery({ queryKey: vaultKeys.all, queryFn: getVaults, enabled: isAuthenticated });
+};
 
 export const useVault = (id: string) =>
   useQuery({ queryKey: vaultKeys.detail(id), queryFn: () => getVault(id), enabled: !!id });
