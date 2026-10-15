@@ -18,7 +18,7 @@ import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useVaultAccess } from '@/hooks/use-vault-access';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useVaults, vaultKeys } from '@/lib/queries/vaults.queries';
-import { portfolioKeys, usePortfolioSummary } from '@/lib/queries/portfolio.queries';
+import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
 import type { TermKey } from '@/lib/copy/terms';
 import { formatApy } from '@/lib/utils/format';
 import {
@@ -297,10 +297,9 @@ export default function GuardarScreen() {
   }, []);
   const closeOperation = useCallback(() => {
     setOperationOpen(false);
-    // Os sheets já atualizam o portfólio ao concluir; ao fechar, uma leitura
-    // nova cobre também uma operação que falhou depois de enviada.
-    queryClient.invalidateQueries({ queryKey: portfolioKeys.summary });
-  }, [queryClient]);
+    // Guardar/Tirar já atualizam o portfólio assim que conhecem o resultado.
+    // Repetir aqui gerava duas leituras DeFindex quase simultâneas.
+  }, []);
   // Um sheet de cada vez: o Guardar fecha e só então a troca abre (dois
   // Modal ao mesmo tempo travam a apresentação no iOS).
   const openSwapFromSave = useCallback(() => {

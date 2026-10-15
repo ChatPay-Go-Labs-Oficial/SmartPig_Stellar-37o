@@ -23,8 +23,7 @@ import {
   scaleFont,
 } from '@/constants/theme';
 import type { Vault } from "@/lib/api/vaults";
-import type { PortfolioSummary } from "@/lib/api/portfolio";
-import { useVaults, useAllVaultBalances } from "@/lib/queries/vaults.queries";
+import { useVaults } from "@/lib/queries/vaults.queries";
 import { useWalletBalance } from "@/lib/queries/wallets.queries";
 import { usePortfolioSummary } from "@/lib/queries/portfolio.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
@@ -84,7 +83,6 @@ const PIG_LEVELS = [
 
 const BALANCE_ANIMATION_STEPS = 20;
 const BALANCE_ANIMATION_INTERVAL_MS = 30;
-const REAL_BALANCE_REFETCH_INTERVAL_MS = 30_000;
 
 function ActiveVaultRow({
   vault,
@@ -184,67 +182,15 @@ export default function HomeScreen() {
   );
   const setLastSeenPigLevel = useAuthStore((s) => s.setLastSeenPigLevel);
   const appLocked = useAppLockStore((s) => s.locked);
-  const balances = useAllVaultBalances(walletAddress);
   const { data: portfolioSummary, refetch: refetchPortfolio } =
     usePortfolioSummary(!!walletAddress);
 
-  const individualBalancesReady =
-    !!walletAddress &&
-    vaults !== undefined &&
-    balances.length === vaults.length &&
-    balances.every(
-      (balance) => balance.isSuccess && balance.isFetchedAfterMount,
-    );
-
-  // O resumo agregado pode chegar parcial quando uma leitura da DeFindex
-  // falha: posições somem por alguns segundos e uma soma ingênua oscila entre
-  // 0, apenas USDC e o total real. Só promovemos uma resposta quando ela
-  // contém todos os vaults que os endpoints individuais dizem ter saldo.
-  const portfolioSnapshotComplete = useMemo(() => {
-    if (!individualBalancesReady || !vaults || !portfolioSummary) return false;
-    if (portfolioSummary.totalUsd === null) return false;
-
-    const positions = new Map(
-      portfolioSummary.positions.map((position) => [position.vaultId, position]),
-    );
-    for (let index = 0; index < vaults.length; index += 1) {
-      const vault = vaults[index];
-      if (!canAccessVaultAsset(vault.assetSymbol)) continue;
-      const amount = Number(balances[index]?.data?.underlyingBalance?.[0] ?? "0");
-      if (!Number.isFinite(amount) || amount <= 0) continue;
-      const position = positions.get(vault.id);
-      if (!position || portfolioPositionUsdValue(position) === null) return false;
-    }
-
-    return portfolioSummary.positions.every(
-      (position) =>
-        !canAccessVaultAsset(position.assetSymbol) ||
-        portfolioPositionUsdValue(position) !== null,
-    );
-  }, [
-    balances,
-    canAccessVaultAsset,
-    individualBalancesReady,
-    portfolioSummary,
-    vaults,
-  ]);
-
-  // Respostas parciais nunca substituem a última fotografia confiável. A ref
-  // é vinculada à carteira para não reaproveitar saldo ao trocar de usuário.
-  const reliablePortfolioRef = useRef<{
-    walletAddress: string;
-    summary: PortfolioSummary;
-  } | null>(null);
-  if (walletAddress && portfolioSummary && portfolioSnapshotComplete) {
-    reliablePortfolioRef.current = { walletAddress, summary: portfolioSummary };
-  }
-  const displayedPortfolioSummary = portfolioSnapshotComplete
-    ? portfolioSummary
-    : reliablePortfolioRef.current?.walletAddress === walletAddress
-      ? reliablePortfolioRef.current.summary
-      : undefined;
-
-  const balancesReady = portfolioSnapshotComplete;
+  // O hook compartilhado não promove respostas parciais sobre a última
+  // fotografia completa. Se a primeira leitura da sessão já falhar, ainda
+  // não existe um número confiável para mostrar.
+  const displayedPortfolioSummary =
+    portfolioSummary?.totalUsd !== null ? portfolioSummary : undefined;
+  const balancesReady = !!displayedPortfolioSummary;
 
   const visiblePositions = useMemo(
     () =>
@@ -301,12 +247,11 @@ export default function HomeScreen() {
   const firstVaultId = firstVault?.id || "";
   const firstVaultSymbol = firstVault?.assetSymbol || "USDC";
 
-  const firstVaultIndex = vaults?.findIndex((vault) => vault.id === firstVault?.id) ?? -1;
-  const firstBalance = firstVaultIndex >= 0 ? balances[firstVaultIndex]?.data : undefined;
-  const walletBalance = firstBalance
-    ? parseFloat(firstBalance.underlyingBalance?.[0] ?? "0")
-    : 0;
-  const firstDfTokens = firstBalance?.dfTokens ?? "0";
+  const firstPosition = displayedPortfolioSummary?.positions.find(
+    (position) => position.vaultId === firstVault?.id,
+  );
+  const walletBalance = parseFloat(firstPosition?.amountAsset ?? "0") || 0;
+  const firstDfTokens = firstPosition?.shares ?? "0";
 
   const level = getPigLevel(totalInvested);
   const levelIndex = PIG_LEVELS.findIndex((item) => item.label === level.label);
@@ -335,23 +280,16 @@ export default function HomeScreen() {
   }[] = useMemo(() => {
     if (!vaults) return [];
     return vaults
-      .map((vault, index) => {
+      .map((vault) => {
         const position = displayedPortfolioSummary?.positions.find(
           (item) => item.vaultId === vault.id,
         );
-        const balance = balances[index];
-        const fallbackAmountAsset = balance?.isSuccess
-          ? balance.data?.underlyingBalance?.[0]
-          : undefined;
-        const amountAssetText = position?.amountAsset ?? fallbackAmountAsset;
+        const amountAssetText = position?.amountAsset;
         const amountAsset = Number(amountAssetText);
         if (!amountAssetText || !Number.isFinite(amountAsset) || amountAsset <= 0) return null;
-        const displayValue = position ? portfolioPositionUsdValue(position) : null;
+        const displayValue = portfolioPositionUsdValue(position);
         return {
           vault,
-          // Sem posição no resumo, o saldo individual ainda permite mostrar o
-          // porquinho imediatamente. A estimativa chega na próxima resposta
-          // completa do portfólio e substitui este null.
           amountUsd: displayValue,
           amountAsset: amountAssetText,
         };
@@ -361,7 +299,7 @@ export default function HomeScreen() {
           item !== null &&
           canAccessVaultAsset(item.vault.assetSymbol),
       );
-  }, [balances, vaults, canAccessVaultAsset, displayedPortfolioSummary]);
+  }, [vaults, canAccessVaultAsset, displayedPortfolioSummary]);
 
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -474,44 +412,8 @@ export default function HomeScreen() {
       refetchVaults(),
       refetchWallet(),
       refetchPortfolio(),
-      ...balances.map((balance) => balance.refetch()),
     ]);
-  }, [balances, refetchPortfolio, refetchVaults, refetchWallet, walletAddress]);
-
-  const incompletePortfolioRetries = useRef({ walletAddress: "", attempts: 0 });
-  useEffect(() => {
-    if (!walletAddress) return;
-    if (incompletePortfolioRetries.current.walletAddress !== walletAddress) {
-      incompletePortfolioRetries.current = { walletAddress, attempts: 0 };
-    }
-    if (!individualBalancesReady || portfolioSnapshotComplete) {
-      if (portfolioSnapshotComplete) incompletePortfolioRetries.current.attempts = 0;
-      return;
-    }
-    if (incompletePortfolioRetries.current.attempts >= 3) return;
-
-    const timeout = setTimeout(() => {
-      incompletePortfolioRetries.current.attempts += 1;
-      void refetchPortfolio();
-    }, 1_500);
-    return () => clearTimeout(timeout);
-  }, [
-    individualBalancesReady,
-    portfolioSnapshotComplete,
-    portfolioSummary,
-    refetchPortfolio,
-    walletAddress,
-  ]);
-
-  useEffect(() => {
-    if (!walletAddress) return;
-
-    const interval = setInterval(() => {
-      void refetchRealBalances();
-    }, REAL_BALANCE_REFETCH_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [refetchRealBalances, walletAddress]);
+  }, [refetchPortfolio, refetchVaults, refetchWallet, walletAddress]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

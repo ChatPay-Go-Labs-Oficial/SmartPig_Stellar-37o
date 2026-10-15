@@ -166,8 +166,8 @@ export function SaveSheet({ visible, piggy, onClose, onConfirmed, onSwap, onRisk
   }
 
   function refreshBalances() {
-    queryClient.invalidateQueries({ queryKey: portfolioKeys.summary });
-    queryClient.invalidateQueries({ queryKey: vaultKeys.all });
+    queryClient.invalidateQueries({ queryKey: portfolioKeys.all });
+    queryClient.invalidateQueries({ queryKey: vaultKeys.all, exact: true });
     if (walletAddress) queryClient.invalidateQueries({ queryKey: walletKeys.balance(walletAddress) });
   }
 

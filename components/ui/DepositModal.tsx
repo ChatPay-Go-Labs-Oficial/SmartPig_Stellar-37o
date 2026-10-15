@@ -30,6 +30,7 @@ import {
   useSubmitDeposit,
 } from "@/lib/queries/deposits.queries";
 import { vaultKeys } from "@/lib/queries/vaults.queries";
+import { portfolioKeys } from "@/lib/queries/portfolio.queries";
 import { signXdr } from "@/lib/stellar/kit";
 import { useSound } from "@/hooks/use-sound";
 import { useAuthStore } from "@/lib/stores/auth.store";
@@ -198,7 +199,8 @@ export function DepositModal({
       await submitDeposit.mutateAsync({ depositId: result.id, signedXdr });
 
       setStep("success");
-      qc.invalidateQueries({ queryKey: vaultKeys.all });
+      qc.invalidateQueries({ queryKey: vaultKeys.all, exact: true });
+      qc.invalidateQueries({ queryKey: portfolioKeys.all });
       if (walletAddress) {
         qc.invalidateQueries({
           queryKey: vaultKeys.balance(vaultId, walletAddress),

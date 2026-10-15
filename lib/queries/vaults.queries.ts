@@ -1,10 +1,9 @@
-import { useMutation, useQuery, useQueries, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   acknowledgeVaultDisclosure,
   getVaults,
   getVault,
   getVaultApy,
-  getVaultBalance,
   getVaultDisclosure,
   getVaultManagerVaults,
   type AcknowledgeDisclosureBody,
@@ -44,28 +43,8 @@ export const useVaultApy = (id: string) =>
     refetchInterval: 1000 * 60 * 5,
   });
 
-export const useVaultBalance = (id: string, walletAddress: string | null) =>
-  useQuery({
-    queryKey: vaultKeys.balance(id, walletAddress ?? ''),
-    queryFn: () => getVaultBalance(id, walletAddress!),
-    enabled: !!id && !!walletAddress,
-    refetchInterval: 1000 * 30,
-  });
-
 export const useManagerVaults = () =>
   useQuery({ queryKey: vaultKeys.manager, queryFn: getVaultManagerVaults });
-
-export const useAllVaultBalances = (walletAddress: string | null) => {
-  const { data: vaults } = useVaults();
-  return useQueries({
-    queries: (vaults ?? []).map((v) => ({
-      queryKey: vaultKeys.balance(v.id, walletAddress ?? ''),
-      queryFn: () => getVaultBalance(v.id, walletAddress!),
-      enabled: !!walletAddress,
-      refetchInterval: 1000 * 30,
-    })),
-  });
-};
 
 /** Texto de riscos atual do vault e se a pessoa ainda deve o aceite. */
 export const useVaultDisclosure = (id: string) =>

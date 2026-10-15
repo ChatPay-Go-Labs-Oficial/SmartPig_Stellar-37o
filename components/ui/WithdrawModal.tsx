@@ -29,6 +29,7 @@ import {
   useSubmitWithdrawal,
 } from "@/lib/queries/withdrawals.queries";
 import { vaultKeys } from "@/lib/queries/vaults.queries";
+import { portfolioKeys } from "@/lib/queries/portfolio.queries";
 import { walletKeys } from "@/lib/queries/wallets.queries";
 import { signXdr } from "@/lib/stellar/kit";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
@@ -235,7 +236,8 @@ export function WithdrawModal({
       });
 
       setStep("success");
-      qc.invalidateQueries({ queryKey: vaultKeys.all });
+      qc.invalidateQueries({ queryKey: vaultKeys.all, exact: true });
+      qc.invalidateQueries({ queryKey: portfolioKeys.all });
       if (walletAddress) {
         qc.invalidateQueries({
           queryKey: vaultKeys.balance(vaultId, walletAddress),
