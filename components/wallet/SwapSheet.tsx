@@ -206,6 +206,7 @@ export function SwapSheet({
   return (
     <V2Sheet visible={visible} onClose={handleClose} title="Trocar moedas" icon="refresh-cw">
       <ScrollView
+        keyboardDismissMode="interactive"
         style={styles.scroll}
         contentContainerStyle={styles.body}
         keyboardShouldPersistTaps="handled"
@@ -378,7 +379,8 @@ function QuoteRow({
 }
 
 const styles = StyleSheet.create({
-  scroll: { maxHeight: 620 },
+  // O V2Sheet limita a altura à tela; a rolagem ocupa o que sobra.
+  scroll: { flexGrow: 0, flexShrink: 1 },
   body: { gap: 16, paddingBottom: 4 },
   selectorBlock: { gap: 9 },
   fieldLabel: {

@@ -1,7 +1,15 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { V2Colors, V2Font, V2Radius } from '@/constants/theme-v2';
+import { V2Colors, V2Font, V2Layout, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { V2Icon, type V2IconName } from './V2Icon';
 
@@ -17,6 +25,7 @@ interface V2SheetProps {
 export function V2Sheet({ visible, onClose, title, icon, children }: V2SheetProps) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
 
   return (
     <Modal
@@ -27,11 +36,14 @@ export function V2Sheet({ visible, onClose, title, icon, children }: V2SheetProp
       navigationBarTranslucent
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="Fechar">
-        <Pressable onPress={() => {}} style={styles.sheetShadow}>
+      {/* Desvia do teclado; o sheet nunca passa da altura da tela (alça e
+          botão de fechar ficam sempre abaixo da barra de status). */}
+      <KeyboardAvoidingView behavior="padding" style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Fechar" />
+        <View style={[styles.sheetShadow, { maxHeight: height - insets.top - 12 }]}>
           <LinearGradient
             colors={[V2Colors.sheetTop, V2Colors.sheetBase]}
-            style={[styles.sheet, { paddingBottom: 32 + insets.bottom }]}
+            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) + 16 }]}
           >
             <View style={styles.handleRow}>
               <View style={styles.handle} />
@@ -60,8 +72,8 @@ export function V2Sheet({ visible, onClose, title, icon, children }: V2SheetProp
 
             {children}
           </LinearGradient>
-        </Pressable>
-      </Pressable>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -70,9 +82,12 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
+    alignItems: 'center',
     backgroundColor: V2Colors.overlay,
   },
   sheetShadow: {
+    width: '100%',
+    maxWidth: V2Layout.maxWidth,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -20 },
     shadowOpacity: 0.6,
@@ -80,6 +95,7 @@ const styles = StyleSheet.create({
     elevation: 24,
   },
   sheet: {
+    flexShrink: 1,
     borderTopLeftRadius: V2Radius.sheet,
     borderTopRightRadius: V2Radius.sheet,
     borderWidth: 1,

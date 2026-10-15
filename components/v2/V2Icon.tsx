@@ -17,8 +17,6 @@ const FEATHER = {
   send: 'send',
   copy: 'copy',
   info: 'info',
-  // Lucide "history" não tem par no Feather; rotate-ccw é o mais próximo.
-  history: 'rotate-ccw',
   'chevron-right': 'chevron-right',
   'chevron-left': 'chevron-left',
   lock: 'lock',
@@ -26,11 +24,14 @@ const FEATHER = {
   gift: 'gift',
   check: 'check',
   alert: 'alert-circle',
+  trending: 'trending-up',
 } as const;
 
 // Sem par no Feather: cai para o contorno do Material Community.
 const COMMUNITY = {
   piggy: 'piggy-bank-outline',
+  // Lucide "history" (seta anti-horária com ponteiros); o Feather não tem.
+  history: 'history',
 } as const;
 
 export type V2IconName = keyof typeof FEATHER | keyof typeof COMMUNITY;

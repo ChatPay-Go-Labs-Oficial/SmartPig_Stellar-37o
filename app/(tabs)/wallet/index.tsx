@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -7,30 +7,54 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2Colors, V2Font, V2Layout, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
 import { usePixRampGate } from '@/hooks/use-pix-ramp-gate';
+import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
+import { useVaults } from '@/lib/queries/vaults.queries';
 import { useUsdcPrice, useWalletAssets } from '@/lib/queries/wallets.queries';
+import { usePrefetchHistory } from '@/lib/queries/history.queries';
 import { isMainnetNetwork } from '@/lib/stellar/config';
-import { ActionKey3D, ListCard, ScreenGlow, V2Icon } from '@/components/v2';
+import { ActionKey3D, ListCard, ScreenGlow, SegmentedControl, V2Icon } from '@/components/v2';
 import { WalletBalanceCard } from '@/components/wallet/WalletBalanceCard';
 import { WalletAssetRow } from '@/components/wallet/WalletAssetRow';
-import { WalletPortfolioCard } from '@/components/wallet/WalletPortfolioCard';
+import { WalletPiggyList } from '@/components/wallet/WalletPiggyList';
 import { SwapSheet } from '@/components/wallet/SwapSheet';
 import { SwapSoonSheet } from '@/components/wallet/SwapSoonSheet';
 import { BlindPayOnrampModal, BlindPayOfframpModal, TransferModal } from '@/components/ui';
 
 type PixAction = 'deposit' | 'withdraw';
+type WalletSegment = 'coins' | 'piggies';
+
+/**
+ * Layout que depende da largura e da escala de fonte do aparelho (larguras de
+ * texto medidas com a Inter):
+ * - o chip "Histórico" vira só ícone quando ele e o seletor não cabem juntos;
+ * - os rótulos das teclas têm um teto de escala comum, para não quebrarem no
+ *   meio da palavra nem ficarem de tamanhos diferentes.
+ */
+function useWalletLayout() {
+  const { width, fontScale } = useWindowDimensions();
+  const column = Math.min(width, V2Layout.maxWidth);
+  const scale = Math.min(fontScale, 1.3);
+  // seletor + chip ≈ 110 + 178·escala, mais o gap e as margens
+  const compactHistory = column < 2 * V2Layout.gutter + 8 + 110 + 178 * scale;
+  // 4 colunas de tecla; 64 ≈ largura de "Transferir" na escala 1
+  const keySlot = Math.min(88, (column - 2 * V2Layout.gutter - 30) / 4);
+  const keyLabelScale = Math.min(1.3, Math.max(1, keySlot / 64));
+  return { compactHistory, keyLabelScale };
+}
 
 export default function WalletScreen() {
-  const insets = useSafeAreaInsets();
+  const screenInsets = useScreenInsets();
+  const { compactHistory, keyLabelScale } = useWalletLayout();
   const accent = useAccent();
   const { t, isPro } = useTerms();
   const isFocused = useIsFocused();
@@ -39,6 +63,8 @@ export default function WalletScreen() {
 
   const assetsQuery = useWalletAssets(walletAddress);
   const portfolioQuery = usePortfolioSummary(!!walletAddress);
+  const vaultsQuery = useVaults();
+  const [segment, setSegment] = useState<WalletSegment>('coins');
   const assets = assetsQuery.data?.assets ?? [];
   const hasEurc = assets.some((a) => a.id === 'EURC');
   const xlmPrice = useUsdcPrice('XLM');
@@ -82,11 +108,30 @@ export default function WalletScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPix, pixGate.isLoading]);
 
+  // Callbacks estáveis: as teclas são memoizadas, e abrir um modal (setState
+  // aqui) não deve re-renderizar as quatro a cada toque.
+  const openPixRef = useRef(openPix);
+  openPixRef.current = openPix;
+  const handleDeposit = useCallback(() => openPixRef.current('deposit'), []);
+  const handleWithdraw = useCallback(() => openPixRef.current('withdraw'), []);
+  const handleSwap = useCallback(() => setSwapSheetOpen(true), []);
+  const handleSend = useCallback(() => setTransferOpen(true), []);
+  const handleHistory = useCallback(() => router.push('/(tabs)/wallet/history'), []);
+  const refetchPortfolio = portfolioQuery.refetch;
+  const refetchVaults = vaultsQuery.refetch;
+  const retryPiggies = useCallback(() => {
+    refetchPortfolio();
+    refetchVaults();
+  }, [refetchPortfolio, refetchVaults]);
+
+  usePrefetchHistory(isFocused);
+
   async function handleRefresh() {
     setRefreshing(true);
     await Promise.allSettled([
       assetsQuery.refetch(),
       portfolioQuery.refetch(),
+      vaultsQuery.refetch(),
       xlmPrice.refetch(),
       eurcPrice.refetch(),
     ]);
@@ -100,14 +145,23 @@ export default function WalletScreen() {
     <View style={styles.screen}>
       <ScreenGlow />
 
+      {/* A rolagem começa abaixo da barra de status: o conteúdo não passa por
+          baixo dos ícones dela, e o "puxar para atualizar" não cai na câmera. */}
       <ScrollView
+        style={{ marginTop: screenInsets.top }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 4, paddingBottom: V2Layout.tabBarClearance + insets.bottom },
+          { paddingTop: screenInsets.topGap, paddingBottom: screenInsets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={accent.base} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={accent.base}
+            colors={[accent.base]}
+            progressBackgroundColor={V2Colors.sheetTop}
+          />
         }
       >
         <View style={styles.titleRow}>
@@ -145,63 +199,80 @@ export default function WalletScreen() {
                 icon="plus"
                 label="Depositar"
                 variant="primary"
-                onPress={() => openPix('deposit')}
+                labelMaxScale={keyLabelScale}
+                onPress={handleDeposit}
                 accessibilityHint="Depositar via Pix"
               />
               <ActionKey3D
                 icon="arrow-up"
                 label="Sacar"
-                onPress={() => openPix('withdraw')}
+                labelMaxScale={keyLabelScale}
+                onPress={handleWithdraw}
                 accessibilityHint="Sacar via Pix"
               />
               <ActionKey3D
                 icon="refresh-cw"
                 label={t('carteira.action.swap')}
                 locked={!isPro}
-                onPress={() => setSwapSheetOpen(true)}
+                labelMaxScale={keyLabelScale}
+                onPress={handleSwap}
                 accessibilityHint={isPro ? 'Trocar ativos da carteira' : 'Em breve'}
               />
               <ActionKey3D
                 icon="send"
                 label={t('carteira.action.send')}
-                onPress={() => setTransferOpen(true)}
+                labelMaxScale={keyLabelScale}
+                onPress={handleSend}
               />
             </View>
 
             <View style={styles.assetsSection}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>{t('carteira.assets.title')}</Text>
+                <View style={styles.segmentSlot}>
+                  <SegmentedControl
+                    options={[
+                      { id: 'coins', label: t('carteira.segment.coins') },
+                      { id: 'piggies', label: t('carteira.segment.piggies') },
+                    ]}
+                    value={segment}
+                    onChange={setSegment}
+                  />
+                </View>
                 <Pressable
-                  onPress={() => router.push('/(tabs)/wallet/history')}
-                  style={styles.historyLink}
-                  accessibilityRole="link"
+                  onPress={handleHistory}
+                  style={({ pressed }) => [
+                    styles.historyChip,
+                    compactHistory && styles.historyChipCompact,
+                    pressed && styles.historyChipPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver histórico"
                   hitSlop={8}
                 >
-                  <V2Icon name="history" size={15} color={accent.base} />
-                  <Text style={[styles.historyText, { color: accent.base }]}>Ver histórico</Text>
-                  <V2Icon name="chevron-right" size={15} color={accent.base} />
+                  <V2Icon name="history" size={compactHistory ? 16 : 14} color={accent.base} />
+                  {!compactHistory && (
+                    <Text style={styles.historyText} numberOfLines={1}>Histórico</Text>
+                  )}
                 </Pressable>
               </View>
 
-              <ListCard>
-                {assets.map((asset) => (
-                  <WalletAssetRow key={asset.id} asset={asset} usdPrice={prices[asset.id]} />
-                ))}
-              </ListCard>
+              {segment === 'coins' ? (
+                <ListCard>
+                  {assets.map((asset) => (
+                    <WalletAssetRow key={asset.id} asset={asset} usdPrice={prices[asset.id]} />
+                  ))}
+                </ListCard>
+              ) : (
+                <WalletPiggyList
+                  vaults={vaultsQuery.data}
+                  summary={portfolioQuery.data}
+                  isLoading={portfolioQuery.isLoading || vaultsQuery.isLoading}
+                  isError={portfolioQuery.isError || vaultsQuery.isError}
+                  onRetry={retryPiggies}
+                />
+              )}
             </View>
 
-            <View style={styles.assetsSection}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>{isPro ? 'Posições nos vaults' : 'Nos porquinhos'}</Text>
-              </View>
-
-              <WalletPortfolioCard
-                summary={portfolioQuery.data}
-                isLoading={portfolioQuery.isLoading}
-                isError={portfolioQuery.isError}
-                onRetry={() => portfolioQuery.refetch()}
-              />
-            </View>
           </>
         )}
       </ScrollView>
@@ -234,11 +305,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: V2Colors.background,
   },
+  // Coluna com largura máxima: em dobráveis e tablets o conteúdo não estica.
   content: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: V2Layout.maxWidth,
+    alignSelf: 'center',
     paddingHorizontal: V2Layout.gutter,
     gap: V2Layout.sectionGap,
   },
   titleRow: {
+    minHeight: V2Layout.headerHeight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -264,7 +341,8 @@ const styles = StyleSheet.create({
     color: V2Colors.textSecondary,
   },
   state: {
-    minHeight: 420,
+    flex: 1,
+    minHeight: 280,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 14,
@@ -281,6 +359,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    justifyContent: 'center',
     gap: 10,
   },
   assetsSection: {
@@ -290,22 +369,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 4,
     paddingBottom: 12,
   },
-  sectionTitle: {
-    fontFamily: V2Font.black,
-    fontSize: 17,
-    letterSpacing: -0.34,
-    color: V2Colors.text,
+  segmentSlot: {
+    flexShrink: 1,
   },
-  historyLink: {
+  // Figma "ver histórico": pílula neutra com ícone no destaque.
+  historyChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    paddingLeft: 10,
+    paddingRight: 12,
+    paddingVertical: 6,
+    borderRadius: V2Radius.full,
+    borderWidth: 1,
+    borderColor: V2Colors.surfaceBorderStrong,
+    backgroundColor: V2Colors.chip,
+  },
+  historyChipCompact: {
+    width: 36,
+    height: 36,
+    paddingLeft: 0,
+    paddingRight: 0,
+    paddingVertical: 0,
+    justifyContent: 'center',
+  },
+  historyChipPressed: {
+    opacity: 0.7,
   },
   historyText: {
-    fontFamily: V2Font.extraBold,
-    fontSize: 13,
+    fontFamily: V2Font.semiBold,
+    fontSize: 12.5,
+    color: V2Colors.text,
   },
 });

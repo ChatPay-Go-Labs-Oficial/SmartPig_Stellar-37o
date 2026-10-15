@@ -38,6 +38,14 @@ export const V2Colors = {
   warning: '#ffc24b',
 } as const;
 
+// ─── Cor de cada porquinho ───────────────────────────────────────────────────
+// Figma (aura dos porquinhos na Home e no Guardar): o de dólar usa o destaque
+// do tema (useAccent); euro é azul e criptomoeda é dourado, fixos.
+export const V2PiggyTint = {
+  EURC: '#4da3ff',
+  XLM: '#ffc24b',
+} as const;
+
 // ─── Destaque (cor do app) ───────────────────────────────────────────────────
 export interface AccentPalette {
   /** Cor principal ("PF.Roxo" no Figma, mesmo quando a paleta é rosa). */
@@ -58,12 +66,29 @@ export type AccentName = keyof typeof AccentPalettes;
 
 export const DEFAULT_ACCENT: AccentName = 'rosa';
 
+function hexToRgb(hex: string): [number, number, number] {
+  const value = hex.replace('#', '');
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ];
+}
+
+/**
+ * Cor opaca equivalente a `hex` com opacidade `alpha` pintada sobre `base`.
+ * Para camadas que se sobrepõem (base 3D): opacas, não acumulam transparência.
+ */
+export function blendOver(hex: string, alpha: number, base: string): string {
+  const [r, g, b] = hexToRgb(hex);
+  const [br, bg, bb] = hexToRgb(base);
+  const mix = (top: number, bottom: number) => Math.round(top * alpha + bottom * (1 - alpha));
+  return `rgb(${mix(r, br)},${mix(g, bg)},${mix(b, bb)})`;
+}
+
 /** `#rrggbb` + opacidade → `rgba(...)`. Gera as variações "Primária N%". */
 export function withAlpha(hex: string, alpha: number): string {
-  const value = hex.replace('#', '');
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
+  const [r, g, b] = hexToRgb(hex);
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
@@ -94,9 +119,26 @@ export const V2Radius = {
 // ─── Layout ──────────────────────────────────────────────────────────────────
 export const V2Layout = {
   /** Margem lateral das telas V2. */
-  gutter: 18,
+  gutter: 20,
   /** Espaço vertical entre blocos da tela. */
   sectionGap: 18,
-  /** Folga no fim da rolagem para a tab bar flutuante. */
-  tabBarClearance: 130,
+  /**
+   * Respiro entre a safe area e a linha do título. Aparelhos com entalhe,
+   * ilha ou furo já trazem folga no próprio inset, por isso o valor menor.
+   * Ver useScreenTopGap().
+   */
+  screenTop: 16,
+  screenTopCutout: 10,
+  /** Altura da linha do título: o título fica na mesma altura em toda tela. */
+  headerHeight: 44,
+  /**
+   * Largura máxima da coluna (dobráveis, tablets). 480 = maior iPhone + gutter,
+   * então nenhum celular muda.
+   */
+  maxWidth: 480,
+  /** Tab bar flutuante (V1, app/(tabs)/_layout.tsx): altura e folga mínima. */
+  tabBarHeight: 60,
+  tabBarBottomMin: 12,
+  /** Espaço entre o fim do conteúdo e a tab bar. */
+  tabBarGap: 56,
 } as const;

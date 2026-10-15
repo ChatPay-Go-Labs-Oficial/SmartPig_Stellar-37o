@@ -12,6 +12,8 @@ export interface Deposit {
     | 'CONFIRMED'
     | 'FAILED';
   unsignedXdr?: string;
+  /** Ativo do vault, gravado na intent pelo backend (registry). */
+  assetSymbol?: string;
   createdAt: string;
 }
 

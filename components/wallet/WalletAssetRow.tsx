@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { V2Colors, V2Font } from '@/constants/theme-v2';
 import { useTerms } from '@/hooks/use-terms';
@@ -13,7 +14,7 @@ interface WalletAssetRowProps {
 }
 
 /** Linha de ativo da Carteira (Figma "moeda USDC/EURC/XLM"). */
-export function WalletAssetRow({ asset, usdPrice }: WalletAssetRowProps) {
+function WalletAssetRowView({ asset, usdPrice }: WalletAssetRowProps) {
   const { t, isPro } = useTerms();
   const amount = parseFloat(asset.balance);
   const usdValue = usdPrice != null && Number.isFinite(amount) ? amount * usdPrice : null;
@@ -30,23 +31,27 @@ export function WalletAssetRow({ asset, usdPrice }: WalletAssetRowProps) {
       <AssetIcon asset={asset.id} />
 
       <View style={styles.texts}>
-        <Text style={styles.name}>{name}</Text>
+        <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+          {name}
+        </Text>
         <Text style={styles.caption} numberOfLines={1}>{caption}</Text>
       </View>
 
       {isPro ? (
         <View style={styles.values}>
-          <Text style={styles.amountPro}>{truncateDecimalString(asset.balance, 7)}</Text>
-          {usdValue != null && <Text style={styles.estimate}>≈ {formatUsdV2(usdValue)}</Text>}
+          <Text style={styles.amountPro} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            {truncateDecimalString(asset.balance, 7)}
+          </Text>
+          {usdValue != null && <Text style={styles.estimate} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>≈ {formatUsdV2(usdValue)}</Text>}
         </View>
       ) : (
         // Lite fala em dólar: o USDC é o próprio valor; os outros só aparecem
         // quando há cotação (sem ela, um número solto não diz nada).
         <View style={styles.values}>
           {isDollar ? (
-            <Text style={styles.amountLite}>{formatUsdV2(asset.balance)}</Text>
+            <Text style={styles.amountLite} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{formatUsdV2(asset.balance)}</Text>
           ) : usdValue != null ? (
-            <Text style={styles.amountLite}>≈ {formatUsdV2(usdValue)}</Text>
+            <Text style={styles.amountLite} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>≈ {formatUsdV2(usdValue)}</Text>
           ) : null}
         </View>
       )}
@@ -76,7 +81,10 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: V2Colors.textTertiary,
   },
+  // O valor não espreme o nome: no máximo pouco mais da metade da linha.
   values: {
+    flexShrink: 1,
+    maxWidth: '55%',
     alignItems: 'flex-end',
     gap: 2,
   },
@@ -96,3 +104,6 @@ const styles = StyleSheet.create({
     color: V2Colors.textTertiary,
   },
 });
+
+/** Memoizado: a tela re-renderiza ao abrir modais; a linha só muda com os dados. */
+export const WalletAssetRow = memo(WalletAssetRowView);

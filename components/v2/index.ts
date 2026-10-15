@@ -8,3 +8,4 @@ export { AssetIcon, type AssetLogoId } from './AssetIcon';
 export { V2Sheet } from './V2Sheet';
 export { ListCard } from './ListCard';
 export { FilterChip } from './FilterChip';
+export { SegmentedControl, type SegmentOption } from './SegmentedControl';

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
@@ -18,7 +18,7 @@ interface WalletBalanceCardProps {
 }
 
 /** Card de saldo da Carteira (Figma 17a / 17b / 17g). */
-export function WalletBalanceCard({ amountUsd, estimated, address }: WalletBalanceCardProps) {
+function WalletBalanceCardView({ amountUsd, estimated, address }: WalletBalanceCardProps) {
   const accent = useAccent();
   const { t, isPro } = useTerms();
   const [copied, setCopied] = useState(false);
@@ -53,7 +53,7 @@ export function WalletBalanceCard({ amountUsd, estimated, address }: WalletBalan
       />
 
       <View style={styles.labelRow}>
-        <Text style={styles.label}>{t('carteira.balance.label')}</Text>
+        <Text style={styles.label} numberOfLines={1}>{t('carteira.balance.label')}</Text>
         {showEstimate && (
           <View style={styles.estimateChip}>
             <V2Icon name="info" size={11} color={V2Colors.textSecondary} />
@@ -87,10 +87,13 @@ export function WalletBalanceCard({ amountUsd, estimated, address }: WalletBalan
           accessibilityLabel="Copiar endereço"
           hitSlop={8}
         >
-          <Text style={styles.addressLabel}>Endereço</Text>
-          <Text style={styles.address}>{shortAddress(address)}</Text>
+          <Text style={styles.addressLabel} numberOfLines={1}>Endereço</Text>
+          {/* "Copiado" ocupa o lugar do endereço: a linha não cresce e nada é
+              cortado em telas estreitas. */}
+          <Text style={[styles.address, copied && { color: accent.base }]} numberOfLines={1}>
+            {copied ? 'Copiado' : shortAddress(address)}
+          </Text>
           <V2Icon name={copied ? 'check' : 'copy'} size={14} color={accent.base} />
-          {copied && <Text style={[styles.copied, { color: accent.base }]}>Copiado</Text>}
         </Pressable>
       )}
 
@@ -122,11 +125,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
+    flexShrink: 1,
     fontFamily: V2Font.semiBold,
     fontSize: 13.5,
     color: V2Colors.textSecondary,
   },
   estimateChip: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -176,8 +181,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: V2Colors.text,
   },
-  copied: {
-    fontFamily: V2Font.bold,
-    fontSize: 11.5,
-  },
 });
+
+/** Memoizado: a tela re-renderiza ao abrir modais; a linha só muda com os dados. */
+export const WalletBalanceCard = memo(WalletBalanceCardView);

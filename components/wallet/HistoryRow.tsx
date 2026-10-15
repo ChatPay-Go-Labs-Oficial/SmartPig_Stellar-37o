@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { V2Colors, V2Font } from '@/constants/theme-v2';
 import { useAccent, type Accent } from '@/hooks/use-accent';
@@ -63,7 +64,7 @@ interface HistoryRowProps {
 }
 
 /** Movimentação do Histórico (Figma 25a / 25i). */
-export function HistoryRow({ item, vaultName }: HistoryRowProps) {
+function HistoryRowView({ item, vaultName }: HistoryRowProps) {
   const accent = useAccent();
   const { t, isPro } = useTerms();
 
@@ -92,9 +93,14 @@ export function HistoryRow({ item, vaultName }: HistoryRowProps) {
       </View>
 
       <View style={styles.texts}>
-        <View style={styles.line}>
-          <Text style={styles.title} numberOfLines={1}>{t(TITLE_KEY[item.kind])}</Text>
-          <Text style={[styles.amount, { color: amountColor(item.kind, accent) }]}>{amount}</Text>
+        <View style={[styles.line, styles.lineTop]}>
+          <Text style={styles.title} numberOfLines={2}>{t(TITLE_KEY[item.kind])}</Text>
+          <Text
+            style={[styles.amount, { color: amountColor(item.kind, accent) }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >{amount}</Text>
         </View>
         <View style={styles.line}>
           <Text style={styles.subtitle} numberOfLines={1}>{subtitleParts.join(' · ')}</Text>
@@ -131,6 +137,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 3,
   },
+  // Com o título em duas linhas, o valor fica alinhado ao topo.
+  lineTop: {
+    alignItems: 'flex-start',
+  },
   line: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -144,6 +154,9 @@ const styles = StyleSheet.create({
     color: V2Colors.text,
   },
   amount: {
+    flexShrink: 1,
+    maxWidth: '55%',
+    textAlign: 'right',
     fontFamily: V2Font.extraBold,
     fontSize: 14.5,
     letterSpacing: -0.145,
@@ -164,3 +177,6 @@ const styles = StyleSheet.create({
     color: V2Colors.textTertiary,
   },
 });
+
+/** Memoizado: a tela re-renderiza ao abrir modais; a linha só muda com os dados. */
+export const HistoryRow = memo(HistoryRowView);

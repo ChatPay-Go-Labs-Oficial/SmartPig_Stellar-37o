@@ -9,11 +9,12 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { V2Colors, V2Font, V2Layout, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { useAppMode } from '@/hooks/use-app-mode';
 import { useTerms } from '@/hooks/use-terms';
+import { useTransitionReady } from '@/hooks/use-transition-ready';
+import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useDeposits } from '@/lib/queries/deposits.queries';
 import { useWithdrawals } from '@/lib/queries/withdrawals.queries';
@@ -38,7 +39,7 @@ const EMPTY_FILTER_TEXT: Record<Exclude<HistoryFilter, 'all'>, string> = {
 };
 
 export default function WalletHistoryScreen() {
-  const insets = useSafeAreaInsets();
+  const screenInsets = useScreenInsets();
   const accent = useAccent();
   const mode = useAppMode();
   const { t } = useTerms();
@@ -80,7 +81,10 @@ export default function WalletHistoryScreen() {
 
   // Cada fonte carrega no seu tempo; o histórico aparece quando todas
   // responderam (com dado ou erro), para a lista não "pular" de ordem.
-  const isLoading = sources.some((q) => q.isLoading);
+  // A lista só monta depois da animação de entrada (ver useTransitionReady);
+  // os dados já vêm aquecidos pela Carteira (usePrefetchHistory).
+  const transitionReady = useTransitionReady();
+  const isLoading = !transitionReady || sources.some((q) => q.isLoading);
   const allFailed = sources.every((q) => q.isError);
 
   async function handleRefresh() {
@@ -100,13 +104,20 @@ export default function WalletHistoryScreen() {
       <ScreenGlow />
 
       <ScrollView
+        style={{ marginTop: screenInsets.top }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 4, paddingBottom: V2Layout.tabBarClearance + insets.bottom },
+          { paddingTop: screenInsets.topGap, paddingBottom: screenInsets.bottom },
         ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={accent.base} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={accent.base}
+            colors={[accent.base]}
+            progressBackgroundColor={V2Colors.sheetTop}
+          />
         }
       >
         <View style={styles.header}>
@@ -119,7 +130,7 @@ export default function WalletHistoryScreen() {
           >
             <V2Icon name="chevron-left" size={22} color={V2Colors.text} />
           </Pressable>
-          <Text style={styles.title}>Histórico</Text>
+          <Text style={styles.title} numberOfLines={1}>Histórico</Text>
         </View>
 
         <ScrollView
@@ -190,16 +201,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: V2Colors.background,
   },
+  // Mesma coluna da Carteira: largura máxima centralizada.
   content: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: V2Layout.maxWidth,
+    alignSelf: 'center',
     paddingHorizontal: V2Layout.gutter,
     gap: 14,
   },
   header: {
+    minHeight: V2Layout.headerHeight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingBottom: 4,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   back: {
     width: 38,

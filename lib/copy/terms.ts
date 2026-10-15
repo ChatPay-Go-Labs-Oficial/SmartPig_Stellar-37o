@@ -88,6 +88,12 @@ export const TERMS = {
   // ── Carteira (V2) ─────────────────────────────────────────────────────
   'carteira.balance.label': { lite: 'Saldo na carteira', pro: 'Total estimado' },
   'carteira.assets.title': { lite: 'Suas moedas', pro: 'Ativos' },
+  'carteira.segment.coins': { lite: 'Moedas', pro: 'Ativos' },
+  'carteira.segment.piggies': { lite: 'Porquinhos', pro: 'Vaults' },
+  'carteira.piggies.note': {
+    lite: 'O dinheiro dos porquinhos fica separado do saldo da carteira.',
+    pro: 'Posições em vaults ficam fora do total da carteira.',
+  },
   'carteira.action.swap': { lite: 'Trocar', pro: 'Swap' },
   'carteira.action.send': { lite: 'Enviar', pro: 'Transferir' },
   'carteira.swap.title': { lite: 'Trocar moedas', pro: 'Swap' },
