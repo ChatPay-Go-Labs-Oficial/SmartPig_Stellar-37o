@@ -27,6 +27,8 @@ import {
   guardarTotal,
   initialPiggyIndex,
   joinAssetNames,
+  fromUnits,
+  toUnits,
   type GuardarTotal,
   type Piggy,
 } from '@/lib/utils/piggy';
@@ -39,6 +41,16 @@ import { SaveSheet } from '@/components/guardar/SaveSheet';
 import { WithdrawSheet } from '@/components/guardar/WithdrawSheet';
 import { SwapSheet } from '@/components/wallet/SwapSheet';
 import { useWalletAssets } from '@/lib/queries/wallets.queries';
+
+type BalanceProjection = {
+  kind: 'save' | 'withdraw';
+  sourceUnits: bigint;
+  expectedUnits: bigint;
+  expiresAt: number;
+  walletAddress: string | null;
+};
+
+const BALANCE_PROJECTION_TTL_MS = 2 * 60_000;
 
 /**
  * Aba Guardar (Figma "Guardar · Tela", 10a–10l): o total guardado e um
@@ -62,6 +74,9 @@ export default function GuardarScreen() {
   const portfolioQuery = usePortfolioSummary(!!walletAddress);
   const vaults = vaultsQuery.data;
   const summary = portfolioQuery.data;
+  const [balanceProjections, setBalanceProjections] = useState(
+    () => new Map<string, BalanceProjection>(),
+  );
 
   // Durante o refetch após Guardar/Tirar, o backend pode devolver uma leitura
   // parcial por alguns instantes. Mantemos a última posição confiável em vez
@@ -75,7 +90,7 @@ export default function GuardarScreen() {
     >;
     total: GuardarTotal | null;
   }>({ walletAddress, knownHeld: new Set(), balances: new Map(), total: null });
-  const piggies = useMemo(() => {
+  const serverPiggies = useMemo(() => {
     if (!vaults || !summary) return null;
     if (portfolioMemory.current.walletAddress !== walletAddress) {
       portfolioMemory.current = {
@@ -104,15 +119,85 @@ export default function GuardarScreen() {
       return previous ? { ...piggy, ...previous } : piggy;
     });
   }, [vaults, summary, canAccessVaultAsset, walletAddress]);
+  const piggies = useMemo(
+    () =>
+      serverPiggies?.map((piggy) => {
+        const projection = balanceProjections.get(piggy.vault.id);
+        if (!projection || projection.walletAddress !== walletAddress) return piggy;
+
+        const expectedAmount = fromUnits(projection.expectedUnits);
+        const currentAmount = Number(piggy.amount);
+        const expectedNumber = Number(expectedAmount);
+        let projectedUsd = piggy.usd;
+        if (piggy.asset === 'USDC') projectedUsd = expectedNumber;
+        else if (
+          piggy.usd !== null &&
+          Number.isFinite(currentAmount) &&
+          currentAmount > 0 &&
+          Number.isFinite(expectedNumber)
+        ) {
+          projectedUsd = (piggy.usd / currentAmount) * expectedNumber;
+        }
+
+        return {
+          ...piggy,
+          amount: expectedAmount,
+          balanceKnown: true,
+          hasBalance: projection.expectedUnits > 0n,
+          usd: projectedUsd,
+        };
+      }) ?? null,
+    [balanceProjections, serverPiggies, walletAddress],
+  );
+
   const total = useMemo(() => {
-    if (!piggies || !summary) return null;
-    const next = guardarTotal(piggies, summary);
-    if (next.kind !== 'unknown') {
-      portfolioMemory.current.total = next;
-      return next;
+    if (!serverPiggies || !piggies || !summary) return null;
+    const serverTotal = guardarTotal(serverPiggies, summary);
+    if (serverTotal.kind !== 'unknown') {
+      portfolioMemory.current.total = serverTotal;
     }
-    return portfolioMemory.current.total ?? next;
-  }, [piggies, summary]);
+    const projectedTotal = guardarTotal(piggies, summary);
+    if (projectedTotal.kind !== 'unknown') return projectedTotal;
+    return portfolioMemory.current.total ?? projectedTotal;
+  }, [piggies, serverPiggies, summary]);
+
+  // A leitura on-chain substitui a projeção quando alcança o saldo esperado.
+  // Uma tolerância de 1 stroop cobre arredondamento na conversão de cotas.
+  useEffect(() => {
+    if (!summary || balanceProjections.size === 0) return;
+    const now = Date.now();
+    setBalanceProjections((current) => {
+      let changed = false;
+      const next = new Map(current);
+      for (const [vaultId, projection] of current) {
+        if (projection.walletAddress !== walletAddress) {
+          next.delete(vaultId);
+          changed = true;
+          continue;
+        }
+        const position = summary.positions.find((item) => item.vaultId === vaultId);
+        // Uma posição ausente numa resposta parcial não é saldo zero. A única
+        // exceção é o resgate total numa resposta completa do portfólio.
+        const hasReliableReading =
+          !!position || (projection.expectedUnits === 0n && summary.totalUsd !== null);
+        if (!hasReliableReading && projection.expiresAt > now) continue;
+        const actualUnits = toUnits(position?.amountAsset ?? '0');
+        const movedInExpectedDirection =
+          projection.kind === 'save'
+            ? actualUnits > projection.sourceUnits
+            : actualUnits < projection.sourceUnits;
+        const reached =
+          projection.kind === 'save'
+            ? actualUnits + 1n >= projection.expectedUnits
+            : actualUnits <= projection.expectedUnits + 1n;
+        if (movedInExpectedDirection || reached || projection.expiresAt <= now) {
+          next.delete(vaultId);
+          changed = true;
+        }
+      }
+      return changed ? next : current;
+    });
+  }, [balanceProjections.size, summary, walletAddress]);
 
   // Toque num porquinho na Carteira (?vault=): a aba abre já nele.
   const { vault: vaultParam } = useLocalSearchParams<{ vault?: string }>();
@@ -128,6 +213,32 @@ export default function GuardarScreen() {
 
   const piggiesRef = useRef(piggies);
   piggiesRef.current = piggies;
+  const projectConfirmedBalance = useCallback(
+    (kind: BalanceProjection['kind'], vaultId: string, amount: string) => {
+      const current = piggiesRef.current?.find((piggy) => piggy.vault.id === vaultId);
+      if (!current) return;
+      const currentUnits = toUnits(current.amount);
+      const operationUnits = toUnits(amount);
+      const expectedUnits =
+        kind === 'save'
+          ? currentUnits + operationUnits
+          : currentUnits > operationUnits
+            ? currentUnits - operationUnits
+            : 0n;
+      setBalanceProjections((projections) => {
+        const next = new Map(projections);
+        next.set(vaultId, {
+          kind,
+          sourceUnits: currentUnits,
+          expectedUnits,
+          expiresAt: Date.now() + BALANCE_PROJECTION_TTL_MS,
+          walletAddress,
+        });
+        return next;
+      });
+    },
+    [walletAddress],
+  );
   const handleIndexChange = useCallback((next: number) => {
     const id = piggiesRef.current?.[next]?.vault.id;
     if (id) setSelectedId(id);
@@ -296,11 +407,13 @@ export default function GuardarScreen() {
         onClose={closeOperation}
         onSwap={openSwapFromSave}
         onRisks={openRisksFromSave}
+        onConfirmed={(vaultId, amount) => projectConfirmedBalance('save', vaultId, amount)}
       />
       <WithdrawSheet
         visible={operationOpen && operation?.kind === 'withdraw'}
         piggy={operationPiggy}
         onClose={closeOperation}
+        onConfirmed={(vaultId, amount) => projectConfirmedBalance('withdraw', vaultId, amount)}
       />
       {/* Só o Pro troca moedas daqui; no Lite o Guardar sem saldo diz "em breve". */}
       {isPro && (

@@ -77,6 +77,8 @@ interface WithdrawSheetProps {
   visible: boolean;
   piggy: Piggy | null;
   onClose: () => void;
+  /** Atualiza a tela assim que a rede confirmar, antes da próxima leitura. */
+  onConfirmed: (vaultId: string, amount: string) => void;
 }
 
 /**
@@ -84,7 +86,7 @@ interface WithdrawSheetProps {
  * e criptomoeda em dois, com revisão antes de aprovar (Figma "Tirar euro/
  * cripto", 16a–16p). O dinheiro volta para a carteira na mesma moeda.
  */
-export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
+export function WithdrawSheet({ visible, piggy, onClose, onConfirmed }: WithdrawSheetProps) {
   const accent = useAccent();
   const terms = useTerms();
   const { t, isPro } = terms;
@@ -105,6 +107,7 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
   const [doneLabel, setDoneLabel] = useState('');
   // Trava contra toque duplo: o estado só muda no próximo render.
   const running = useRef(false);
+  const confirmedNotified = useRef(false);
   const { slow, watch, begin, isCurrent, slowFor, keepWatching } = useOperationWatch(visible);
 
   useLayoutEffect(() => {
@@ -113,6 +116,7 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
     setChip(null);
     setStep('input');
     setError(null);
+    confirmedNotified.current = false;
     begin();
   }, [visible, begin]);
 
@@ -174,7 +178,11 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
     if (walletAddress) queryClient.invalidateQueries({ queryKey: walletKeys.balance(walletAddress) });
   }
 
-  function celebrate() {
+  function celebrate(vaultId: string, confirmedAmount: string) {
+    if (!confirmedNotified.current) {
+      confirmedNotified.current = true;
+      onConfirmed(vaultId, confirmedAmount);
+    }
     setStep('success');
     playRetirarConfirmacao();
     setTimeout(playInvestirCoin, 350);
@@ -185,6 +193,8 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
     if (!piggy || !canContinue || running.current) return;
     running.current = true;
     const token = begin();
+    const vaultId = piggy.vault.id;
+    const confirmedAmount = fromUnits(requestedUnits);
     setDoneLabel(operationLabel);
     setError(null);
     setStep('authenticating');
@@ -200,9 +210,9 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
 
       setStep('preparing');
       const intent = await createWithdrawal.mutateAsync({
-        vaultId: piggy.vault.id,
+        vaultId,
         shares: fromUnits(shareUnits),
-        amount: fromUnits(requestedUnits),
+        amount: confirmedAmount,
       });
       if (!intent.unsignedXdr) throw new Error('XDR não gerado');
       const signedXdr = await signWithTimeout(intent.unsignedXdr);
@@ -219,14 +229,14 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
       refreshBalances();
 
       if (outcome === 'confirmed') {
-        celebrate();
+        celebrate(vaultId, confirmedAmount);
       } else if (outcome === 'pending') {
         // Sem resposta no prazo: a tela avisa e segue verificando sozinha.
         setStep('pending');
         keepWatching(token, sources, (settled) => {
           refreshBalances();
           if (!isCurrent(token)) return;
-          if (settled === 'confirmed') celebrate();
+          if (settled === 'confirmed') celebrate(vaultId, confirmedAmount);
           else if (settled === 'failed') {
             setError(failedMessage('withdraw', isPro));
             setStep(twoSteps ? 'review' : 'input');

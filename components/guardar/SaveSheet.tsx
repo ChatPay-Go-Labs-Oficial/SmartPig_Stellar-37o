@@ -59,6 +59,8 @@ interface SaveSheetProps {
   visible: boolean;
   piggy: Piggy | null;
   onClose: () => void;
+  /** Atualiza a tela assim que a rede confirmar, antes da próxima leitura. */
+  onConfirmed: (vaultId: string, amount: string) => void;
   /** "Fazer swap" (Pro) quando falta a moeda do vault na carteira. */
   onSwap: () => void;
   /** "Ler os riscos" quando o backend pede o aceite antes do depósito. */
@@ -70,7 +72,7 @@ interface SaveSheetProps {
  * do próprio porquinho (dólar, euro ou criptomoeda), com o saldo dessa moeda
  * na carteira.
  */
-export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveSheetProps) {
+export function SaveSheet({ visible, piggy, onClose, onConfirmed, onSwap, onRisks }: SaveSheetProps) {
   const accent = useAccent();
   const terms = useTerms();
   const { t, isPro } = terms;
@@ -90,6 +92,7 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
   const [risksBlocked, setRisksBlocked] = useState(false);
   // Trava contra toque duplo: o estado só muda no próximo render.
   const running = useRef(false);
+  const confirmedNotified = useRef(false);
   const { slow, watch, begin, isCurrent, slowFor, keepWatching } = useOperationWatch(visible);
 
   // Cada abertura começa do zero, antes de pintar (sem piscar o estado anterior).
@@ -100,6 +103,7 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
     setStep('input');
     setError(null);
     setRisksBlocked(false);
+    confirmedNotified.current = false;
     begin();
   }, [visible, begin]);
 
@@ -167,7 +171,11 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
     if (walletAddress) queryClient.invalidateQueries({ queryKey: walletKeys.balance(walletAddress) });
   }
 
-  function celebrate() {
+  function celebrate(vaultId: string, confirmedAmount: string) {
+    if (!confirmedNotified.current) {
+      confirmedNotified.current = true;
+      onConfirmed(vaultId, confirmedAmount);
+    }
     setStep('success');
     playInvestirConfirmacao();
     setTimeout(playInvestirCoin, 350);
@@ -178,6 +186,8 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
     if (!piggy || !canConfirm || running.current) return;
     running.current = true;
     const token = begin();
+    const vaultId = piggy.vault.id;
+    const confirmedAmount = fromUnits(amountUnits);
     clearError();
     setStep('authenticating');
     try {
@@ -193,8 +203,8 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
 
       setStep('preparing');
       const intent = await createDeposit.mutateAsync({
-        vaultId: piggy.vault.id,
-        amount: fromUnits(amountUnits),
+        vaultId,
+        amount: confirmedAmount,
         assetSymbol: piggy.vault.assetSymbol,
       });
       if (!intent.unsignedXdr) throw new Error('XDR não gerado');
@@ -212,14 +222,14 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
       refreshBalances();
 
       if (outcome === 'confirmed') {
-        celebrate();
+        celebrate(vaultId, confirmedAmount);
       } else if (outcome === 'pending') {
         // Sem resposta no prazo: a tela avisa e segue verificando sozinha.
         setStep('pending');
         keepWatching(token, sources, (settled) => {
           refreshBalances();
           if (!isCurrent(token)) return;
-          if (settled === 'confirmed') celebrate();
+          if (settled === 'confirmed') celebrate(vaultId, confirmedAmount);
           else if (settled === 'failed') {
             setError(failedMessage('save', isPro));
             setStep('input');
