@@ -149,6 +149,23 @@ export function formatUsdV2(value: number | string): string {
   return `$${grouped}.${decimalPart}`;
 }
 
+/**
+ * Valor monetário da Carteira. Diferente da quantidade exata de XLM, uma
+ * moeda em centavos usa arredondamento: 0.9999999 USDC aparece como 1.00 nos
+ * dois modos. O chamador adiciona o símbolo da moeda quando necessário.
+ */
+export function formatWalletDecimal(value: number | string): string {
+  const n = typeof value === "number" ? value : parseFloat(value);
+  if (!Number.isFinite(n)) return "0.00";
+  const [integerPart, decimalPart] = Math.abs(n).toFixed(2).split(".");
+  const grouped = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${grouped}.${decimalPart}`;
+}
+
+export function formatWalletUsd(value: number | string): string {
+  return `$${formatWalletDecimal(value)}`;
+}
+
 /** Endereço Stellar abreviado: "GAB3…K9Q2" (`edge` caracteres em cada ponta). */
 export function shortAddress(address: string, edge = 4): string {
   if (address.length <= edge * 2 + 1) return address;

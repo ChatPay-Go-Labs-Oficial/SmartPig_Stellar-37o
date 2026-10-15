@@ -5,7 +5,7 @@ import { useTerms } from '@/hooks/use-terms';
 import { AssetIcon } from '@/components/v2';
 import type { WalletAssetBalance } from '@/lib/stellar/balances';
 import type { TermKey } from '@/lib/copy/terms';
-import { formatUsdV2, truncateDecimalString } from '@/lib/utils/format';
+import { formatWalletDecimal, formatWalletUsd, truncateDecimalString } from '@/lib/utils/format';
 
 interface WalletAssetRowProps {
   asset: WalletAssetBalance;
@@ -19,6 +19,9 @@ function WalletAssetRowView({ asset, usdPrice }: WalletAssetRowProps) {
   const amount = parseFloat(asset.balance);
   const usdValue = usdPrice != null && Number.isFinite(amount) ? amount * usdPrice : null;
   const isDollar = asset.id === 'USDC';
+  const amountPro = asset.id === 'XLM'
+    ? truncateDecimalString(asset.balance, 7)
+    : formatWalletDecimal(asset.balance);
 
   const name = t(`carteira.asset.${asset.id}.name` as TermKey);
   const caption =
@@ -40,18 +43,18 @@ function WalletAssetRowView({ asset, usdPrice }: WalletAssetRowProps) {
       {isPro ? (
         <View style={styles.values}>
           <Text style={styles.amountPro} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
-            {truncateDecimalString(asset.balance, 7)}
+            {amountPro}
           </Text>
-          {usdValue != null && <Text style={styles.estimate} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>≈ {formatUsdV2(usdValue)}</Text>}
+          {!isDollar && usdValue != null && <Text style={styles.estimate} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>≈ {formatWalletUsd(usdValue)}</Text>}
         </View>
       ) : (
         // Lite fala em dólar: o USDC é o próprio valor; os outros só aparecem
         // quando há cotação (sem ela, um número solto não diz nada).
         <View style={styles.values}>
           {isDollar ? (
-            <Text style={styles.amountLite} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{formatUsdV2(asset.balance)}</Text>
+            <Text style={styles.amountLite} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{formatWalletUsd(asset.balance)}</Text>
           ) : usdValue != null ? (
-            <Text style={styles.amountLite} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>≈ {formatUsdV2(usdValue)}</Text>
+            <Text style={styles.amountLite} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>≈ {formatWalletUsd(usdValue)}</Text>
           ) : null}
         </View>
       )}

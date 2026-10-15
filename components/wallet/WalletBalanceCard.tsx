@@ -7,7 +7,7 @@ import { V2Colors, V2Font, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
 import { V2Icon } from '@/components/v2';
-import { formatUsdV2, shortAddress } from '@/lib/utils/format';
+import { formatWalletUsd, shortAddress } from '@/lib/utils/format';
 
 interface WalletBalanceCardProps {
   /** Total em USD; null quando alguma moeda com saldo não pôde ser cotada. */
@@ -40,7 +40,7 @@ function WalletBalanceCardView({ amountUsd, estimated, address }: WalletBalanceC
   const showEstimate = estimated && amountUsd !== null;
   const formatted = amountUsd === null
     ? 'Saldo indisponível'
-    : `${showEstimate ? '≈ ' : ''}${formatUsdV2(amountUsd)}`;
+    : `${showEstimate ? '≈ ' : ''}${formatWalletUsd(amountUsd)}`;
 
   return (
     <View style={styles.card}>
