@@ -27,6 +27,7 @@ import {
   guardarTotal,
   initialPiggyIndex,
   joinAssetNames,
+  type GuardarTotal,
   type Piggy,
 } from '@/lib/utils/piggy';
 import { ScreenGlow } from '@/components/v2';
@@ -62,18 +63,56 @@ export default function GuardarScreen() {
   const vaults = vaultsQuery.data;
   const summary = portfolioQuery.data;
 
-  // Vaults em que já houve saldo nesta sessão: numa leitura parcial do
-  // portfólio a posição some, mas o cartão fica (com "—") em vez de sumir.
-  const knownHeld = useRef(new Set<string>());
+  // Durante o refetch após Guardar/Tirar, o backend pode devolver uma leitura
+  // parcial por alguns instantes. Mantemos a última posição confiável em vez
+  // de trocar o saldo visível por "—". A memória é isolada por carteira.
+  const portfolioMemory = useRef<{
+    walletAddress: string | null;
+    knownHeld: Set<string>;
+    balances: Map<
+      string,
+      Pick<Piggy, 'position' | 'amount' | 'balanceKnown' | 'hasBalance' | 'usd'>
+    >;
+    total: GuardarTotal | null;
+  }>({ walletAddress, knownHeld: new Set(), balances: new Map(), total: null });
   const piggies = useMemo(() => {
     if (!vaults || !summary) return null;
-    for (const position of summary.positions) knownHeld.current.add(position.vaultId);
-    return buildPiggies(vaults, summary, canAccessVaultAsset, knownHeld.current);
-  }, [vaults, summary, canAccessVaultAsset]);
-  const total = useMemo(
-    () => (piggies && summary ? guardarTotal(piggies, summary) : null),
-    [piggies, summary],
-  );
+    if (portfolioMemory.current.walletAddress !== walletAddress) {
+      portfolioMemory.current = {
+        walletAddress,
+        knownHeld: new Set(),
+        balances: new Map(),
+        total: null,
+      };
+    }
+
+    const memory = portfolioMemory.current;
+    for (const position of summary.positions) memory.knownHeld.add(position.vaultId);
+    return buildPiggies(vaults, summary, canAccessVaultAsset, memory.knownHeld).map((piggy) => {
+      if (piggy.balanceKnown) {
+        memory.balances.set(piggy.vault.id, {
+          position: piggy.position,
+          amount: piggy.amount,
+          balanceKnown: true,
+          hasBalance: piggy.hasBalance,
+          usd: piggy.usd,
+        });
+        return piggy;
+      }
+
+      const previous = memory.balances.get(piggy.vault.id);
+      return previous ? { ...piggy, ...previous } : piggy;
+    });
+  }, [vaults, summary, canAccessVaultAsset, walletAddress]);
+  const total = useMemo(() => {
+    if (!piggies || !summary) return null;
+    const next = guardarTotal(piggies, summary);
+    if (next.kind !== 'unknown') {
+      portfolioMemory.current.total = next;
+      return next;
+    }
+    return portfolioMemory.current.total ?? next;
+  }, [piggies, summary]);
 
   // Toque num porquinho na Carteira (?vault=): a aba abre já nele.
   const { vault: vaultParam } = useLocalSearchParams<{ vault?: string }>();
