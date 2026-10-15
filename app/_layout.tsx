@@ -218,7 +218,25 @@ export default function RootLayout() {
                 name="(tabs)"
                 options={{ gestureEnabled: false, animation: "fade" }}
               />
-              <Stack.Screen name="vault/[id]" />
+              {/* Detalhes do porquinho (V2). No Android, camada transparente
+                  como o Histórico da Carteira: um push comum desmontava as abas
+                  por baixo e a volta mostrava um quadro vazio. No iOS o modal
+                  subiria de baixo e perderia o gesto de voltar: push normal. */}
+              <Stack.Screen
+                name="vault/[id]"
+                options={{
+                  presentation: Platform.OS === "android" ? "transparentModal" : "card",
+                  animation: "slide_from_right",
+                }}
+              />
+              {/* Aceite de riscos do porquinho: mesma apresentação de Detalhes. */}
+              <Stack.Screen
+                name="vault/[id]/risks"
+                options={{
+                  presentation: Platform.OS === "android" ? "transparentModal" : "card",
+                  animation: "slide_from_right",
+                }}
+              />
               <Stack.Screen name="account/index" options={{ animation: "fade" }} />
               <Stack.Screen name="(etherfuse-onboarding)" />
               <Stack.Screen name="(blindpay-onboarding)" />
@@ -279,7 +297,7 @@ function AppGate() {
       const result = await authenticateWithDeviceBiometrics({
         promptMessage: "Confirme que é você",
         promptSubtitle: "Acesse sua conta PigFi",
-        promptDescription: "Use a biometria configurada neste aparelho.",
+        promptDescription: "Use a biometria ou o PIN deste aparelho.",
       });
 
       if (result.success) {
@@ -616,7 +634,7 @@ function BiometricLockContent({
 
       <Text style={styles.lockTitle}>Confirme que é você</Text>
       <Text style={styles.lockText}>
-        Use a biometria do aparelho para acessar sua conta PigFi.
+        Use a biometria ou o PIN do aparelho para acessar sua conta PigFi.
       </Text>
 
       {message ? <Text style={styles.lockMessage}>{message}</Text> : null}

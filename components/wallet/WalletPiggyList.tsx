@@ -35,8 +35,8 @@ interface WalletPiggyListProps {
  *
  * Mostra os porquinhos com o que a pessoa tem em cada um, e uma nota de que
  * esse dinheiro fica fora do saldo da carteira: o card do topo continua sendo
- * só a carteira. O toque leva para a aba Investir (futura Guardar), que é onde
- * os porquinhos são operados.
+ * só a carteira. O toque leva para a aba Guardar, já no porquinho tocado: é
+ * lá que os porquinhos são operados.
  */
 function WalletPiggyListView({ vaults, summary, isLoading, isError, onRetry }: WalletPiggyListProps) {
   const accent = useAccent();
@@ -86,7 +86,9 @@ function WalletPiggyListView({ vaults, summary, isLoading, isError, onRetry }: W
               assetName={id ? t(`carteira.asset.${id}.name` as TermKey) : vault.assetSymbol}
               position={positionByVault.get(vault.id)}
               isPro={isPro}
-              name={formatVaultNameForMode(vault.name, mode)}
+              name={
+                id ? t(`guardar.piggy.${id}.name` as TermKey) : formatVaultNameForMode(vault.name, mode)
+              }
             />
           );
         })}
@@ -116,7 +118,6 @@ interface PiggyRowProps {
 const PiggyRow = memo(function PiggyRow({ vault, asset, tint, assetName, position, isPro, name }: PiggyRowProps) {
   const amount = position?.amountAsset ?? '0';
   const hasBalance = parseFloat(amount) > 0 && !!position;
-
   // Valor à direita: Pro mostra a quantidade exata do ativo; Lite, em dólar.
   let value = isPro ? '0.0000000' : '$0.00';
   if (hasBalance && position) {
@@ -134,7 +135,7 @@ const PiggyRow = memo(function PiggyRow({ vault, asset, tint, assetName, positio
 
   return (
     <Pressable
-      onPress={() => router.push('/(tabs)/vaults')}
+      onPress={() => router.push({ pathname: '/(tabs)/vaults', params: { vault: vault.id } })}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${assetName}, ${value}${yieldText ? `, rende ${yieldText}` : ''}`}

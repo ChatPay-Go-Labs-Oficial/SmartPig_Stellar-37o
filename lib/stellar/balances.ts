@@ -9,6 +9,12 @@ export interface WalletAssetBalance {
   code: string;
   /** Saldo com 7 casas, como o Horizon devolve. */
   balance: string;
+  /**
+   * Quanto dá para movimentar: o saldo menos o que está comprometido em
+   * ofertas (selling liabilities) e, no XLM, menos o saldo mínimo da conta
+   * (reservas). Mesmas 7 casas, nunca negativo.
+   */
+  spendable: string;
 }
 
 export interface WalletAssets {
@@ -44,7 +50,7 @@ export async function loadWalletAssets(address: string): Promise<WalletAssets> {
         funded: false,
         assets: defs
           .filter((def) => def.id !== 'EURC')
-          .map((def) => ({ id: def.id, code: def.code, balance: '0.0000000' })),
+          .map((def) => ({ id: def.id, code: def.code, balance: '0.0000000', spendable: '0.0000000' })),
       };
     }
     throw error;
@@ -54,9 +60,44 @@ export async function loadWalletAssets(address: string): Promise<WalletAssets> {
   for (const def of defs) {
     const line = findBalanceLine(account.balances, def);
     if (!line && def.id === 'EURC') continue;
-    assets.push({ id: def.id, code: def.code, balance: line?.balance ?? '0.0000000' });
+    const balance = line?.balance ?? '0.0000000';
+    const locked =
+      toStroops(line && 'selling_liabilities' in line ? line.selling_liabilities : '0') +
+      (def.issuer ? 0n : minimumBalanceStroops(account));
+    const free = toStroops(balance) - locked;
+    assets.push({
+      id: def.id,
+      code: def.code,
+      balance,
+      spendable: fromStroops(free > 0n ? free : 0n),
+    });
   }
   return { funded: true, assets };
+}
+
+// Reserva base da rede (0,5 XLM) em stroops. O saldo mínimo da conta é
+// (2 + subentradas + patrocinando − patrocinadas) × reserva base: o que a
+// tesouraria patrocina não pesa no saldo da pessoa.
+const BASE_RESERVE_STROOPS = 5_000_000n;
+
+function minimumBalanceStroops(account: {
+  subentry_count: number;
+  num_sponsoring?: number;
+  num_sponsored?: number;
+}): bigint {
+  const entries =
+    2 + account.subentry_count + (account.num_sponsoring ?? 0) - (account.num_sponsored ?? 0);
+  return BigInt(Math.max(0, entries)) * BASE_RESERVE_STROOPS;
+}
+
+function toStroops(amount: string): bigint {
+  const [integer = '0', fraction = ''] = amount.split('.');
+  return BigInt(integer || '0') * 10_000_000n + BigInt(fraction.padEnd(7, '0').slice(0, 7) || '0');
+}
+
+function fromStroops(stroops: bigint): string {
+  const fraction = (stroops % 10_000_000n).toString().padStart(7, '0');
+  return `${stroops / 10_000_000n}.${fraction}`;
 }
 
 function findBalanceLine(

@@ -1,12 +1,29 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { V2Colors, V2Font, V2Radius } from '@/constants/theme-v2';
+import { V2Colors, V2Font, V2Radius, blendOver } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { V2Icon, type V2IconName } from './V2Icon';
 
 const HEIGHT = 57;
-// A face fica sobre uma base 4 px mais baixa; ao tocar, desce até ela.
+// A base aparece 4 px abaixo da face: o degrau do 3D.
 const DEPTH = 4;
+
+// Vidro no acabamento das teclas da Carteira (ActionKey3D, Figma "v2/Ação 3D"
+// Neutra): face sólida com degradê, contorno fino, brilho de 1,5 px no topo e
+// sombra de 2 px embaixo acompanhando a curva, sobre uma base opaca com
+// sombra projetada.
+const GLASS_FACE = ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.06)'] as const;
+const GLASS_BASE = blendOver('#ffffff', 0.04, V2Colors.background);
 
 interface Button3DProps {
   label: string;
@@ -16,62 +33,80 @@ interface Button3DProps {
   icon?: V2IconName;
   loading?: boolean;
   disabled?: boolean;
+  /** Largura e flex do botão (padrão: largura total). */
+  style?: StyleProp<ViewStyle>;
+  accessibilityHint?: string;
 }
 
-/** Botão 3D (Figma "v2/Botão 3D"), estilos Primária e Vidro. */
-export function Button3D({
+/**
+ * Botão 3D (Figma "v2/Botão 3D"), estilos Primária e Vidro.
+ *
+ * Estático de propósito, como as teclas da Carteira: o toque não anima nem
+ * re-renderiza nada. A vibração sai no instante em que o dedo encosta, e a
+ * ação no soltar. O volume vem só do desenho:
+ * - Primária: face no destaque sobre base mais escura 4 px abaixo, com o
+ *   brilho de 2 px do topo acompanhando a curva (Figma);
+ * - Vidro: o acabamento das teclas neutras da Carteira (ver GLASS_FACE).
+ */
+export const Button3D = memo(function Button3D({
   label,
   onPress,
   variant = 'primary',
   icon,
   loading = false,
   disabled = false,
+  style,
+  accessibilityHint,
 }: Button3DProps) {
   const accent = useAccent();
   const isPrimary = variant === 'primary';
   const inactive = disabled || loading;
 
-  const faceColor = isPrimary ? accent.base : 'rgba(255,255,255,0.1)';
-  const baseColor = isPrimary ? accent.dark : 'rgba(255,255,255,0.05)';
-  const textColor = isPrimary ? V2Colors.onPrimary : V2Colors.text;
-
   return (
     <Pressable
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
+      onPressIn={() => {
+        Haptics.selectionAsync().catch(() => {});
       }}
+      onPress={onPress}
       disabled={inactive}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy: loading }}
-      style={[styles.wrapper, disabled && styles.disabled]}
+      style={[styles.wrapper, style, disabled && styles.disabled]}
     >
-      {({ pressed }) => (
-        <>
-          <View style={[styles.base, { backgroundColor: baseColor }]} />
-          <View
-            style={[
-              styles.face,
-              { backgroundColor: faceColor },
-              pressed && !inactive && { transform: [{ translateY: DEPTH }] },
-            ]}
-          >
-            <View style={styles.highlight} pointerEvents="none" />
-            {loading ? (
-              <ActivityIndicator size="small" color={textColor} />
-            ) : (
-              <>
-                {icon && <V2Icon name={icon} size={20} color={textColor} />}
-                <Text style={[styles.label, { color: textColor }]}>{label}</Text>
-              </>
-            )}
-          </View>
-        </>
+      {isPrimary ? (
+        <View style={[styles.base, { backgroundColor: accent.dark }]} />
+      ) : (
+        <View style={[styles.base, styles.glassBase]} />
       )}
+
+      <View style={[styles.face, isPrimary && { backgroundColor: accent.base }]}>
+        {isPrimary ? (
+          <View style={styles.highlight} pointerEvents="none" />
+        ) : (
+          <>
+            <View style={[StyleSheet.absoluteFill, styles.glassFill]} />
+            <LinearGradient colors={GLASS_FACE} style={StyleSheet.absoluteFill} />
+            <View style={styles.glassHighlight} pointerEvents="none" />
+            <View style={styles.glassShade} pointerEvents="none" />
+            <View style={styles.glassBorder} pointerEvents="none" />
+          </>
+        )}
+        {loading ? (
+          <ActivityIndicator size="small" color={V2Colors.onPrimary} />
+        ) : (
+          <>
+            {icon && <V2Icon name={icon} size={isPrimary ? 20 : 24} color={V2Colors.onPrimary} />}
+            <Text style={styles.label} numberOfLines={1}>
+              {label}
+            </Text>
+          </>
+        )}
+      </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -81,13 +116,24 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
+  // A base fica por trás da face inteira e aparece só no degrau de baixo.
   base: {
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 0,
     bottom: 0,
-    height: HEIGHT,
     borderRadius: V2Radius.key,
+  },
+  // Base opaca com sombra projetada (a elevação do Android precisa de fundo
+  // opaco), como a extrusão das teclas da Carteira.
+  glassBase: {
+    backgroundColor: GLASS_BASE,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 6,
   },
   face: {
     position: 'absolute',
@@ -102,17 +148,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
+  // Figma: sombra interna 0 2 0 branca 22%, um aro que acompanha a curva do
+  // topo e afina até zero nas laterais (a borda de cima com o mesmo raio).
   highlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: V2Radius.key,
+    borderTopWidth: 2,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  glassFill: {
+    backgroundColor: '#000000',
+  },
+  glassHighlight: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: V2Radius.key,
+    borderTopWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  glassShade: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: V2Radius.key,
+    borderBottomWidth: 2,
+    borderColor: 'rgba(0,0,0,0.18)',
+  },
+  glassBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: V2Radius.key,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   label: {
+    flexShrink: 1,
     fontFamily: V2Font.extraBold,
     fontSize: 17,
     letterSpacing: 0.17,
+    color: V2Colors.onPrimary,
   },
 });

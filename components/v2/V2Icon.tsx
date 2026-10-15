@@ -25,6 +25,9 @@ const FEATHER = {
   check: 'check',
   alert: 'alert-circle',
   trending: 'trending-up',
+  home: 'home',
+  user: 'user',
+  settings: 'settings',
 } as const;
 
 // Sem par no Feather: cai para o contorno do Material Community.
@@ -32,6 +35,12 @@ const COMMUNITY = {
   piggy: 'piggy-bank-outline',
   // Lucide "history" (seta anti-horária com ponteiros); o Feather não tem.
   history: 'history',
+  graduation: 'school-outline',
+  wallet: 'wallet-outline',
+  // Figma "shield" é o Lucide shield-check; o Feather só tem o escudo vazio.
+  shield: 'shield-check-outline',
+  // Lucide "coins": duas moedas sobrepostas.
+  coins: 'circle-multiple-outline',
 } as const;
 
 export type V2IconName = keyof typeof FEATHER | keyof typeof COMMUNITY;

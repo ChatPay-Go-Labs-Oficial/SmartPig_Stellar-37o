@@ -1,5 +1,5 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { V2Layout } from '@/constants/theme-v2';
+import { V2Layout, tabBarBottomGap } from '@/constants/theme-v2';
 
 /**
  * Espaçamentos verticais das telas V2 que convivem com a tab bar flutuante.
@@ -15,9 +15,6 @@ export function useScreenInsets() {
   return {
     top: insets.top,
     topGap: insets.top > 24 ? V2Layout.screenTopCutout : V2Layout.screenTop,
-    bottom:
-      V2Layout.tabBarHeight +
-      Math.max(insets.bottom, V2Layout.tabBarBottomMin) +
-      V2Layout.tabBarGap,
+    bottom: V2Layout.tabBarHeight + tabBarBottomGap(insets.bottom) + V2Layout.tabBarGap,
   };
 }

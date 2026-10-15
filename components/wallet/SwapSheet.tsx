@@ -34,6 +34,11 @@ interface SwapSheetProps {
   walletAddress: string | null;
   walletAccountId: string | null;
   onClose: () => void;
+  /**
+   * Moeda de destino já escolhida ao abrir (Guardar euro sem euro na
+   * carteira abre a troca já em "para euro").
+   */
+  initialTo?: WalletAssetId;
 }
 
 interface ApiErrorPayload {
@@ -77,6 +82,7 @@ export function SwapSheet({
   walletAddress,
   walletAccountId,
   onClose,
+  initialTo,
 }: SwapSheetProps) {
   const accent = useAccent();
   const qc = useQueryClient();
@@ -94,7 +100,9 @@ export function SwapSheet({
   const [error, setError] = useState('');
   const wasVisible = useRef(false);
 
-  const sourceBalance = assets.find((asset) => asset.id === from)?.balance ?? '0.0000000';
+  // O que dá para enviar: no XLM, o saldo menos a reserva mínima da conta.
+  const sourceAsset = assets.find((asset) => asset.id === from);
+  const sourceBalance = sourceAsset?.spendable ?? sourceAsset?.balance ?? '0.0000000';
   const amountNumber = Number(normalizedAmount(amount));
   const canReview =
     !!walletAccountId &&
@@ -105,9 +113,11 @@ export function SwapSheet({
 
   useEffect(() => {
     if (visible && !wasVisible.current) {
-      const funded = assets.find((asset) => Number(asset.balance) > 0)?.id ?? 'USDC';
+      const funded =
+        assets.find((asset) => asset.id !== initialTo && Number(asset.balance) > 0)?.id ??
+        (initialTo === 'USDC' ? 'XLM' : 'USDC');
       setFrom(funded);
-      setTo(funded === 'USDC' ? 'XLM' : 'USDC');
+      setTo(initialTo && initialTo !== funded ? initialTo : funded === 'USDC' ? 'XLM' : 'USDC');
       setAmount('');
       setIntent(null);
       setReceivedAmount(null);
@@ -115,7 +125,7 @@ export function SwapSheet({
       setStep('input');
     }
     wasVisible.current = visible;
-  }, [assets, visible]);
+  }, [assets, visible, initialTo]);
 
   function selectFrom(asset: WalletAssetId) {
     setFrom(asset);

@@ -16,18 +16,31 @@ interface AssetIconProps {
   size?: number;
   /** Ativo ainda não liberado: logo esmaecido com cadeado. */
   locked?: boolean;
+  /**
+   * Recorte em círculo (Figma "v2/Ativo/<código>" nas pílulas e listas da
+   * Guardar). O XLM, preto, ganha o contorno branco de 18% do componente.
+   */
+  round?: boolean;
 }
 
 /** Logo do ativo (Figma "v2/Ativo/<código>"). */
-export function AssetIcon({ asset, size = 40, locked = false }: AssetIconProps) {
+export function AssetIcon({ asset, size = 40, locked = false, round = false }: AssetIconProps) {
   return (
     <View style={{ width: size, height: size }}>
       <Image
         source={LOGOS[asset]}
-        style={{ width: size, height: size, borderRadius: size * 0.225, opacity: locked ? 0.4 : 1 }}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: round ? size / 2 : size * 0.225,
+          opacity: locked ? 0.4 : 1,
+        }}
         contentFit="contain"
         accessibilityIgnoresInvertColors
       />
+      {round && asset === 'XLM' && (
+        <View pointerEvents="none" style={[styles.ring, { borderRadius: size / 2 }]} />
+      )}
       {locked && (
         <View style={styles.lock}>
           <V2Icon name="lock" size={10} color={V2Colors.textSecondary} />
@@ -38,6 +51,11 @@ export function AssetIcon({ asset, size = 40, locked = false }: AssetIconProps) 
 }
 
 const styles = StyleSheet.create({
+  ring: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
   lock: {
     position: 'absolute',
     right: -2,

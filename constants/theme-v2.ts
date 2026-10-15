@@ -136,9 +136,20 @@ export const V2Layout = {
    * então nenhum celular muda.
    */
   maxWidth: 480,
-  /** Tab bar flutuante (V1, app/(tabs)/_layout.tsx): altura e folga mínima. */
-  tabBarHeight: 60,
+  /**
+   * Tab bar flutuante (components/v2/TabBar.tsx): altura da barra e folga
+   * mínima até a borda de baixo.
+   */
+  tabBarHeight: 64,
   tabBarBottomMin: 12,
   /** Espaço entre o fim do conteúdo e a tab bar. */
   tabBarGap: 56,
 } as const;
+
+/**
+ * Folga entre a tab bar e a borda de baixo da tela. No Figma é 30 sobre o
+ * home indicator de 34: a barra invade 4 px da área segura.
+ */
+export function tabBarBottomGap(bottomInset: number): number {
+  return Math.max(bottomInset - 4, V2Layout.tabBarBottomMin);
+}
