@@ -13,6 +13,8 @@ export type OperationErrorKind =
   | 'network'
   | 'session'
   | 'biometrics'
+  | 'cancelled'
+  | 'deviceLock'
   | 'signing'
   | 'generic';
 
@@ -23,14 +25,25 @@ interface ApiErrorShape {
 }
 
 export class BiometricsDeclinedError extends Error {
-  constructor(message?: string) {
+  /**
+   * 'noDeviceLock': o aparelho não tem bloqueio de tela nenhum.
+   * 'cancelled': a pessoa (ou o sistema) cancelou o pedido.
+   */
+  readonly reason?: 'noDeviceLock' | 'cancelled';
+
+  constructor(message?: string, reason?: 'noDeviceLock' | 'cancelled') {
     super(message ?? 'Biometria não confirmada.');
     this.name = 'BiometricsDeclinedError';
+    this.reason = reason;
   }
 }
 
 export function classifyOperationError(error: unknown): OperationErrorKind {
-  if (error instanceof BiometricsDeclinedError) return 'biometrics';
+  if (error instanceof BiometricsDeclinedError) {
+    if (error.reason === 'noDeviceLock') return 'deviceLock';
+    if (error.reason === 'cancelled') return 'cancelled';
+    return 'biometrics';
+  }
   if (error instanceof SignTimeoutError) return 'signing';
 
   const e = error as ApiErrorShape;
@@ -49,6 +62,12 @@ export function classifyOperationError(error: unknown): OperationErrorKind {
     .join(' ')
     .toLowerCase();
 
+  // Assinatura da carteira (Privy) antes do envio: nada saiu do aparelho.
+  // O prazo do Privy ("Operation reached timeout: user-signer:sign") não é
+  // queda de internet, embora diga "timeout".
+  if (!e?.response && /user-signer|reached timeout/.test(text)) return 'signing';
+  // Carteira sem sessão no aparelho (kit.ts e signer.ts).
+  if (/signer não inicializado|carteira não conectada/.test(text)) return 'session';
   if (!e?.response && /network|timeout|econn|fetch|abort/.test(text)) return 'network';
   if (/liquidity|liquidez|insufficient_liquidity|not enough.*(idle|free)/.test(text)) return 'liquidity';
   if (/insufficient|underfunded|saldo insuficiente|not enough (balance|funds)/.test(text)) return 'insufficient';

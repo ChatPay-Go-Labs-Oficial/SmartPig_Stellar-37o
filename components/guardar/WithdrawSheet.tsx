@@ -23,6 +23,7 @@ import {
   QuickChips,
   SheetCaption,
   SheetError,
+  SheetFieldWarning,
   SheetHint,
   SheetLink,
   SheetPending,
@@ -32,26 +33,35 @@ import {
   StepProgress,
   SummaryCard,
 } from './sheet/SheetParts';
-import { currencyPrefix, displayBalance, displayTwoDecimals } from './sheet/amounts';
+import { currencyPrefix, displayBalance, operationAmount } from './sheet/amounts';
 import {
-  LIQUIDITY_MESSAGE,
-  PENDING_GAVE_UP,
   PENDING_TITLE,
   SLOW_CAPTION,
-  pendingCaption,
-  SIGN_CAPTION,
-  WITHDRAW_FAILED_MESSAGE,
   amountLabel,
+  authProgress,
+  authPrompt,
+  confirmingCaption,
+  failedMessage,
+  liquidityMessage,
+  liquidityNote,
+  overBalanceMessage,
+  pendingCaption,
+  pendingGaveUp,
+  preparingProgress,
+  successCopy,
+  unknownBalanceMessage,
   withdrawErrorMessage,
+  withdrawPausedNotice,
 } from './sheet/operation-copy';
 import { piggyPill } from './sheet/piggy-pill';
 
+// A assinatura da carteira é automática (Privy, sem tela) e fica dentro de
+// "preparing", nas três moedas.
 type Step =
   | 'input'
   | 'review'
   | 'authenticating'
   | 'preparing'
-  | 'signing'
   | 'processing'
   | 'success'
   | 'pending'
@@ -90,7 +100,7 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
   const [chip, setChip] = useState<string | null>(null);
   const [step, setStep] = useState<Step>('input');
   const [error, setError] = useState<string | null>(null);
-  // Valor do saque fixado na aprovação: depois dela o saldo do porquinho é
+  // Valor fixado na aprovação: depois dela o saldo do porquinho é
   // recarregado, e "Tudo" recalculado daria $0.00 no sucesso.
   const [doneLabel, setDoneLabel] = useState('');
   // Trava contra toque duplo: o estado só muda no próximo render.
@@ -116,16 +126,17 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
   // No dólar o campo mostra 2 casas: digitar o saldo como aparece ("12.34"
   // de 12.3456789) também é tirar tudo.
   const shownAllUnits = asset === 'USDC' ? toUnits(truncateDecimalString(underlying, 2)) : underlyingUnits;
-  // "Tudo" (ou um valor que alcança o saldo) queima todas as cotas: nunca
-  // sobra poeira no porquinho por arredondamento.
+  // "Tudo" (ou o saldo exato) queima todas as cotas: nunca sobra poeira no
+  // porquinho por arredondamento. Acima do saldo, o botão não libera e o
+  // aviso explica (antes virava "tudo" sem a pessoa ver).
   const takesAll =
-    chip === 'all' || amountUnits >= underlyingUnits || (shownAllUnits > 0n && amountUnits === shownAllUnits);
+    chip === 'all' || amountUnits === underlyingUnits || (shownAllUnits > 0n && amountUnits === shownAllUnits);
+  const overBalance = !takesAll && amountUnits > underlyingUnits;
   const requestedUnits = takesAll ? underlyingUnits : amountUnits;
   const shareUnits =
     takesAll || underlyingUnits === 0n ? sharesUnits : (amountUnits * sharesUnits) / underlyingUnits;
   // "Tudo" vale mesmo abaixo de $0.01 (o campo mostra 0.00, as cotas existem).
-  const canContinue =
-    requestedUnits > 0n && sharesUnits > 0n && shareUnits > 0n && (takesAll || amountUnits <= underlyingUnits);
+  const canContinue = requestedUnits > 0n && sharesUnits > 0n && shareUnits > 0n && !overBalance;
 
   function selectChip(key: string) {
     setChip(key);
@@ -141,7 +152,16 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
     setError(null);
   }
 
-  const shortAmount = displayTwoDecimals(asset, symbol, fromUnits(requestedUnits));
+  // O valor inteiro, até 7 casas ("$10", "€2.5308641", "10 USDC"): o mesmo
+  // da revisão, e nunca "$0.00" num valor pequeno.
+  const operationLabel = operationAmount(asset, symbol, fromUnits(requestedUnits), isPro, true);
+
+  // Na revisão o saldo pode ser relido (a cada 30 s): "tudo" fica fixado
+  // como intenção, para não virar "acima do saldo" nem deixar poeira.
+  function goToReview() {
+    if (takesAll) setChip('all');
+    setStep('review');
+  }
 
   function backToInput() {
     setError(null);
@@ -165,31 +185,31 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
     if (!piggy || !canContinue || running.current) return;
     running.current = true;
     const token = begin();
-    setDoneLabel(shortAmount);
+    setDoneLabel(operationLabel);
     setError(null);
     setStep('authenticating');
     try {
-      const biometrics = await authenticateWithDeviceBiometrics({
-        promptMessage: 'Confirme o saque',
-        promptSubtitle: 'Tirar do porquinho',
-        promptDescription: `Autorize tirar ${shortAmount} do porquinho.`,
+      const auth = await authenticateWithDeviceBiometrics({
+        ...authPrompt('withdraw', operationLabel, symbol, isPro),
+        requireDeviceLock: true,
       });
-      if (!biometrics.success) throw new BiometricsDeclinedError(biometrics.message);
+      // O sheet pode ter fechado durante o pedido (ele fica fechável nesta
+      // etapa, em que nada aconteceu ainda): não segue.
+      if (!isCurrent(token)) return;
+      if (!auth.success) throw new BiometricsDeclinedError(auth.message, auth.reason);
 
-      setStep(twoSteps ? 'processing' : 'preparing');
+      setStep('preparing');
       const intent = await createWithdrawal.mutateAsync({
         vaultId: piggy.vault.id,
         shares: fromUnits(shareUnits),
         amount: fromUnits(requestedUnits),
       });
       if (!intent.unsignedXdr) throw new Error('XDR não gerado');
-
-      if (!twoSteps) setStep('signing');
       const signedXdr = await signWithTimeout(intent.unsignedXdr);
 
       // Daqui em diante a transação pode estar na rede: o resultado vem do
       // status do intent, nunca de um "tente de novo" às cegas.
-      if (!twoSteps) setStep('processing');
+      setStep('processing');
       const sources = { fetchStatus: () => getWithdrawal(intent.id), txHash: signedTxHash(signedXdr) };
       const outcome = await submitAndConfirm({
         submit: () => submitWithdrawal.mutateAsync({ withdrawalId: intent.id, signedXdr }),
@@ -208,65 +228,61 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
           if (!isCurrent(token)) return;
           if (settled === 'confirmed') celebrate();
           else if (settled === 'failed') {
-            setError(WITHDRAW_FAILED_MESSAGE);
+            setError(failedMessage('withdraw', isPro));
             setStep(twoSteps ? 'review' : 'input');
           }
         });
       } else {
-        setError(WITHDRAW_FAILED_MESSAGE);
+        setError(failedMessage('withdraw', isPro));
         setStep(twoSteps ? 'review' : 'input');
       }
     } catch (e) {
       const kind = classifyOperationError(e);
+      // Cancelou a biometria: volta para onde estava, sem erro (nada foi feito).
+      if (kind === 'cancelled') {
+        setStep(twoSteps ? 'review' : 'input');
+        return;
+      }
       // Sem dinheiro livre no porquinho (Figma 16l): aviso próprio e voltar.
       if (kind === 'liquidity' && twoSteps) {
         setStep('liquidity');
         return;
       }
-      setError(
-        kind === 'liquidity'
-          ? LIQUIDITY_MESSAGE
-          : withdrawErrorMessage(kind, e instanceof BiometricsDeclinedError ? e.message : undefined),
-      );
+      setError(withdrawErrorMessage(kind, isPro));
       setStep(twoSteps ? 'review' : 'input');
     } finally {
       running.current = false;
     }
   }
 
-  const busy = step === 'authenticating' || step === 'preparing' || step === 'signing' || step === 'processing';
+  // Confirmando a identidade, nada aconteceu ainda: o sheet fecha, para não
+  // prender a pessoa se o pedido do sistema nunca responder.
+  const busy = step === 'preparing' || step === 'processing';
   const title = isPro ? `Resgate do vault ${symbol}` : 'Tirar do porquinho';
   const seven = (units: bigint) => displayBalance(asset, symbol, fromUnits(units), isPro);
   const paused = piggy?.depositsPaused ?? false;
 
   let body: React.ReactNode;
   if (step === 'authenticating') {
+    const auth = authProgress('withdraw', doneLabel, isPro);
+    body = <SheetProgress title={auth.title} caption={auth.caption} />;
+  } else if (step === 'preparing') {
+    const preparing = preparingProgress('withdraw', isPro);
+    body = <SheetProgress title={preparing.title} caption={preparing.caption} />;
+  } else if (step === 'processing') {
     body = (
       <SheetProgress
-        title="Confirme com sua biometria..."
-        caption={twoSteps ? `Autorize tirar ${shortAmount} do porquinho` : 'Protegendo seu saque antes de continuar'}
-      />
-    );
-  } else if (step === 'preparing') {
-    body = <SheetProgress title="Preparando..." caption="Preparando seu saque" />;
-  } else if (step === 'signing') {
-    body = <SheetProgress title="Assine com sua biometria..." caption={SIGN_CAPTION} />;
-  } else if (step === 'processing') {
-    body = twoSteps ? (
-      <SheetProgress title="Tirando..." caption={slow ? SLOW_CAPTION : 'Enviando para a sua carteira'} />
-    ) : (
-      <SheetProgress
-        title={t('network.processing')}
-        caption={slow ? SLOW_CAPTION : isPro ? 'Enviando para sua carteira' : 'Enviando para sua conta'}
+        // Lite: "Tirando..." nas três moedas (Figma 16h); Pro: o termo de rede.
+        title={isPro ? t('network.processing') : 'Tirando...'}
+        caption={slow ? SLOW_CAPTION : confirmingCaption('withdraw', isPro)}
       />
     );
   } else if (step === 'success') {
+    const success = successCopy('withdraw', doneLabel, isPro);
     body = (
       <SheetSuccess
-        title="Saque confirmado"
-        caption={
-          twoSteps ? `${doneLabel} já estão na sua carteira.` : `${doneLabel} já caíram na sua carteira.`
-        }
+        title={success.title}
+        caption={success.caption}
         mascot="sad"
         action={{ label: 'Continuar', onPress: onClose }}
       />
@@ -276,9 +292,9 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
       <View style={styles.body}>
         <SheetPending
           title={PENDING_TITLE}
-          caption={pendingCaption('withdraw')}
+          caption={pendingCaption('withdraw', isPro)}
           checking={watch === 'checking'}
-          note={watch === 'gaveUp' ? PENDING_GAVE_UP : undefined}
+          note={watch === 'gaveUp' ? pendingGaveUp(isPro) : undefined}
         />
         <Button3D label="Entendi" variant="glass" onPress={onClose} />
       </View>
@@ -286,7 +302,7 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
   } else if (step === 'liquidity') {
     body = (
       <View style={styles.body}>
-        <SheetWarning message={LIQUIDITY_MESSAGE} />
+        <SheetWarning message={liquidityMessage(isPro)} />
         <Button3D label="Voltar" variant="glass" onPress={backToInput} />
       </View>
     );
@@ -296,14 +312,28 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
         {/* O valor aparece uma vez só: sai do porquinho na mesma moeda, então
             "tira" e "recebe" são o mesmo número. Sem cotas, dfTokens nem
             lista de etapas (decisão de produto, mais enxuta que o Figma 16a/16p). */}
-        <SummaryCard rows={[{ label: 'Você recebe', value: seven(requestedUnits), highlight: true }]} />
-        <SheetCaption>
-          {isPro
-            ? 'Pode levar mais tempo se faltar liquidez no vault.'
-            : 'Pode levar mais tempo se faltar dinheiro livre no porquinho.'}
-        </SheetCaption>
+        {/* "Cerca de": o resgate queima cotas com tolerância de preço
+            (slippage), e pode chegar um pouco menos. */}
+        <SummaryCard
+          rows={[
+            {
+              label: isPro ? 'Você recebe (estimado)' : 'Você recebe cerca de',
+              value: seven(requestedUnits),
+              highlight: true,
+            },
+          ]}
+        />
+        {overBalance ? (
+          <SheetFieldWarning message={overBalanceMessage('withdraw', isPro)} />
+        ) : (
+          <SheetCaption>{liquidityNote(isPro)}</SheetCaption>
+        )}
         {error && <SheetError message={error} />}
-        <Button3D label={isPro ? 'Aprovar resgate' : 'Aprovar e tirar'} onPress={approve} />
+        <Button3D
+          label={isPro ? 'Aprovar resgate' : 'Aprovar e tirar'}
+          onPress={approve}
+          disabled={!canContinue}
+        />
         <SheetLink label="Voltar" onPress={backToInput} />
       </View>
     );
@@ -314,7 +344,7 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
     // chega.
     body = (
       <View style={styles.body}>
-        <SheetWarning message="Não conseguimos ler o saldo deste porquinho agora. Isso costuma voltar em instantes." />
+        <SheetWarning message={unknownBalanceMessage(isPro)} />
         <Button3D
           label="Tentar de novo"
           variant="glass"
@@ -327,7 +357,7 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
     body = (
       <View style={styles.body}>
         {/* Pausa só barra guardar: tirar continua (Figma 16n). */}
-        {paused && <SheetWarning message={t('guardar.notice.paused')} />}
+        {paused && <SheetWarning message={withdrawPausedNotice(isPro)} />}
         <FieldLabel>{amountLabel(asset, symbol, isPro)}</FieldLabel>
         <AmountField
           value={amount}
@@ -336,12 +366,18 @@ export function WithdrawSheet({ visible, piggy, onClose }: WithdrawSheetProps) {
           accessibilityLabel={amountLabel(asset, symbol, isPro)}
         />
         <QuickChips options={CHIPS} selected={chip} onSelect={selectChip} />
-        <SheetHint>Guardado neste porquinho: {displayBalance(asset, symbol, underlying, isPro)}</SheetHint>
-        {!paused && <SheetCaption>O valor volta para a sua carteira.</SheetCaption>}
+        <SheetHint>
+          {isPro ? 'Saldo no vault' : 'Guardado neste porquinho'}: {displayBalance(asset, symbol, underlying, isPro)}
+        </SheetHint>
+        {overBalance ? (
+          <SheetFieldWarning message={overBalanceMessage('withdraw', isPro)} />
+        ) : (
+          !paused && <SheetCaption>O valor volta para a sua carteira.</SheetCaption>
+        )}
         {error && <SheetError message={error} />}
         <Button3D
-          label={twoSteps ? 'Continuar' : 'Confirmar saque'}
-          onPress={twoSteps ? () => setStep('review') : approve}
+          label={twoSteps ? 'Continuar' : isPro ? 'Confirmar resgate' : 'Confirmar'}
+          onPress={twoSteps ? goToReview : approve}
           disabled={!canContinue}
         />
       </View>

@@ -11,7 +11,8 @@ import { useWalletAssets, walletKeys } from '@/lib/queries/wallets.queries';
 import { vaultKeys } from '@/lib/queries/vaults.queries';
 import { portfolioKeys } from '@/lib/queries/portfolio.queries';
 import { getDeposit } from '@/lib/api/deposits';
-import { classifyOperationError } from '@/lib/guardar/operation-errors';
+import { authenticateWithDeviceBiometrics } from '@/lib/security/biometrics';
+import { BiometricsDeclinedError, classifyOperationError } from '@/lib/guardar/operation-errors';
 import { signWithTimeout, signedTxHash, submitAndConfirm } from '@/lib/guardar/vault-operation';
 import { useOperationWatch } from '@/lib/guardar/use-operation-watch';
 import { fromUnits, toUnits, trimDecimal, type Piggy } from '@/lib/utils/piggy';
@@ -21,6 +22,7 @@ import {
   QuickChips,
   SheetCaption,
   SheetError,
+  SheetFieldWarning,
   SheetHint,
   SheetNote,
   SheetPending,
@@ -30,27 +32,34 @@ import {
   YieldHint,
   type QuickOption,
 } from './sheet/SheetParts';
-import { currencyPrefix, displayBalance, displayShort } from './sheet/amounts';
+import { currencyPrefix, displayBalance, displayShort, operationAmount } from './sheet/amounts';
 import {
-  PENDING_GAVE_UP,
   PENDING_TITLE,
   SLOW_CAPTION,
-  pendingCaption,
-  SAVE_FAILED_MESSAGE,
-  SIGN_CAPTION,
   amountLabel,
+  authProgress,
+  authPrompt,
+  confirmingCaption,
+  failedMessage,
   noFundsMessage,
+  overBalanceMessage,
+  pendingCaption,
+  pendingGaveUp,
+  preparingProgress,
   saveErrorMessage,
+  successCopy,
 } from './sheet/operation-copy';
 import { piggyPill } from './sheet/piggy-pill';
 
-type Step = 'input' | 'preparing' | 'signing' | 'confirming' | 'success' | 'pending';
+// A assinatura da carteira é automática (Privy, sem tela) e fica dentro de
+// "preparing"; a confirmação de identidade é a etapa "authenticating".
+type Step = 'input' | 'authenticating' | 'preparing' | 'confirming' | 'success' | 'pending';
 
 interface SaveSheetProps {
   visible: boolean;
   piggy: Piggy | null;
   onClose: () => void;
-  /** "Trocar moedas" quando falta a moeda do porquinho na carteira. */
+  /** "Fazer swap" (Pro) quando falta a moeda do vault na carteira. */
   onSwap: () => void;
   /** "Ler os riscos" quando o backend pede o aceite antes do depósito. */
   onRisks: () => void;
@@ -106,7 +115,10 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
 
   // Euro e cripto sem saldo: em vez do campo, o convite para trocar moedas.
   const noFunds = loaded && asset !== 'USDC' && spendableUnits <= 0n;
-  const canConfirm = loaded && amountUnits > 0n && amountUnits <= spendableUnits;
+  const overBalance = loaded && amountUnits > spendableUnits;
+  const canConfirm = loaded && amountUnits > 0n && !overBalance;
+  // "$10", "1.5 XLM", "10 USDC" no Pro: o valor digitado, inteiro.
+  const operationLabel = operationAmount(asset, symbol, fromUnits(amountUnits), isPro, true);
 
   const options: QuickOption[] = useMemo(() => {
     if (asset === 'XLM') {
@@ -167,16 +179,25 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
     running.current = true;
     const token = begin();
     clearError();
-    setStep('preparing');
+    setStep('authenticating');
     try {
+      // Biometria ou PIN do aparelho antes de qualquer coisa, como no Tirar.
+      const auth = await authenticateWithDeviceBiometrics({
+        ...authPrompt('save', operationLabel, symbol, isPro),
+        requireDeviceLock: true,
+      });
+      // O sheet pode ter fechado durante o pedido (ele fica fechável nesta
+      // etapa, em que nada aconteceu ainda): não segue.
+      if (!isCurrent(token)) return;
+      if (!auth.success) throw new BiometricsDeclinedError(auth.message, auth.reason);
+
+      setStep('preparing');
       const intent = await createDeposit.mutateAsync({
         vaultId: piggy.vault.id,
         amount: fromUnits(amountUnits),
         assetSymbol: piggy.vault.assetSymbol,
       });
       if (!intent.unsignedXdr) throw new Error('XDR não gerado');
-
-      setStep('signing');
       const signedXdr = await signWithTimeout(intent.unsignedXdr);
 
       // Daqui em diante a transação pode estar na rede: o resultado vem do
@@ -200,16 +221,21 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
           if (!isCurrent(token)) return;
           if (settled === 'confirmed') celebrate();
           else if (settled === 'failed') {
-            setError(SAVE_FAILED_MESSAGE);
+            setError(failedMessage('save', isPro));
             setStep('input');
           }
         });
       } else {
-        setError(SAVE_FAILED_MESSAGE);
+        setError(failedMessage('save', isPro));
         setStep('input');
       }
     } catch (e) {
       const kind = classifyOperationError(e);
+      // Cancelou a biometria: volta ao valor, sem erro (nada foi feito).
+      if (kind === 'cancelled') {
+        setStep('input');
+        return;
+      }
       setRisksBlocked(kind === 'risks');
       setError(saveErrorMessage(kind, asset, isPro));
       setStep('input');
@@ -218,64 +244,78 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
     }
   }
 
-  const busy = step === 'preparing' || step === 'signing' || step === 'confirming';
+  // Confirmando a identidade, nada aconteceu ainda: o sheet fecha, para não
+  // prender a pessoa se o pedido do sistema nunca responder.
+  const busy = step === 'preparing' || step === 'confirming';
   const reserveUnits = balanceUnits - spendableUnits;
-  const showReserve = asset === 'XLM' && chip === 'all' && reserveUnits > 0n;
+  // A reserva explica o "Tudo" e também o valor entre o disponível e o saldo.
+  const showReserve = asset === 'XLM' && (chip === 'all' || overBalance) && reserveUnits > 0n;
+  const xlm = (value: string) => `${trimDecimal(value)} XLM`;
 
+  // Sem APY conhecido, nada de rendimento: "taxa baixa" seria inventar.
   let yieldNode: React.ReactNode = null;
-  if (asset === 'XLM') {
+  if (overBalance) {
+    yieldNode = <SheetFieldWarning message={overBalanceMessage('save', isPro)} />;
+  } else if (apy == null) {
+    yieldNode = null;
+  } else if (asset === 'XLM') {
     yieldNode =
-      apy != null && apy >= 1 ? (
+      apy >= 1 ? (
         <YieldHint value={displayShort(asset, symbol, yearlyGain(amount, apy).toFixed(7))} />
       ) : (
-        <SheetCaption>A taxa é muito baixa hoje.</SheetCaption>
+        <SheetCaption>{isPro ? 'APY muito baixo hoje.' : 'A taxa é muito baixa hoje.'}</SheetCaption>
       );
-  } else if (apy != null) {
+  } else {
     yieldNode = <YieldHint value={yieldValue(asset, amount, apy)} />;
   }
+
+  const auth = authProgress('save', operationLabel, isPro);
+  const preparing = preparingProgress('save', isPro);
+  const success = successCopy('save', operationLabel, isPro);
 
   return (
     <V2Sheet
       visible={visible}
       onClose={onClose}
-      title="Guardar no porquinho"
+      title={isPro ? `Depósito no vault ${symbol}` : 'Guardar no porquinho'}
       icon="arrow-down"
       pill={piggy ? piggyPill(piggy, terms, accent.base) : undefined}
       closable={!busy}
     >
-      {step === 'preparing' ? (
-        <SheetProgress
-          title={isPro ? 'Gerando transação...' : 'Preparando...'}
-          caption={isPro ? 'Preparando depósito no vault' : 'Preparando seu depósito'}
-        />
-      ) : step === 'signing' ? (
-        <SheetProgress title="Assine com sua biometria..." caption={SIGN_CAPTION} />
+      {step === 'authenticating' ? (
+        <SheetProgress title={auth.title} caption={auth.caption} />
+      ) : step === 'preparing' ? (
+        <SheetProgress title={preparing.title} caption={preparing.caption} />
       ) : step === 'confirming' ? (
         <SheetProgress
           title={t('network.confirming')}
-          caption={slow ? SLOW_CAPTION : 'Transação em menos de 1 segundo'}
+          caption={slow ? SLOW_CAPTION : confirmingCaption('save', isPro)}
         />
       ) : step === 'pending' ? (
         <View style={styles.body}>
           <SheetPending
             title={PENDING_TITLE}
-            caption={pendingCaption('save')}
+            caption={pendingCaption('save', isPro)}
             checking={watch === 'checking'}
-            note={watch === 'gaveUp' ? PENDING_GAVE_UP : undefined}
+            note={watch === 'gaveUp' ? pendingGaveUp(isPro) : undefined}
           />
           <Button3D label="Entendi" variant="glass" onPress={onClose} />
         </View>
       ) : step === 'success' ? (
         <SheetSuccess
-          title="Valor guardado"
-          caption={`${displayShort(asset, symbol, fromUnits(amountUnits))} já estão no seu porquinho.`}
+          title={success.title}
+          caption={success.caption}
           mascot="happy"
           action={{ label: 'Continuar', onPress: onClose }}
         />
       ) : noFunds ? (
         <View style={styles.body}>
           <SheetWarning message={noFundsMessage(asset, symbol, isPro)} />
-          <Button3D label={isPro ? 'Fazer swap' : 'Trocar moedas'} onPress={onSwap} />
+          {isPro ? (
+            <Button3D label="Fazer swap" onPress={onSwap} />
+          ) : (
+            <Button3D label="Entendi" variant="glass" onPress={onClose} />
+          )}
         </View>
       ) : (
         <View style={styles.body}>
@@ -295,8 +335,8 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
           {showReserve && (
             <SheetNote>
               {isPro
-                ? `Reserva mínima da conta (${trimDecimal(fromUnits(reserveUnits))} XLM) descontada do máximo.`
-                : `Deixamos ${trimDecimal(fromUnits(reserveUnits))} na carteira: é o mínimo que a rede exige para manter a sua conta. Você guarda ${trimDecimal(fromUnits(spendableUnits))} de ${trimDecimal(balance)}.`}
+                ? `Reserva mínima da conta (${xlm(fromUnits(reserveUnits))}) descontada do máximo.`
+                : `Deixamos ${xlm(fromUnits(reserveUnits))} na carteira: é o mínimo que a rede exige para manter a sua conta. Você pode guardar até ${xlm(fromUnits(spendableUnits))} de ${xlm(balance)}.`}
             </SheetNote>
           )}
           {yieldNode}
@@ -304,7 +344,7 @@ export function SaveSheet({ visible, piggy, onClose, onSwap, onRisks }: SaveShee
           {risksBlocked ? (
             <Button3D label={t('guardar.notice.risks.cta')} onPress={onRisks} />
           ) : (
-            <Button3D label="Confirmar" onPress={confirm} disabled={!canConfirm} />
+            <Button3D label={isPro ? 'Confirmar depósito' : 'Confirmar'} onPress={confirm} disabled={!canConfirm} />
           )}
         </View>
       )}

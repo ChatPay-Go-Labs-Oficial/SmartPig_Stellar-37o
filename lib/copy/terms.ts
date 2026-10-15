@@ -149,11 +149,11 @@ export const TERMS = {
   'guardar.state.risks': { lite: 'Falta ler os riscos', pro: 'Aceite de riscos pendente' },
   'guardar.notice.paused': {
     lite: 'Guardar mais neste porquinho está pausado por enquanto. Tirar continua disponível.',
-    pro: 'Novos depósitos neste porquinho estão pausados.',
+    pro: 'Novos depósitos neste vault estão pausados.',
   },
   'guardar.notice.risks': {
     lite: 'Antes de guardar pela primeira vez, leia os riscos deste porquinho.',
-    pro: 'Antes do primeiro depósito, leia e aceite os riscos deste porquinho.',
+    pro: 'Antes do primeiro depósito, leia e aceite os riscos deste vault.',
   },
   'guardar.notice.risks.cta': { lite: 'Ler os riscos', pro: 'Ler os riscos' },
   'guardar.how.title': { lite: 'Como ele funciona', pro: 'Como funciona' },
@@ -161,7 +161,7 @@ export const TERMS = {
     lite: 'Taxa variável, atualizada todo dia',
     pro: 'Variável, atualizado todo dia',
   },
-  'guardar.how.withdraw.title': { lite: 'Tirar do porquinho', pro: 'Saque do vault' },
+  'guardar.how.withdraw.title': { lite: 'Tirar do porquinho', pro: 'Resgate do vault' },
   'guardar.how.withdraw.caption': {
     lite: 'O valor volta para a sua carteira',
     pro: 'O valor volta para a sua carteira Stellar',

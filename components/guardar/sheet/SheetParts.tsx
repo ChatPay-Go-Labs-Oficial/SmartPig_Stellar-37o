@@ -167,6 +167,19 @@ export function SheetCaption({ children }: { children: React.ReactNode }) {
   return <Text style={styles.caption}>{children}</Text>;
 }
 
+/**
+ * Por que o botão não libera ("Esse valor é maior que o saldo da carteira.").
+ * Linha âmbar, sem cartão: é um ajuste no valor, não um erro.
+ */
+export function SheetFieldWarning({ message }: { message: string }) {
+  useAnnounce(message);
+  return (
+    <Text style={[styles.caption, styles.fieldWarning]} accessibilityLiveRegion="polite">
+      {message}
+    </Text>
+  );
+}
+
 /** "Cerca de $0.71 por ano": o valor em verde no meio da frase. */
 export function YieldHint({ value }: { value: string }) {
   return (
@@ -207,6 +220,8 @@ export function SheetWarning({ message, icon = 'alert' }: { message: string; ico
 
 /** Etapa em andamento (Figma 08c–08e): spinner, título e explicação. */
 export function SheetProgress({ title, caption }: { title: string; caption: string }) {
+  // No Android a região viva lê a troca de etapa; no iOS, o anúncio.
+  useAnnounce(`${title} ${caption}`);
   return (
     <View style={styles.status} accessibilityLiveRegion="polite">
       <V2Spinner size={32} />
@@ -481,6 +496,9 @@ const styles = StyleSheet.create({
     fontFamily: V2Font.medium,
     fontSize: 13,
     color: V2Colors.textSecondary,
+  },
+  fieldWarning: {
+    color: V2Colors.warning,
   },
   yieldRow: {
     flexDirection: 'row',

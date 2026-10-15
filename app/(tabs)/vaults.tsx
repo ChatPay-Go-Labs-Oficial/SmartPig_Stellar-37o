@@ -37,7 +37,6 @@ import { TotalEstimateSheet } from '@/components/guardar/TotalEstimateSheet';
 import { SaveSheet } from '@/components/guardar/SaveSheet';
 import { WithdrawSheet } from '@/components/guardar/WithdrawSheet';
 import { SwapSheet } from '@/components/wallet/SwapSheet';
-import { SwapSoonSheet } from '@/components/wallet/SwapSoonSheet';
 import { useWalletAssets } from '@/lib/queries/wallets.queries';
 
 /**
@@ -264,7 +263,8 @@ export default function GuardarScreen() {
         piggy={operationPiggy}
         onClose={closeOperation}
       />
-      {isPro ? (
+      {/* Só o Pro troca moedas daqui; no Lite o Guardar sem saldo diz "em breve". */}
+      {isPro && (
         <SwapSheet
           visible={swapOpen}
           assets={walletAssets}
@@ -273,8 +273,6 @@ export default function GuardarScreen() {
           onClose={() => setSwapOpen(false)}
           initialTo={operationPiggy?.asset && operationPiggy.asset !== 'USDC' ? operationPiggy.asset : undefined}
         />
-      ) : (
-        <SwapSoonSheet visible={swapOpen} onClose={() => setSwapOpen(false)} />
       )}
 
       {piggies && (
