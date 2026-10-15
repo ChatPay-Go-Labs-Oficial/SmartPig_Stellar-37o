@@ -29,6 +29,8 @@ import { usePortfolioSummary } from "@/lib/queries/portfolio.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
 import { useTerms } from "@/hooks/use-terms";
 import { useVaultAccess } from "@/hooks/use-vault-access";
+import { useLiveAmount } from "@/hooks/use-live-amount";
+import { apyNumber } from "@/lib/utils/live-amount";
 import { formatApy } from "@/lib/utils/format";
 import {
   portfolioPositionUsdValue,
@@ -143,6 +145,12 @@ function ActiveVaultRow({
   );
 }
 
+/** Valor do contador com as 7 casas sempre (largura estável). */
+function liveBalanceParts(value: string) {
+  const [integerPart = "0", fractionPart = ""] = value.split(".");
+  return { integer: integerPart, decimals: fractionPart.padEnd(7, "0").slice(0, 7) };
+}
+
 function formatInvestedBalanceParts(value: number) {
   const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
   const [integerPart, fractionPart = ""] = safeValue.toFixed(7).split(".");
@@ -213,6 +221,28 @@ export default function HomeScreen() {
       return value === null ? total : total + value;
     }, 0);
   }, [canAccessVaultAsset, visiblePositions]);
+
+  // Rendimento do total investido: a média das taxas, pesada pelo valor de
+  // cada porquinho em dólar (sem taxa, como o de cripto hoje, conta zero).
+  // Arredondada: com um porquinho só, dá exatamente a taxa dele.
+  const investedApy = useMemo(() => {
+    const apyByVault = new Map((vaults ?? []).map((vault) => [vault.id, apyNumber(vault.apy)]));
+    let weighted = 0;
+    let sum = 0;
+    for (const position of visiblePositions) {
+      const value = portfolioPositionUsdValue(position);
+      if (value === null || value <= 0) continue;
+      weighted += value * (apyByVault.get(position.vaultId) ?? 0);
+      sum += value;
+    }
+    return sum > 0 ? Math.round((weighted / sum) * 1e6) / 1e6 : null;
+  }, [vaults, visiblePositions]);
+
+  // As casas andam com o rendimento entre uma leitura e outra (só na Home).
+  const liveInvested = useLiveAmount(
+    valuationUnavailable ? "0" : totalInvested.toFixed(7),
+    valuationUnavailable ? null : investedApy,
+  );
 
   const { data: walletBalances, refetch: refetchWallet } =
     useWalletBalance(walletAddress);
@@ -410,7 +440,14 @@ export default function HomeScreen() {
 
   const handleDepositSuccess = useCallback(() => {}, []);
 
-  const balanceParts = formatInvestedBalanceParts(displayBalance);
+  // Enquanto a contagem até um valor novo roda (depósito, saque, primeira
+  // leitura), ela manda; parada, o número segue o rendimento com 7 casas.
+  // Sem rendimento (sem taxa ou sem saldo), fica o formato de antes.
+  const countingUp = Math.abs(displayBalance - totalInvested) > 1e-9;
+  const growing = !countingUp && totalInvested > 0 && investedApy != null;
+  const balanceParts = growing
+    ? liveBalanceParts(liveInvested)
+    : formatInvestedBalanceParts(displayBalance);
 
   return (
     <View style={styles.screen}>
@@ -963,13 +1000,17 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "center",
   },
+  // Algarismos de largura fixa: com as casas andando, o número centralizado
+  // não pula de lado.
   balanceValueText: {
+    fontVariant: ["tabular-nums"],
     fontSize: scaleFont(52),
     fontFamily: Font.extraBold,
     color: Colors.foreground,
     lineHeight: 58,
   },
   balanceValueDecimals: {
+    fontVariant: ["tabular-nums"],
     fontSize: 24,
     fontFamily: Font.bold,
     color: Colors.foreground,
