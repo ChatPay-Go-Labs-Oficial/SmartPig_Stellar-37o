@@ -46,6 +46,7 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import { Stack, router, useSegments } from "expo-router";
+import { DarkTheme, ThemeProvider, type Theme } from "@react-navigation/native";
 import { enableFreeze } from "react-native-screens";
 
 // Desliga globalmente o congelamento de telas inativas do react-native-screens.
@@ -147,6 +148,18 @@ const queryClient = new QueryClient({
   },
 });
 
+// Sem tema, o React Navigation usa o claro padrão: o fundo quase branco dele
+// aparece por um instante nas transições (ex.: voltar do Histórico). O app é
+// só escuro, então o tema de navegação usa o mesmo fundo das telas.
+const navigationTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: Colors.background,
+    card: Colors.background,
+  },
+};
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -182,35 +195,37 @@ export default function RootLayout() {
     <View style={styles.root}>
       <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
         <QueryClientProvider client={queryClient}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: Colors.background },
-              // O react-freeze do react-native-screens suspende a subárvore de
-              // telas inativas e a reativa depois. Essa reativação remonta views
-              // nativas já existentes, e no Fabric isso vira um Insert sem o
-              // Remove correspondente: "addViewAt: cannot insert view [...] View
-              // already has a parent". O tipo da view na mensagem varia
-              // (LinearGradientView, ReactTextView) porque a falha é da
-              // remontagem, não do componente. Ver enableFreeze(false) abaixo.
-              freezeOnBlur: false,
-            }}
-          >
-            <Stack.Screen
-              name="(auth)"
-              options={{ gestureEnabled: false, animation: "fade" }}
-            />
-            <Stack.Screen
-              name="(tabs)"
-              options={{ gestureEnabled: false, animation: "fade" }}
-            />
-            <Stack.Screen name="vault/[id]" />
-            <Stack.Screen name="account/index" options={{ animation: "fade" }} />
-            <Stack.Screen name="(etherfuse-onboarding)" />
-            <Stack.Screen name="(blindpay-onboarding)" />
-            <Stack.Screen name="education" />
-            <Stack.Screen name="pigs" />
-          </Stack>
+          <ThemeProvider value={navigationTheme}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Colors.background },
+                // O react-freeze do react-native-screens suspende a subárvore de
+                // telas inativas e a reativa depois. Essa reativação remonta views
+                // nativas já existentes, e no Fabric isso vira um Insert sem o
+                // Remove correspondente: "addViewAt: cannot insert view [...] View
+                // already has a parent". O tipo da view na mensagem varia
+                // (LinearGradientView, ReactTextView) porque a falha é da
+                // remontagem, não do componente. Ver enableFreeze(false) abaixo.
+                freezeOnBlur: false,
+              }}
+            >
+              <Stack.Screen
+                name="(auth)"
+                options={{ gestureEnabled: false, animation: "fade" }}
+              />
+              <Stack.Screen
+                name="(tabs)"
+                options={{ gestureEnabled: false, animation: "fade" }}
+              />
+              <Stack.Screen name="vault/[id]" />
+              <Stack.Screen name="account/index" options={{ animation: "fade" }} />
+              <Stack.Screen name="(etherfuse-onboarding)" />
+              <Stack.Screen name="(blindpay-onboarding)" />
+              <Stack.Screen name="education" />
+              <Stack.Screen name="pigs" />
+            </Stack>
+          </ThemeProvider>
           <StatusBar style="light" />
           <GiftClaimGate />
           <VersionGate />
