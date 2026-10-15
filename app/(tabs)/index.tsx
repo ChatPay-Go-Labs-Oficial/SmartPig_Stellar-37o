@@ -186,10 +186,15 @@ export default function HomeScreen() {
   const balances = useAllVaultBalances(walletAddress);
   const { data: portfolioSummary, refetch: refetchPortfolio } =
     usePortfolioSummary(!!walletAddress);
+  // O nível só muda com a leitura completa. Um vault que o backend não
+  // conseguiu ler (limite da DeFindex, por exemplo) some de `positions` e
+  // zera `totalUsd`: contar o resto derrubava o nível ("Ops...") e a leitura
+  // seguinte o devolvia ("Evolução!").
   const balancesReady =
     !!walletAddress &&
     vaults !== undefined &&
     portfolioSummary !== undefined &&
+    portfolioSummary.totalUsd !== null &&
     portfolioSummary.positions.every(
       (position) =>
         !canAccessVaultAsset(position.assetSymbol) ||
