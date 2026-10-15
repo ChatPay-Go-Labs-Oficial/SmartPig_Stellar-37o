@@ -55,6 +55,13 @@ export function isIncoming(kind: HistoryKind): boolean {
   return kind === 'vault-withdrawal' || kind === 'transfer-received' || kind === 'gift-received';
 }
 
+/** Sinal exibido no Histórico, de acordo com o nome da operação. */
+export function isPositiveHistoryAmount(kind: HistoryKind): boolean {
+  if (kind === 'vault-deposit') return true;
+  if (kind === 'vault-withdrawal') return false;
+  return isIncoming(kind);
+}
+
 function vaultStatus(status: Deposit['status']): HistoryStatus {
   if (status === 'CONFIRMED') return 'done';
   if (status === 'FAILED') return 'failed';

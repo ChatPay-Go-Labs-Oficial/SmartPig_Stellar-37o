@@ -8,6 +8,7 @@ import type { TermKey } from '@/lib/copy/terms';
 import {
   formatHistoryDate,
   isIncoming,
+  isPositiveHistoryAmount,
   type HistoryItem,
   type HistoryKind,
   type HistoryStatus,
@@ -26,8 +27,8 @@ const TITLE_KEY: Record<HistoryKind, TermKey> = {
 const ICON: Record<HistoryKind, V2IconName> = {
   'vault-deposit': 'piggy',
   'vault-withdrawal': 'piggy',
-  'transfer-sent': 'arrow-up',
-  'transfer-received': 'arrow-down',
+  'transfer-sent': 'pix',
+  'transfer-received': 'pix',
   'gift-sent': 'gift',
   'gift-received': 'gift',
 };
@@ -49,6 +50,9 @@ function iconColors(kind: HistoryKind, accent: Accent) {
   // Guardar no porquinho é o gesto principal do app: ícone cheio no destaque.
   if (kind === 'vault-deposit') return { bg: accent.base, fg: V2Colors.onPrimary };
   if (kind === 'vault-withdrawal') return { bg: accent.alpha(0.14), fg: accent.base };
+  if (kind === 'transfer-sent' || kind === 'transfer-received') {
+    return { bg: 'rgba(77,163,255,0.14)', fg: '#4da3ff' };
+  }
   return { bg: V2Colors.chip, fg: V2Colors.text };
 }
 
@@ -68,7 +72,7 @@ function HistoryRowView({ item, vaultName }: HistoryRowProps) {
   const accent = useAccent();
   const { t, isPro } = useTerms();
 
-  const sign = isIncoming(item.kind) ? '+' : '-';
+  const sign = isPositiveHistoryAmount(item.kind) ? '+' : '-';
   const amount = isPro
     ? `${sign}${truncateDecimalString(item.amount.toFixed(7), 2)} ${item.assetCode}`
     : `${sign}${formatUsdV2(item.amount)}`;
