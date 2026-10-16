@@ -20,7 +20,7 @@ import { useAuthStore } from '@/lib/stores/auth.store';
 import { useVaults, vaultKeys } from '@/lib/queries/vaults.queries';
 import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
 import type { TermKey } from '@/lib/copy/terms';
-import { formatApy } from '@/lib/utils/format';
+import { formatPositiveApy } from '@/lib/utils/format';
 import {
   buildPiggies,
   formatQuoteTime,
@@ -255,7 +255,7 @@ export default function GuardarScreen() {
   const dollar =
     piggies?.find((piggy) => piggy.asset === 'USDC' && piggy.vault.isFeatured) ??
     piggies?.find((piggy) => piggy.asset === 'USDC');
-  const apy = dollar?.vault.apy != null ? formatApy(dollar.vault.apy) : null;
+  const apy = formatPositiveApy(dollar?.vault.apy);
   // O asOf é a hora da resposta. Com preço estático ou velho no backend, uma
   // hora daria a falsa ideia de cotação de mercado recente.
   const marketQuote = !!summary && !summary.stale && summary.priceSource !== 'STATIC';

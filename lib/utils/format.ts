@@ -99,6 +99,17 @@ export function formatApy(apy: number | string | null | undefined): string {
 }
 
 /**
+ * Taxa para os selos de rendimento (seta para cima, verde): só quando é
+ * positiva. O vault de cripto pode chegar com taxa negativa (variação de
+ * preço), e mostrá-la como rendimento seria enganoso. null = sem selo.
+ */
+export function formatPositiveApy(apy: number | string | null | undefined): string | null {
+  if (apy == null) return null;
+  const n = parseFloat(String(apy));
+  return n > 0 ? formatApy(n) : null;
+}
+
+/**
  * Total do fundo. Lite abrevia (é um número de contexto, não de conferência);
  * Pro mostra o valor cheio.
  */

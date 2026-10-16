@@ -12,7 +12,7 @@ import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
 import { AssetIcon, Button3D, RADIAL_MASK, V2Icon, type V2IconName } from '@/components/v2';
 import type { TermKey } from '@/lib/copy/terms';
-import { formatApy, formatUsdV2, formatVaultNameForMode } from '@/lib/utils/format';
+import { formatUsdV2, formatVaultNameForMode, formatPositiveApy } from '@/lib/utils/format';
 import { piggyUnit, type Piggy } from '@/lib/utils/piggy';
 import { PiggyAmount } from './PiggyAmount';
 
@@ -63,7 +63,7 @@ export const PiggyCard = memo(function PiggyCard({
   const coin = asset ? t(`carteira.asset.${asset}.name` as TermKey) : vault.assetSymbol;
   const coinCaption = asset ? t(`guardar.pill.${asset}.caption` as TermKey) : '';
   const { prefix, suffix } = piggyUnit(piggy);
-  const apy = vault.apy != null ? formatApy(vault.apy) : null;
+  const apy = formatPositiveApy(vault.apy);
 
   // 0 = vizinho, 1 = no centro; acompanha o dedo durante o arraste.
   const cardStyle = useAnimatedStyle(() => {

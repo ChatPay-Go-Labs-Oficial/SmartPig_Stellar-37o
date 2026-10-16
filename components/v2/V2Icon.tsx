@@ -26,6 +26,9 @@ const FEATHER = {
   check: 'check',
   alert: 'alert-circle',
   trending: 'trending-up',
+  // Lucide volume-2 / volume-x (som da Home ligado e desligado).
+  volume: 'volume-2',
+  'volume-off': 'volume-x',
   home: 'home',
   user: 'user',
   settings: 'settings',

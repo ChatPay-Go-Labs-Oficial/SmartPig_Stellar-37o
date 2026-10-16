@@ -19,16 +19,17 @@ import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
-import { useUsdcPrice, useWalletAssets } from '@/lib/queries/wallets.queries';
+import { useWalletTotal } from '@/hooks/use-wallet-total';
 import { usePrefetchHistory } from '@/lib/queries/history.queries';
 import { isMainnetNetwork } from '@/lib/stellar/config';
-import { ActionKey3D, ListCard, ScreenGlow, SegmentedControl, V2Icon } from '@/components/v2';
+import { ActionKey3D, ListCard, NavChip, ScreenGlow, SegmentedControl } from '@/components/v2';
 import { WalletBalanceCard } from '@/components/wallet/WalletBalanceCard';
 import { WalletAssetRow } from '@/components/wallet/WalletAssetRow';
 import { WalletPiggyList } from '@/components/wallet/WalletPiggyList';
 import { SwapSheet } from '@/components/wallet/SwapSheet';
 import { SwapSoonSheet } from '@/components/wallet/SwapSoonSheet';
-import { BlindPayOnrampModal, BlindPayOfframpModal, TransferModal } from '@/components/ui';
+import { BlindPayOnrampModal, BlindPayOfframpModal, GiftModal, TransferModal } from '@/components/ui';
+import { useGiftEligibility } from '@/lib/queries/gifts.queries';
 
 type PixAction = 'deposit' | 'withdraw';
 type WalletSegment = 'coins' | 'piggies';
@@ -61,32 +62,20 @@ export default function WalletScreen() {
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const walletAccountId = useAuthStore((s) => s.walletAccountId);
 
-  const assetsQuery = useWalletAssets(walletAddress);
+  const wallet = useWalletTotal(walletAddress);
+  const { assetsQuery, assets, prices, totalUsd } = wallet;
   const portfolioQuery = usePortfolioSummary(!!walletAddress);
   const vaultsQuery = useVaults();
   const [segment, setSegment] = useState<WalletSegment>('coins');
-  const assets = assetsQuery.data?.assets ?? [];
-  const hasEurc = assets.some((a) => a.id === 'EURC');
-  const xlmPrice = useUsdcPrice('XLM');
-  const eurcPrice = useUsdcPrice('EURC', hasEurc);
-  const prices = { USDC: 1, XLM: xlmPrice.data, EURC: eurcPrice.data };
 
   const usdcBalance = parseFloat(assets.find((a) => a.id === 'USDC')?.balance ?? '0') || 0;
-
-  const hasUnpricedBalance = assets.some((asset) => {
-    const amount = parseFloat(asset.balance);
-    return Number.isFinite(amount) && amount > 0 && prices[asset.id] == null;
-  });
-  const totalUsd = hasUnpricedBalance ? null : assets.reduce((sum, asset) => {
-    const price = prices[asset.id];
-    const amount = parseFloat(asset.balance);
-    return price != null && Number.isFinite(amount) ? sum + amount * price : sum;
-  }, 0);
 
   const [onrampOpen, setOnrampOpen] = useState(false);
   const [offrampOpen, setOfframpOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
+  const [giftOpen, setGiftOpen] = useState(false);
+  const { data: giftEligibility } = useGiftEligibility();
   const [refreshing, setRefreshing] = useState(false);
 
   // Depositar e Sacar via Pix passam pelo mesmo crivo de cadastro/KYC do
@@ -117,6 +106,7 @@ export default function WalletScreen() {
   const handleSwap = useCallback(() => setSwapSheetOpen(true), []);
   const handleSend = useCallback(() => setTransferOpen(true), []);
   const handleHistory = useCallback(() => router.push('/(tabs)/wallet/history'), []);
+  const handleGift = useCallback(() => setGiftOpen(true), []);
   const refetchPortfolio = portfolioQuery.refetch;
   const refetchVaults = vaultsQuery.refetch;
   const retryPiggies = useCallback(() => {
@@ -129,11 +119,9 @@ export default function WalletScreen() {
   async function handleRefresh() {
     setRefreshing(true);
     await Promise.allSettled([
-      assetsQuery.refetch(),
+      wallet.refetch(),
       portfolioQuery.refetch(),
       vaultsQuery.refetch(),
-      xlmPrice.refetch(),
-      eurcPrice.refetch(),
     ]);
     setRefreshing(false);
   }
@@ -190,8 +178,9 @@ export default function WalletScreen() {
           <>
             <WalletBalanceCard
               amountUsd={totalUsd}
-              estimated={assets.some((a) => a.id !== 'USDC' && parseFloat(a.balance) > 0)}
+              estimated={wallet.estimated}
               address={walletAddress}
+              onGift={giftEligibility?.canGift ? handleGift : undefined}
             />
 
             <View style={styles.actions}>
@@ -238,22 +227,13 @@ export default function WalletScreen() {
                     onChange={setSegment}
                   />
                 </View>
-                <Pressable
+                <NavChip
+                  label="Histórico"
+                  icon="history"
+                  iconOnly={compactHistory}
                   onPress={handleHistory}
-                  style={({ pressed }) => [
-                    styles.historyChip,
-                    compactHistory && styles.historyChipCompact,
-                    pressed && styles.historyChipPressed,
-                  ]}
-                  accessibilityRole="button"
                   accessibilityLabel="Ver histórico"
-                  hitSlop={8}
-                >
-                  <V2Icon name="history" size={compactHistory ? 16 : 14} color={accent.base} />
-                  {!compactHistory && (
-                    <Text style={styles.historyText} numberOfLines={1}>Histórico</Text>
-                  )}
-                </Pressable>
+                />
               </View>
 
               {segment === 'coins' ? (
@@ -285,6 +265,7 @@ export default function WalletScreen() {
         onClose={() => setOfframpOpen(false)}
       />
       <TransferModal visible={transferOpen} onClose={() => setTransferOpen(false)} />
+      <GiftModal visible={giftOpen} onClose={() => setGiftOpen(false)} />
       {isPro ? (
         <SwapSheet
           visible={swapSheetOpen}
@@ -375,34 +356,5 @@ const styles = StyleSheet.create({
   },
   segmentSlot: {
     flexShrink: 1,
-  },
-  // Figma "ver histórico": pílula neutra com ícone no destaque.
-  historyChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingLeft: 10,
-    paddingRight: 12,
-    paddingVertical: 6,
-    borderRadius: V2Radius.full,
-    borderWidth: 1,
-    borderColor: V2Colors.surfaceBorderStrong,
-    backgroundColor: V2Colors.chip,
-  },
-  historyChipCompact: {
-    width: 36,
-    height: 36,
-    paddingLeft: 0,
-    paddingRight: 0,
-    paddingVertical: 0,
-    justifyContent: 'center',
-  },
-  historyChipPressed: {
-    opacity: 0.7,
-  },
-  historyText: {
-    fontFamily: V2Font.semiBold,
-    fontSize: 12.5,
-    color: V2Colors.text,
   },
 });
