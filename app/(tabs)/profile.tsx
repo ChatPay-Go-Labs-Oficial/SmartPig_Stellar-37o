@@ -46,7 +46,8 @@ import { useKycStatus } from "@/lib/queries/blindpay.queries";
 import type { KycStatusResponse } from "@/lib/api/blindpay";
 import { KycStatusBadge } from "@/components/ui/KycStatusBadge";
 import { useWalletBalance } from "@/lib/queries/wallets.queries";
-import { useAllVaultBalances } from "@/lib/queries/vaults.queries";
+import { usePortfolioSummary } from "@/lib/queries/portfolio.queries";
+import { portfolioPositionUsdValue } from "@/lib/utils/portfolio";
 import { usePrivy } from "@privy-io/expo";
 import { attemptActivation, findUsdcBalance } from "@/lib/api/wallets";
 import * as Clipboard from "expo-clipboard";
@@ -96,14 +97,13 @@ export default function ProfileScreen() {
   const { data: balances } = useWalletBalance(walletAddress);
   const usdcBalance = balances ? findUsdcBalance(balances) : null;
 
-  const vaultBalances = useAllVaultBalances(walletAddress);
+  const { data: portfolio } = usePortfolioSummary(!!walletAddress);
   const totalInvested = useMemo(() => {
-    let total = 0;
-    for (const b of vaultBalances) {
-      total += parseFloat(b.data?.underlyingBalance?.[0] ?? "0");
-    }
-    return total;
-  }, [vaultBalances]);
+    return (portfolio?.positions ?? []).reduce(
+      (total, position) => total + (portfolioPositionUsdValue(position) ?? 0),
+      0,
+    );
+  }, [portfolio]);
   const pigLevel = getPigLevel(totalInvested);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);

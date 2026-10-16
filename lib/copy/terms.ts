@@ -85,17 +85,115 @@ export const TERMS = {
   // ── Transação ─────────────────────────────────────────────────────────
   'tx.hash.label': { lite: 'Comprovante', pro: 'Tx' },
 
+  // ── Carteira (V2) ─────────────────────────────────────────────────────
+  'carteira.balance.label': { lite: 'Saldo na carteira', pro: 'Total estimado' },
+  'carteira.assets.title': { lite: 'Suas moedas', pro: 'Ativos' },
+  'carteira.segment.coins': { lite: 'Moedas', pro: 'Ativos' },
+  'carteira.segment.piggies': { lite: 'Porquinhos', pro: 'Vaults' },
+  'carteira.piggies.note': {
+    lite: 'O dinheiro dos porquinhos fica separado do saldo da carteira.',
+    pro: 'Posições em vaults ficam fora do total da carteira.',
+  },
+  'carteira.action.swap': { lite: 'Trocar', pro: 'Swap' },
+  'carteira.action.send': { lite: 'Enviar', pro: 'Transferir' },
+  'carteira.swap.title': { lite: 'Trocar moedas', pro: 'Swap' },
+  'carteira.swap.soon': {
+    lite: 'Em breve você vai poder converter dólar em euro e em outras moedas, direto da sua carteira.',
+    pro: 'Em breve: swap entre os ativos da carteira (USDC, EURC e XLM) pelas rotas da rede Stellar.',
+  },
+  'carteira.asset.USDC.name': { lite: 'Dólar', pro: 'USDC' },
+  'carteira.asset.USDC.caption': { lite: 'Pronto pra guardar', pro: 'Dólar digital' },
+  'carteira.asset.EURC.name': { lite: 'Euro', pro: 'EURC' },
+  'carteira.asset.EURC.caption': { lite: 'Euro digital', pro: 'Euro digital' },
+  'carteira.asset.XLM.name': { lite: 'Criptomoeda', pro: 'XLM' },
+  'carteira.asset.XLM.caption': { lite: 'Moeda da rede', pro: 'Stellar' },
+
   // ── Histórico ─────────────────────────────────────────────────────────
   'history.deposit': {
-    lite: 'Guardado no cofrinho',
-    pro: 'Investimento (vault)',
+    lite: 'Guardado no porquinho',
+    pro: 'Depósito no vault',
   },
   'history.withdrawal': {
-    lite: 'Retirado do cofrinho',
-    pro: 'Saque (vault)',
+    lite: 'Tirado do porquinho',
+    pro: 'Saque do vault',
   },
-  'history.sent': { lite: 'Enviado', pro: 'USDC enviado' },
-  'history.received': { lite: 'Recebido', pro: 'USDC recebido' },
+  'history.pix.deposit': { lite: 'Depósito via Pix', pro: 'On-ramp via Pix' },
+  'history.pix.withdrawal': { lite: 'Saque via Pix', pro: 'Off-ramp via Pix' },
+  'history.sent': { lite: 'Dinheiro enviado', pro: 'USDC enviado' },
+  'history.received': { lite: 'Dinheiro recebido', pro: 'USDC recebido' },
+  'history.gift.sent': { lite: 'Presente enviado', pro: 'Presente enviado' },
+  'history.gift.received': { lite: 'Presente recebido', pro: 'Presente recebido' },
+  'history.filter.vaults': { lite: 'Porquinhos', pro: 'Vaults' },
+
+  // ── Guardar (aba dos porquinhos) ──────────────────────────────────────
+  // Nomes dos porquinhos por moeda, iguais nos dois modos (Figma 10a e 12a–c:
+  // o Pro também mostra "Porquinho Poupador"). Provisórios no Figma.
+  'guardar.piggy.USDC.name': { lite: 'Porquinho Poupador', pro: 'Porquinho Poupador' },
+  'guardar.piggy.EURC.name': { lite: 'Porquinho Viajante', pro: 'Porquinho Viajante' },
+  'guardar.piggy.XLM.name': { lite: 'Porquinho Aventureiro', pro: 'Porquinho Aventureiro' },
+  // Complemento da pílula da moeda ("Criptomoeda · sobe e desce mais").
+  'guardar.pill.USDC.caption': { lite: '', pro: 'Dólar digital' },
+  'guardar.pill.EURC.caption': { lite: '', pro: 'Euro digital' },
+  'guardar.pill.XLM.caption': { lite: 'sobe e desce mais', pro: 'Stellar' },
+  'guardar.title': { lite: 'Seus porquinhos', pro: 'Seus vaults' },
+  'guardar.total.label': { lite: 'Total guardado', pro: 'Total nos vaults' },
+  'guardar.total.estimated': { lite: 'Total estimado', pro: 'Total estimado' },
+  'guardar.total.byPiggy': { lite: 'Ver por porquinho', pro: 'Ver por ativo' },
+  'guardar.total.partial': {
+    lite: 'Não foi possível ler todos os porquinhos agora.',
+    pro: 'Falha ao ler um ou mais vaults.',
+  },
+  'guardar.error': {
+    lite: 'Não foi possível carregar os porquinhos.',
+    pro: 'Não foi possível carregar os vaults.',
+  },
+  'guardar.state.paused': { lite: 'Guardar pausado', pro: 'Depósitos pausados' },
+  'guardar.state.risks': { lite: 'Falta ler os riscos', pro: 'Aceite de riscos pendente' },
+  'guardar.notice.paused': {
+    lite: 'Guardar mais neste porquinho está pausado por enquanto. Tirar continua disponível.',
+    pro: 'Novos depósitos neste vault estão pausados.',
+  },
+  'guardar.notice.risks': {
+    lite: 'Antes de guardar pela primeira vez, leia os riscos deste porquinho.',
+    pro: 'Antes do primeiro depósito, leia e aceite os riscos deste vault.',
+  },
+  'guardar.notice.risks.cta': { lite: 'Ler os riscos', pro: 'Ler os riscos' },
+  'guardar.how.title': { lite: 'Como ele funciona', pro: 'Como funciona' },
+  'guardar.how.rate.caption': {
+    lite: 'Taxa variável, atualizada todo dia',
+    pro: 'Variável, atualizado todo dia',
+  },
+  'guardar.how.withdraw.title': { lite: 'Tirar do porquinho', pro: 'Resgate do vault' },
+  'guardar.how.withdraw.caption': {
+    lite: 'O valor volta para a sua carteira',
+    pro: 'O valor volta para a sua carteira Stellar',
+  },
+  'guardar.how.USDC.title': { lite: 'Guardado em dólar', pro: 'Guardado em USDC' },
+  'guardar.how.USDC.caption': { lite: 'Cofrinho em dólar do PigFi', pro: 'Vault USDC PigFi' },
+  'guardar.how.EURC.title': { lite: 'Guardado em euro', pro: 'Guardado em EURC' },
+  'guardar.how.EURC.caption': { lite: 'Cofrinho em euro do PigFi', pro: 'Vault EURC PigFi' },
+  'guardar.how.XLM.title': { lite: 'Guardado em criptomoeda', pro: 'Guardado em XLM' },
+  'guardar.how.XLM.caption': { lite: 'Cofrinho em criptomoeda do PigFi', pro: 'Vault XLM PigFi' },
+  // Genitivo para "cotação do euro" (nota do sheet de total estimado).
+  'guardar.quoteOf.EURC': { lite: 'do euro', pro: 'do EURC' },
+  'guardar.quoteOf.XLM': { lite: 'da criptomoeda', pro: 'do XLM' },
+  'guardar.totalSheet.subtitle': {
+    lite: 'Equivalente em dólar, por porquinho',
+    pro: 'Equivalente em USD, por vault',
+  },
+  'guardar.totalSheet.totalCaption': {
+    lite: 'Soma em dólar dos ativos acima',
+    pro: 'Soma em USD das posições acima',
+  },
+  'guardar.totalSheet.empty': { lite: 'Sem saldo', pro: 'Sem saldo' },
+  'guardar.details.title': { lite: 'Detalhes do porquinho', pro: 'Detalhes do vault' },
+  'guardar.details.link': { lite: 'Ver detalhes do porquinho', pro: 'Ver detalhes do vault' },
+  'guardar.details.empty': { lite: 'Você ainda não guardou aqui', pro: 'Sem saldo no vault' },
+  'guardar.details.lowRate': { lite: 'Taxa muito baixa hoje', pro: 'APY muito baixo' },
+  'guardar.details.error': {
+    lite: 'Não foi possível carregar este porquinho.',
+    pro: 'Não foi possível carregar este vault.',
+  },
 
   // ── Cofrinho / vault ──────────────────────────────────────────────────
   'vault.apy.label': { lite: 'Quanto rende por ano', pro: 'APY (anualizado)' },
@@ -273,6 +371,38 @@ export const PHRASES = {
     pro: (v: { amount: string }) =>
       `${v.amount} USDC em claimable balance expirada, prontos para reaver.`,
   } as PhraseFn<{ amount: string }>,
+
+  // ── Guardar ───────────────────────────────────────────────────────────
+  'guardar.rate': {
+    lite: (v: { apy: string }) => `${v.apy} ao ano`,
+    pro: (v: { apy: string }) => `APY ${v.apy}`,
+  } as PhraseFn<{ apy: string }>,
+
+  /** Legenda do total estimado: "Dólar e euro · cotação das 14:32". */
+  'guardar.total.quote': {
+    lite: (v: { assets: string; time: string }) => `${v.assets} · cotação das ${v.time}`,
+    pro: (v: { assets: string; time: string }) => `${v.assets} · cotação às ${v.time}`,
+  } as PhraseFn<{ assets: string; time: string }>,
+
+  /** Sem hora confiável (preço estático ou velho no backend). */
+  'guardar.total.quoteReference': {
+    lite: (v: { assets: string }) => `${v.assets} · cotação de referência`,
+    pro: (v: { assets: string }) => `${v.assets} · preço de referência`,
+  } as PhraseFn<{ assets: string }>,
+
+  'guardar.totalSheet.noteReference': {
+    lite: (v: { quoteOf: string }) =>
+      `Valores em dólar são estimativas, com uma cotação de referência ${v.quoteOf}.`,
+    pro: (v: { quoteOf: string }) =>
+      `Valores em USD são estimativas, com preço de referência ${v.quoteOf}.`,
+  } as PhraseFn<{ quoteOf: string }>,
+
+  'guardar.totalSheet.note': {
+    lite: (v: { quoteOf: string; time: string }) =>
+      `Valores em dólar são estimativas, com a cotação ${v.quoteOf} das ${v.time}.`,
+    pro: (v: { quoteOf: string; time: string }) =>
+      `Valores em USD são estimativas, com a cotação ${v.quoteOf} às ${v.time}.`,
+  } as PhraseFn<{ quoteOf: string; time: string }>,
 } as const;
 
 export type PhraseKey = keyof typeof PHRASES;

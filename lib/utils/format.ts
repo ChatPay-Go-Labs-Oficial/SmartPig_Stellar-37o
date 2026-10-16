@@ -130,12 +130,44 @@ export function formatVaultNameForMode(name: string, mode: AppMode): string {
       ? `${name.slice(0, 6)}…${name.slice(-4)}`
       : "Porquinho do PigFi";
   }
-  if (mode === "pro") return name;
+  return name;
+}
 
-  const lower = name.replace(/[-_]+/g, " ");
-  if (/pig/i.test(lower)) return "Porquinho do PigFi";
-  return lower
-    .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+// ─── Design System V2 ───────────────────────────────────────────────────────
+
+/**
+ * Dólar no padrão das telas V2 ("$1,234.56", separadores americanos, como no
+ * Figma). Trunca em duas casas, nunca arredonda para cima. Sem sinal: quem
+ * chama decide entre "+" e "-".
+ */
+export function formatUsdV2(value: number | string): string {
+  const n = typeof value === "number" ? value : parseFloat(value);
+  if (!Number.isFinite(n)) return "$0.00";
+  const truncated = truncateDecimalString(Math.abs(n).toFixed(7), 2);
+  const [integerPart, decimalPart] = truncated.split(".");
+  const grouped = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `$${grouped}.${decimalPart}`;
+}
+
+/**
+ * Valor monetário da Carteira. Diferente da quantidade exata de XLM, uma
+ * moeda em centavos usa arredondamento: 0.9999999 USDC aparece como 1.00 nos
+ * dois modos. O chamador adiciona o símbolo da moeda quando necessário.
+ */
+export function formatWalletDecimal(value: number | string): string {
+  const n = typeof value === "number" ? value : parseFloat(value);
+  if (!Number.isFinite(n)) return "0.00";
+  const [integerPart, decimalPart] = Math.abs(n).toFixed(2).split(".");
+  const grouped = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${grouped}.${decimalPart}`;
+}
+
+export function formatWalletUsd(value: number | string): string {
+  return `$${formatWalletDecimal(value)}`;
+}
+
+/** Endereço Stellar abreviado: "GAB3…K9Q2" (`edge` caracteres em cada ponta). */
+export function shortAddress(address: string, edge = 4): string {
+  if (address.length <= edge * 2 + 1) return address;
+  return `${address.slice(0, edge)}…${address.slice(-edge)}`;
 }

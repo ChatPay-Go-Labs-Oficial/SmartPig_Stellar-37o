@@ -52,7 +52,7 @@ The transfer modal:
 
 ## History
 
-The history screen displays deposits, withdrawals and USDC transfers. Transient and final states must be presented consistently without treating submission as confirmation.
+The history screen displays Pix operations, vault deposits and withdrawals, and USDC transfers. Transient and final states must be presented consistently without treating submission as confirmation.
 
 ## Learning trail
 

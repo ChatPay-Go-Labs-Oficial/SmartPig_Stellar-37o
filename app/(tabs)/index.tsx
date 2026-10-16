@@ -23,11 +23,19 @@ import {
   scaleFont,
 } from '@/constants/theme';
 import type { Vault } from "@/lib/api/vaults";
-import { useVaults, useAllVaultBalances } from "@/lib/queries/vaults.queries";
+import { useVaults } from "@/lib/queries/vaults.queries";
 import { useWalletBalance } from "@/lib/queries/wallets.queries";
+import { usePortfolioSummary } from "@/lib/queries/portfolio.queries";
 import { findUsdcBalance } from "@/lib/api/wallets";
 import { useTerms } from "@/hooks/use-terms";
+import { useVaultAccess } from "@/hooks/use-vault-access";
+import { useLiveAmount } from "@/hooks/use-live-amount";
+import { apyNumber } from "@/lib/utils/live-amount";
 import { formatApy } from "@/lib/utils/format";
+import {
+  portfolioPositionUsdValue,
+  positionUsesMarketPrice,
+} from "@/lib/utils/portfolio";
 import { useAppLockStore } from "@/lib/stores/app-lock.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
@@ -75,18 +83,17 @@ const PIG_LEVELS = [
 
 const BALANCE_ANIMATION_STEPS = 20;
 const BALANCE_ANIMATION_INTERVAL_MS = 30;
-const INVESTED_GROWTH_TICK_MS = 500;
-const REAL_BALANCE_REFETCH_INTERVAL_MS = 30_000;
-const SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
 
 function ActiveVaultRow({
   vault,
-  underlying,
+  amountUsd,
+  amountAsset,
 }: {
   vault: Vault;
-  underlying?: number;
+  amountUsd: number | null;
+  amountAsset: string;
 }) {
-  const { t } = useTerms();
+  const { t, isPro } = useTerms();
 
   return (
     <View style={styles.activeVaultRow}>
@@ -102,9 +109,11 @@ function ActiveVaultRow({
           {vault.name}
         </Text>
         <Text style={styles.activeVaultAsset} numberOfLines={1}>
-          {underlying
-            ? `$${underlying.toFixed(2)} investidos`
-            : vault.assetSymbol}
+          {isPro
+            ? `${amountAsset} ${vault.assetSymbol}`
+            : amountUsd !== null
+              ? `$${amountUsd.toFixed(2)} investidos`
+              : `${amountAsset} ${vault.assetSymbol}`}
         </Text>
         {vault.apy && (
           <View style={styles.activeVaultApyBadge}>
@@ -135,6 +144,12 @@ function ActiveVaultRow({
   );
 }
 
+/** Valor do contador com as 7 casas sempre (largura estável). */
+function liveBalanceParts(value: string) {
+  const [integerPart = "0", fractionPart = ""] = value.split(".");
+  return { integer: integerPart, decimals: fractionPart.padEnd(7, "0").slice(0, 7) };
+}
+
 function formatInvestedBalanceParts(value: number) {
   const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
   const [integerPart, fractionPart = ""] = safeValue.toFixed(7).split(".");
@@ -150,7 +165,16 @@ function formatInvestedBalanceParts(value: number) {
   };
 }
 
+function formatPortfolioPriceSource(source: string): string {
+  if (source === "REFLECTOR") return "Reflector";
+  if (source === "STATIC") return "cotação fixa";
+  if (source === "MIXED") return "fontes combinadas";
+  return source;
+}
+
 export default function HomeScreen() {
+  const { isPro } = useTerms();
+  const { canAccessVaultAsset } = useVaultAccess();
   const { data: vaults, refetch: refetchVaults } = useVaults();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const lastSeenPigLevel = useAuthStore((s) =>
@@ -158,38 +182,76 @@ export default function HomeScreen() {
   );
   const setLastSeenPigLevel = useAuthStore((s) => s.setLastSeenPigLevel);
   const appLocked = useAppLockStore((s) => s.locked);
-  const balances = useAllVaultBalances(walletAddress);
-  const balancesReady =
-    !!walletAddress &&
-    vaults !== undefined &&
-    balances.length === vaults.length &&
-    balances.every(
-      (balance) => balance.isSuccess && balance.isFetchedAfterMount,
-    );
+  const { data: portfolioSummary, refetch: refetchPortfolio } =
+    usePortfolioSummary(!!walletAddress);
+
+  // O hook compartilhado não promove respostas parciais sobre a última
+  // fotografia completa. Se a primeira leitura da sessão já falhar, ainda
+  // não existe um número confiável para mostrar.
+  const displayedPortfolioSummary =
+    portfolioSummary?.totalUsd !== null ? portfolioSummary : undefined;
+  const balancesReady = !!displayedPortfolioSummary;
+
+  const visiblePositions = useMemo(
+    () =>
+      (displayedPortfolioSummary?.positions ?? []).filter((position) =>
+        canAccessVaultAsset(position.assetSymbol),
+      ),
+    [canAccessVaultAsset, displayedPortfolioSummary],
+  );
+  const valuationUnavailable =
+    !displayedPortfolioSummary ||
+    visiblePositions.some((position) => portfolioPositionUsdValue(position) === null);
+  const usesMarketPricing = visiblePositions.some(positionUsesMarketPrice);
 
   const totalInvested = useMemo(() => {
-    let total = 0;
-    for (const b of balances) {
-      const val = parseFloat(b.data?.underlyingBalance?.[0] ?? "0");
-      total += val;
+    return visiblePositions.reduce((total, position) => {
+      if (!canAccessVaultAsset(position.assetSymbol)) {
+        return total;
+      }
+      const value = portfolioPositionUsdValue(position);
+      return value === null ? total : total + value;
+    }, 0);
+  }, [canAccessVaultAsset, visiblePositions]);
+
+  // Rendimento do total investido: a média das taxas, pesada pelo valor de
+  // cada porquinho em dólar (sem taxa, como o de cripto hoje, conta zero).
+  // Arredondada: com um porquinho só, dá exatamente a taxa dele.
+  const investedApy = useMemo(() => {
+    const apyByVault = new Map((vaults ?? []).map((vault) => [vault.id, apyNumber(vault.apy)]));
+    let weighted = 0;
+    let sum = 0;
+    for (const position of visiblePositions) {
+      const value = portfolioPositionUsdValue(position);
+      if (value === null || value <= 0) continue;
+      weighted += value * (apyByVault.get(position.vaultId) ?? 0);
+      sum += value;
     }
-    return total;
-  }, [balances]);
+    return sum > 0 ? Math.round((weighted / sum) * 1e6) / 1e6 : null;
+  }, [vaults, visiblePositions]);
+
+  // As casas andam com o rendimento entre uma leitura e outra (só na Home).
+  const liveInvested = useLiveAmount(
+    valuationUnavailable ? "0" : totalInvested.toFixed(7),
+    valuationUnavailable ? null : investedApy,
+  );
 
   const { data: walletBalances, refetch: refetchWallet } =
     useWalletBalance(walletAddress);
   const walletUsdc = walletBalances ? findUsdcBalance(walletBalances) : "0";
   const parsedWalletUsdc = parseFloat(walletUsdc);
 
-  const firstVault = vaults?.[0];
+  const firstVault =
+    vaults?.find((vault) => vault.assetSymbol.toUpperCase() === "USDC") ??
+    vaults?.find((vault) => canAccessVaultAsset(vault.assetSymbol));
   const firstVaultId = firstVault?.id || "";
   const firstVaultSymbol = firstVault?.assetSymbol || "USDC";
 
-  const firstBalance = balances[0]?.data;
-  const walletBalance = firstBalance
-    ? parseFloat(firstBalance.underlyingBalance?.[0] ?? "0")
-    : 0;
-  const firstDfTokens = firstBalance?.dfTokens ?? "0";
+  const firstPosition = displayedPortfolioSummary?.positions.find(
+    (position) => position.vaultId === firstVault?.id,
+  );
+  const walletBalance = parseFloat(firstPosition?.amountAsset ?? "0") || 0;
+  const firstDfTokens = firstPosition?.shares ?? "0";
 
   const level = getPigLevel(totalInvested);
   const levelIndex = PIG_LEVELS.findIndex((item) => item.label === level.label);
@@ -213,36 +275,31 @@ export default function HomeScreen() {
 
   const vaultsWithBalance: {
     vault: Vault;
-    underlying: number;
-    dfTokens: string;
+    amountUsd: number | null;
+    amountAsset: string;
   }[] = useMemo(() => {
     if (!vaults) return [];
     return vaults
-      .map((vault, i) => {
-        const bal = balances[i]?.data;
-        if (!bal) return null;
+      .map((vault) => {
+        const position = displayedPortfolioSummary?.positions.find(
+          (item) => item.vaultId === vault.id,
+        );
+        const amountAssetText = position?.amountAsset;
+        const amountAsset = Number(amountAssetText);
+        if (!amountAssetText || !Number.isFinite(amountAsset) || amountAsset <= 0) return null;
+        const displayValue = portfolioPositionUsdValue(position);
         return {
           vault,
-          underlying: parseFloat(bal.underlyingBalance?.[0] ?? "0"),
-          dfTokens: bal.dfTokens,
+          amountUsd: displayValue,
+          amountAsset: amountAssetText,
         };
       })
       .filter(
         (item): item is NonNullable<typeof item> =>
-          item !== null && item.underlying > 0,
+          item !== null &&
+          canAccessVaultAsset(item.vault.assetSymbol),
       );
-  }, [vaults, balances]);
-
-  const weightedApy = useMemo(() => {
-    if (totalInvested <= 0) return 0;
-
-    return vaultsWithBalance.reduce((sum, item) => {
-      const apy = parseFloat(item.vault.apy ?? "0");
-      if (!Number.isFinite(apy)) return sum;
-
-      return sum + (item.underlying / totalInvested) * apy;
-    }, 0);
-  }, [totalInvested, vaultsWithBalance]);
+  }, [vaults, canAccessVaultAsset, displayedPortfolioSummary]);
 
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -348,45 +405,15 @@ export default function HomeScreen() {
     };
   }, [totalInvested]);
 
-  useEffect(() => {
-    if (totalInvested <= 0 || weightedApy <= 0) return;
-
-    const interval = setInterval(() => {
-      if (isAnimating.current) return;
-
-      setDisplayBalance((prev) => {
-        const current = Math.max(prev, totalInvested);
-        const growth =
-          (current * (weightedApy / 100) * (INVESTED_GROWTH_TICK_MS / 1000)) /
-          SECONDS_PER_YEAR;
-        const next = current + growth;
-        displayBalanceRef.current = next;
-        return next;
-      });
-    }, INVESTED_GROWTH_TICK_MS);
-
-    return () => clearInterval(interval);
-  }, [totalInvested, weightedApy]);
-
   const refetchRealBalances = useCallback(async () => {
     if (!walletAddress) return;
 
     await Promise.allSettled([
       refetchVaults(),
       refetchWallet(),
-      ...balances.map((balance) => balance.refetch()),
+      refetchPortfolio(),
     ]);
-  }, [balances, refetchVaults, refetchWallet, walletAddress]);
-
-  useEffect(() => {
-    if (!walletAddress) return;
-
-    const interval = setInterval(() => {
-      void refetchRealBalances();
-    }, REAL_BALANCE_REFETCH_INTERVAL_MS);
-
-    return () => clearInterval(interval);
-  }, [refetchRealBalances, walletAddress]);
+  }, [refetchPortfolio, refetchVaults, refetchWallet, walletAddress]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -396,7 +423,14 @@ export default function HomeScreen() {
 
   const handleDepositSuccess = useCallback(() => {}, []);
 
-  const balanceParts = formatInvestedBalanceParts(displayBalance);
+  // Enquanto a contagem até um valor novo roda (depósito, saque, primeira
+  // leitura), ela manda; parada, o número segue o rendimento com 7 casas.
+  // Sem rendimento (sem taxa ou sem saldo), fica o formato de antes.
+  const countingUp = Math.abs(displayBalance - totalInvested) > 1e-9;
+  const growing = !countingUp && totalInvested > 0 && investedApy != null;
+  const balanceParts = growing
+    ? liveBalanceParts(liveInvested)
+    : formatInvestedBalanceParts(displayBalance);
 
   return (
     <View style={styles.screen}>
@@ -451,7 +485,11 @@ export default function HomeScreen() {
                 </View>
 
                 <View style={styles.progressSection}>
-                  {nextLevel ? (
+                  {valuationUnavailable ? (
+                    <Text style={styles.progressLabelText}>
+                      Cotação temporariamente indisponível
+                    </Text>
+                  ) : nextLevel ? (
                     <View style={styles.progressLabelRow}>
                       <Text style={[styles.progressLabelText, { flex: 1 }]}>
                         {"Faltam "}
@@ -487,7 +525,9 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.progressMetaRow}>
                     <Text style={styles.progressMetaText}>
-                      ${totalInvested.toFixed(0)} investidos
+                      {valuationUnavailable
+                        ? "valor indisponível"
+                        : `$${totalInvested.toFixed(0)} investidos`}
                     </Text>
                     <Text style={styles.progressMetaText}>
                       {nextLevel
@@ -517,24 +557,38 @@ export default function HomeScreen() {
 
             <View style={styles.balanceValueWrap}>
               <View style={styles.balanceValueRow}>
-                <Text
-                  style={styles.balanceValueText}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.78}
-                >
-                  ${balanceParts.integer}
-                </Text>
-                <Text
-                  style={styles.balanceValueDecimals}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.72}
-                >
-                  .{balanceParts.decimals}
-                </Text>
+                {valuationUnavailable ? (
+                  <Text style={styles.balanceValueText}>—</Text>
+                ) : (
+                  <>
+                    <Text
+                      style={styles.balanceValueText}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.78}
+                    >
+                      ${balanceParts.integer}
+                    </Text>
+                    <Text
+                      style={styles.balanceValueDecimals}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.72}
+                    >
+                      .{balanceParts.decimals}
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
+            {isPro &&
+              usesMarketPricing &&
+              displayedPortfolioSummary?.priceSource &&
+              !valuationUnavailable && (
+              <Text style={styles.balanceEstimate}>
+                Estimativa em USD · {formatPortfolioPriceSource(displayedPortfolioSummary.priceSource)}
+              </Text>
+            )}
           </Card>
 
           {/* ── Card 2: Carteira + Botões ── */}
@@ -628,9 +682,13 @@ export default function HomeScreen() {
             <>
               <Text style={styles.sectionTitle}>Meus porquinhos</Text>
               <Card style={styles.vaultsCard}>
-                {vaultsWithBalance.map(({ vault, underlying }, i) => (
+                {vaultsWithBalance.map(({ vault, amountUsd, amountAsset }, i) => (
                   <View key={vault.id}>
-                    <ActiveVaultRow vault={vault} underlying={underlying} />
+                    <ActiveVaultRow
+                      vault={vault}
+                      amountUsd={amountUsd}
+                      amountAsset={amountAsset}
+                    />
                     {i < vaultsWithBalance.length - 1 && (
                       <View style={styles.divider} />
                     )}
@@ -640,7 +698,7 @@ export default function HomeScreen() {
             </>
           )}
 
-          {vaultsWithBalance.length === 0 && vaults && vaults.length > 0 && (
+          {vaultsWithBalance.length === 0 && firstVault && (
             <>
               <Text style={styles.sectionTitle}>Meus porquinhos</Text>
               <Card style={styles.emptyCard}>
@@ -914,18 +972,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  balanceEstimate: {
+    fontSize: FontSize.label,
+    fontFamily: Font.semiBold,
+    color: Colors.mutedForeground,
+    textAlign: "center",
+  },
   balanceValueRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "center",
   },
+  // Algarismos de largura fixa: com as casas andando, o número centralizado
+  // não pula de lado.
   balanceValueText: {
+    fontVariant: ["tabular-nums"],
     fontSize: scaleFont(52),
     fontFamily: Font.extraBold,
     color: Colors.foreground,
     lineHeight: 58,
   },
   balanceValueDecimals: {
+    fontVariant: ["tabular-nums"],
     fontSize: 24,
     fontFamily: Font.bold,
     color: Colors.foreground,

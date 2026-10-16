@@ -1,7 +1,8 @@
 import { Badge, Button, Card, StarryBackground, getPigLevel, PressableScale, IconSymbol } from '@/components/ui';
 import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { useAllVaultBalances } from '@/lib/queries/vaults.queries';
+import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { portfolioPositionUsdValue } from '@/lib/utils/portfolio';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
@@ -22,16 +23,14 @@ const CARD_GAP = 16;
 
 export default function PigEvolutionScreen() {
   const walletAddress = useAuthStore((s) => s.walletAddress);
-  const balances = useAllVaultBalances(walletAddress);
+  const { data: portfolio } = usePortfolioSummary(!!walletAddress);
 
   const totalInvested = useMemo(() => {
-    let total = 0;
-    for (const b of balances) {
-      const val = parseFloat(b.data?.underlyingBalance?.[0] ?? '0');
-      total += val;
-    }
-    return total;
-  }, [balances]);
+    return (portfolio?.positions ?? []).reduce(
+      (total, position) => total + (portfolioPositionUsdValue(position) ?? 0),
+      0,
+    );
+  }, [portfolio]);
 
   const level = getPigLevel(totalInvested);
   const [activeIndex, setActiveIndex] = useState(0);

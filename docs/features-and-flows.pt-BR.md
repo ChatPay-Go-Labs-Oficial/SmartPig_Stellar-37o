@@ -52,7 +52,7 @@ O modal de transferencia:
 
 ## Historico
 
-A tela de historico apresenta depositos, saques e transferencias USDC. Estados transitorios e finais devem ser exibidos de forma consistente, sem tratar uma submissao como confirmacao.
+A tela de historico apresenta operacoes Pix, depositos e saques de vaults e transferencias USDC. Estados transitorios e finais devem ser exibidos de forma consistente, sem tratar uma submissao como confirmacao.
 
 ## Trilha educacional
 

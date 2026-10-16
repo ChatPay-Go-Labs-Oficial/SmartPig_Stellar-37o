@@ -32,6 +32,13 @@ import {
   Nunito_900Black,
   useFonts,
 } from "@expo-google-fonts/nunito";
+// Inter (Design System V2) por subcaminho: o índice do pacote faz require dos
+// 18 arquivos da família (~6 MB) e o Metro empacota todos.
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { Inter_800ExtraBold } from "@expo-google-fonts/inter/800ExtraBold";
+import { Inter_900Black } from "@expo-google-fonts/inter/900Black";
 import {
   MutationCache,
   QueryCache,
@@ -39,6 +46,7 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import { Stack, router, useSegments } from "expo-router";
+import { DarkTheme, ThemeProvider, type Theme } from "@react-navigation/native";
 import { enableFreeze } from "react-native-screens";
 
 // Desliga globalmente o congelamento de telas inativas do react-native-screens.
@@ -140,6 +148,18 @@ const queryClient = new QueryClient({
   },
 });
 
+// Sem tema, o React Navigation usa o claro padrão: o fundo quase branco dele
+// aparece por um instante nas transições (ex.: voltar do Histórico). O app é
+// só escuro, então o tema de navegação usa o mesmo fundo das telas.
+const navigationTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: Colors.background,
+    card: Colors.background,
+  },
+};
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
@@ -147,6 +167,12 @@ export default function RootLayout() {
     Nunito_700Bold,
     Nunito_800ExtraBold,
     Nunito_900Black,
+    // Fonte do Design System V2 (constants/theme-v2.ts)
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+    Inter_900Black,
   });
 
   // App é dark-only (ver Colors.background em constants/theme.ts), então os
@@ -169,35 +195,55 @@ export default function RootLayout() {
     <View style={styles.root}>
       <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
         <QueryClientProvider client={queryClient}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: Colors.background },
-              // O react-freeze do react-native-screens suspende a subárvore de
-              // telas inativas e a reativa depois. Essa reativação remonta views
-              // nativas já existentes, e no Fabric isso vira um Insert sem o
-              // Remove correspondente: "addViewAt: cannot insert view [...] View
-              // already has a parent". O tipo da view na mensagem varia
-              // (LinearGradientView, ReactTextView) porque a falha é da
-              // remontagem, não do componente. Ver enableFreeze(false) abaixo.
-              freezeOnBlur: false,
-            }}
-          >
-            <Stack.Screen
-              name="(auth)"
-              options={{ gestureEnabled: false, animation: "fade" }}
-            />
-            <Stack.Screen
-              name="(tabs)"
-              options={{ gestureEnabled: false, animation: "fade" }}
-            />
-            <Stack.Screen name="vault/[id]" />
-            <Stack.Screen name="account/index" options={{ animation: "fade" }} />
-            <Stack.Screen name="(etherfuse-onboarding)" />
-            <Stack.Screen name="(blindpay-onboarding)" />
-            <Stack.Screen name="education" />
-            <Stack.Screen name="pigs" />
-          </Stack>
+          <ThemeProvider value={navigationTheme}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Colors.background },
+                // O react-freeze do react-native-screens suspende a subárvore de
+                // telas inativas e a reativa depois. Essa reativação remonta views
+                // nativas já existentes, e no Fabric isso vira um Insert sem o
+                // Remove correspondente: "addViewAt: cannot insert view [...] View
+                // already has a parent". O tipo da view na mensagem varia
+                // (LinearGradientView, ReactTextView) porque a falha é da
+                // remontagem, não do componente. Ver enableFreeze(false) abaixo.
+                freezeOnBlur: false,
+              }}
+            >
+              <Stack.Screen
+                name="(auth)"
+                options={{ gestureEnabled: false, animation: "fade" }}
+              />
+              <Stack.Screen
+                name="(tabs)"
+                options={{ gestureEnabled: false, animation: "fade" }}
+              />
+              {/* Detalhes do porquinho (V2). No Android, camada transparente
+                  como o Histórico da Carteira: um push comum desmontava as abas
+                  por baixo e a volta mostrava um quadro vazio. No iOS o modal
+                  subiria de baixo e perderia o gesto de voltar: push normal. */}
+              <Stack.Screen
+                name="vault/[id]"
+                options={{
+                  presentation: Platform.OS === "android" ? "transparentModal" : "card",
+                  animation: "slide_from_right",
+                }}
+              />
+              {/* Aceite de riscos do porquinho: mesma apresentação de Detalhes. */}
+              <Stack.Screen
+                name="vault/[id]/risks"
+                options={{
+                  presentation: Platform.OS === "android" ? "transparentModal" : "card",
+                  animation: "slide_from_right",
+                }}
+              />
+              <Stack.Screen name="account/index" options={{ animation: "fade" }} />
+              <Stack.Screen name="(etherfuse-onboarding)" />
+              <Stack.Screen name="(blindpay-onboarding)" />
+              <Stack.Screen name="education" />
+              <Stack.Screen name="pigs" />
+            </Stack>
+          </ThemeProvider>
           <StatusBar style="light" />
           <GiftClaimGate />
           <VersionGate />
@@ -251,7 +297,7 @@ function AppGate() {
       const result = await authenticateWithDeviceBiometrics({
         promptMessage: "Confirme que é você",
         promptSubtitle: "Acesse sua conta PigFi",
-        promptDescription: "Use a biometria configurada neste aparelho.",
+        promptDescription: "Use a biometria ou o PIN deste aparelho.",
       });
 
       if (result.success) {
@@ -588,7 +634,7 @@ function BiometricLockContent({
 
       <Text style={styles.lockTitle}>Confirme que é você</Text>
       <Text style={styles.lockText}>
-        Use a biometria do aparelho para acessar sua conta PigFi.
+        Use a biometria ou o PIN do aparelho para acessar sua conta PigFi.
       </Text>
 
       {message ? <Text style={styles.lockMessage}>{message}</Text> : null}

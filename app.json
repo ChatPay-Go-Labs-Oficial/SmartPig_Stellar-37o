@@ -2,7 +2,7 @@
   "expo": {
     "name": "PigFi",
     "slug": "pigfi",
-    "version": "1.0.4",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pigfi",
@@ -64,7 +64,7 @@
           },
           "android": {
             "compileSdkVersion": 36,
-            "targetSdkVersion": 35,
+            "targetSdkVersion": 36,
             "minSdkVersion": 28
           }
         }

@@ -17,8 +17,9 @@ import { randomUUID } from 'expo-crypto';
 // scientific notation (e.g. "1.2345e-7"). Either form gets rejected by the
 // backend's decimal parser. toFixed(7) always yields a plain, bounded
 // decimal string, matching what the backend expects.
-function toStellarAmountString(value: number): string {
-  return value.toFixed(7);
+function toStellarAmountString(value: number | string): string {
+  // Decimal já em string (calculado em unidades inteiras) vai como está.
+  return typeof value === 'string' ? value : value.toFixed(7);
 }
 
 export const withdrawalKeys = {
@@ -57,7 +58,15 @@ export const useWithdrawal = (id: string) =>
 export const useCreateWithdrawal = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ vaultId, shares }: { vaultId: string; shares: number }) => {
+    mutationFn: async ({
+      vaultId,
+      shares,
+      amount,
+    }: {
+      vaultId: string;
+      shares: number | string;
+      amount: number | string;
+    }) => {
       const { contractId, walletAccountId } = useAuthStore.getState();
       return createWithdrawal({
         idempotencyKey: randomUUID(),
@@ -65,6 +74,7 @@ export const useCreateWithdrawal = () => {
         walletAccountId: walletAccountId!,
         vaultId,
         shareAmount: toStellarAmountString(shares),
+        requestedAmount: toStellarAmountString(amount),
       });
     },
     onSuccess: () => {

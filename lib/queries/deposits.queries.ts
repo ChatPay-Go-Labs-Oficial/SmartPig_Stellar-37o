@@ -44,7 +44,8 @@ export const useDeposit = (id: string) =>
 export const useCreateDeposit = () => {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ vaultId, amount, assetSymbol }: { vaultId: string; amount: number; assetSymbol: string }) => {
+    // amount em string vai como está (decimal exato); number é o legado V1.
+    mutationFn: async ({ vaultId, amount, assetSymbol }: { vaultId: string; amount: number | string; assetSymbol: string }) => {
       const { contractId, walletAccountId } = useAuthStore.getState();
       if (!contractId || !walletAccountId) {
         throw new Error('Usuário não autenticado. Faça login novamente.');

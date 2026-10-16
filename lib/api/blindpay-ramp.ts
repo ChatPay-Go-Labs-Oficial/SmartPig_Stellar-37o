@@ -9,6 +9,17 @@ export type RampStatus =
   | 'FAILED'
   | 'REFUNDED';
 
+export interface RampHistoryTransaction {
+  id: string;
+  direction: 'ONRAMP' | 'OFFRAMP';
+  /** Valores decimais normalizados pelo backend, sem unidades internas. */
+  amountBrl: string | null;
+  amountUsdc: string | null;
+  status: RampStatus;
+  completedAt: string | null;
+  createdAt: string;
+}
+
 // ─── Quotes ─────────────────────────────────────────────────────────────────
 
 export interface OnrampQuote {
@@ -146,5 +157,10 @@ export async function submitOfframp(
 
 export async function getOfframp(id: string, userId: string): Promise<OfframpTransaction> {
   const { data } = await apiClient.get(`/ramp/offramp/${id}`);
+  return data;
+}
+
+export async function listRampTransactions(): Promise<RampHistoryTransaction[]> {
+  const { data } = await apiClient.get<RampHistoryTransaction[]>('/ramp/transactions');
   return data;
 }

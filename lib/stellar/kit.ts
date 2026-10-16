@@ -37,15 +37,8 @@ export function getKit(): SmartAccountKit {
   return _kit;
 }
 
-export async function signXdr(unsignedXdr: string): Promise<string> {
-  const walletAddress = useAuthStore.getState().walletAddress;
-  if (!walletAddress) {
-    throw new Error('Carteira não conectada. Reconecte.');
-  }
-
-  const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
-
-  // Computa o hash manualmente: SHA256(SHA256(pass) + envelopeType + txBody)
+// Computa o hash manualmente: SHA256(SHA256(pass) + envelopeType + txBody)
+function envelopeHash(envelope: xdr.TransactionEnvelope): Buffer {
   const v1 = envelope.v1();
   const innerTx = v1 ? v1.tx() : envelope.v0().tx();
   const txBytes = innerTx.toXDR();
@@ -56,8 +49,26 @@ export async function signXdr(unsignedXdr: string): Promise<string> {
   const envType = Buffer.alloc(4);
   envType.writeUInt32BE(v1 ? 2 : 0, 0);
   const payload = Buffer.concat([Buffer.from(passHash), envType, Buffer.from(txBytes)]);
-  const hash = hashJs.sha256().update(new Uint8Array(payload)).digest();
-  const txHash = Buffer.from(hash);
+  return Buffer.from(hashJs.sha256().update(new Uint8Array(payload)).digest());
+}
+
+/**
+ * Hash (hex) da transação de um envelope. As assinaturas não entram no hash,
+ * e a fee-bump da tesouraria embrulha esta mesma transação: o Horizon acha a
+ * transação final por este hash interno.
+ */
+export function transactionHash(envelopeXdr: string): string {
+  return envelopeHash(xdr.TransactionEnvelope.fromXDR(envelopeXdr, 'base64')).toString('hex');
+}
+
+export async function signXdr(unsignedXdr: string): Promise<string> {
+  const walletAddress = useAuthStore.getState().walletAddress;
+  if (!walletAddress) {
+    throw new Error('Carteira não conectada. Reconecte.');
+  }
+
+  const envelope = xdr.TransactionEnvelope.fromXDR(unsignedXdr, 'base64');
+  const txHash = envelopeHash(envelope);
   const hashHex = `0x${txHash.toString('hex')}` as const;
 
   const signature = await signHashViaPrivy(walletAddress, hashHex);
