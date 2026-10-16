@@ -18,6 +18,8 @@ import { formatUsdV2, truncateDecimalString } from '@/lib/utils/format';
 const TITLE_KEY: Record<HistoryKind, TermKey> = {
   'vault-deposit': 'history.deposit',
   'vault-withdrawal': 'history.withdrawal',
+  'pix-deposit': 'history.pix.deposit',
+  'pix-withdrawal': 'history.pix.withdrawal',
   'transfer-sent': 'history.sent',
   'transfer-received': 'history.received',
   'gift-sent': 'history.gift.sent',
@@ -27,6 +29,8 @@ const TITLE_KEY: Record<HistoryKind, TermKey> = {
 const ICON: Record<HistoryKind, V2IconName> = {
   'vault-deposit': 'piggy',
   'vault-withdrawal': 'piggy',
+  'pix-deposit': 'pix',
+  'pix-withdrawal': 'pix',
   'transfer-sent': 'arrow-up',
   'transfer-received': 'arrow-down',
   'gift-sent': 'gift',
@@ -50,6 +54,9 @@ function iconColors(kind: HistoryKind, accent: Accent) {
   // Guardar no porquinho é o gesto principal do app: ícone cheio no destaque.
   if (kind === 'vault-deposit') return { bg: accent.base, fg: V2Colors.onPrimary };
   if (kind === 'vault-withdrawal') return { bg: accent.alpha(0.14), fg: accent.base };
+  if (kind === 'pix-deposit' || kind === 'pix-withdrawal') {
+    return { bg: 'rgba(77,163,255,0.14)', fg: '#4da3ff' };
+  }
   return { bg: V2Colors.chip, fg: V2Colors.text };
 }
 

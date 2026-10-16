@@ -5,6 +5,7 @@ import { useAuthStore } from '@/lib/stores/auth.store';
 import { listDeposits } from '@/lib/api/deposits';
 import { listWithdrawals } from '@/lib/api/withdrawals';
 import { listGifts } from '@/lib/api/gifts';
+import { listRampTransactions } from '@/lib/api/blindpay-ramp';
 import { getVaults } from '@/lib/api/vaults';
 import { listUsdcTransfers } from '@/lib/stellar/transfers';
 import { depositKeys } from './deposits.queries';
@@ -12,6 +13,7 @@ import { withdrawalKeys } from './withdrawals.queries';
 import { giftKeys } from './gifts.queries';
 import { vaultKeys } from './vaults.queries';
 import { walletKeys } from './wallets.queries';
+import { blindpayRampKeys } from './blindpay-ramp.queries';
 
 /**
  * Pré-carrega as fontes do Histórico enquanto a Carteira está aberta.
@@ -44,6 +46,11 @@ export function usePrefetchHistory(enabled: boolean) {
         queryFn: () => listGifts(contractId),
       });
       queryClient.prefetchQuery({ queryKey: vaultKeys.all, queryFn: getVaults });
+      queryClient.prefetchQuery({
+        queryKey: blindpayRampKeys.history(contractId),
+        queryFn: listRampTransactions,
+        staleTime: 30_000,
+      });
       if (walletAddress) {
         queryClient.prefetchQuery({
           queryKey: walletKeys.transfers(walletAddress),

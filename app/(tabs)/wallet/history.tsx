@@ -21,6 +21,7 @@ import { useWithdrawals } from '@/lib/queries/withdrawals.queries';
 import { useUsdcTransfers } from '@/lib/queries/wallets.queries';
 import { useGifts } from '@/lib/queries/gifts.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
+import { useRampTransactions } from '@/lib/queries/blindpay-ramp.queries';
 import { formatVaultNameForMode } from '@/lib/utils/format';
 import {
   buildHistory,
@@ -31,9 +32,9 @@ import {
 import { FilterChip, ListCard, ScreenGlow, V2Icon } from '@/components/v2';
 import { HistoryRow } from '@/components/wallet/HistoryRow';
 
-// Pix e Trocas (Figma) ficam de fora até existirem: falta listagem de Pix no
-// backend e o swap ainda não foi construído.
+// Trocas ainda ficam de fora até o backend expor uma listagem de conversões.
 const EMPTY_FILTER_TEXT: Record<Exclude<HistoryFilter, 'all'>, string> = {
+  pix: 'Você ainda não depositou nem sacou via Pix.',
   vaults: 'Você ainda não movimentou seus porquinhos.',
   transfers: 'Você ainda não enviou nem recebeu dinheiro.',
 };
@@ -43,6 +44,7 @@ export default function WalletHistoryScreen() {
   const accent = useAccent();
   const mode = useAppMode();
   const { t } = useTerms();
+  const contractId = useAuthStore((s) => s.contractId);
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const [refreshing, setRefreshing] = useState(false);
@@ -51,8 +53,9 @@ export default function WalletHistoryScreen() {
   const withdrawals = useWithdrawals();
   const transfers = useUsdcTransfers(walletAddress);
   const gifts = useGifts();
+  const rampTransactions = useRampTransactions(contractId);
   const vaults = useVaults();
-  const sources = [deposits, withdrawals, transfers, gifts];
+  const sources = [deposits, withdrawals, transfers, gifts, rampTransactions];
 
   const vaultAssetById = useMemo(() => {
     const map = new Map<string, string>();
@@ -67,9 +70,17 @@ export default function WalletHistoryScreen() {
         withdrawals: withdrawals.data,
         transfers: transfers.data,
         gifts: gifts.data,
+        rampTransactions: rampTransactions.data,
         vaultAssetById,
       }),
-    [deposits.data, withdrawals.data, transfers.data, gifts.data, vaultAssetById],
+    [
+      deposits.data,
+      withdrawals.data,
+      transfers.data,
+      gifts.data,
+      rampTransactions.data,
+      vaultAssetById,
+    ],
   );
   const groups = useMemo(() => groupByMonth(filterHistory(items, filter)), [items, filter]);
 
@@ -95,6 +106,7 @@ export default function WalletHistoryScreen() {
 
   const filters: { id: HistoryFilter; label: string }[] = [
     { id: 'all', label: 'Tudo' },
+    { id: 'pix', label: 'Pix' },
     { id: 'vaults', label: t('history.filter.vaults') },
     { id: 'transfers', label: 'Transferências' },
   ];

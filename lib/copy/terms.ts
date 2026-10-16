@@ -117,6 +117,8 @@ export const TERMS = {
     lite: 'Tirado do porquinho',
     pro: 'Saque do vault',
   },
+  'history.pix.deposit': { lite: 'Depósito via Pix', pro: 'On-ramp via Pix' },
+  'history.pix.withdrawal': { lite: 'Saque via Pix', pro: 'Off-ramp via Pix' },
   'history.sent': { lite: 'Dinheiro enviado', pro: 'USDC enviado' },
   'history.received': { lite: 'Dinheiro recebido', pro: 'USDC recebido' },
   'history.gift.sent': { lite: 'Presente enviado', pro: 'Presente enviado' },

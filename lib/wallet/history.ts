@@ -1,27 +1,30 @@
 import type { Deposit } from '@/lib/api/deposits';
 import type { Withdrawal } from '@/lib/api/withdrawals';
 import type { GiftListItem } from '@/lib/api/gifts';
+import type { RampHistoryTransaction, RampStatus } from '@/lib/api/blindpay-ramp';
 import type { UsdcTransferRecord } from '@/lib/stellar/transfers';
 
 /**
- * Histórico da Carteira: junta o que já existe hoje, sem endpoint novo.
+ * Histórico da Carteira: junta as fontes financeiras já existentes.
  *
  * - Porquinhos (vault): GET /deposits e GET /withdrawals do backend.
+ * - Pix: GET /ramp/transactions do backend.
  * - Transferências: pagamentos USDC lidos do Horizon + presentes (GET /gifts).
  *
- * Fora por enquanto: Pix (falta listagem no backend — no testnet o ramp ainda
- * movimenta USDB, que nem aparece como USDC) e trocas (o swap não existe).
+ * Fora por enquanto: trocas (falta listagem de conversões no backend).
  */
 
 export type HistoryKind =
   | 'vault-deposit'
   | 'vault-withdrawal'
+  | 'pix-deposit'
+  | 'pix-withdrawal'
   | 'transfer-sent'
   | 'transfer-received'
   | 'gift-sent'
   | 'gift-received';
 
-export type HistoryFilter = 'all' | 'vaults' | 'transfers';
+export type HistoryFilter = 'all' | 'pix' | 'vaults' | 'transfers';
 
 export type HistoryStatus = 'done' | 'pending' | 'failed' | 'refunded' | 'expired';
 
@@ -46,19 +49,27 @@ export interface HistoryGroup {
 }
 
 const FILTER_KINDS: Record<Exclude<HistoryFilter, 'all'>, HistoryKind[]> = {
+  pix: ['pix-deposit', 'pix-withdrawal'],
   vaults: ['vault-deposit', 'vault-withdrawal'],
   transfers: ['transfer-sent', 'transfer-received', 'gift-sent', 'gift-received'],
 };
 
 /** Entra na carteira (+) ou sai dela (-). */
 export function isIncoming(kind: HistoryKind): boolean {
-  return kind === 'vault-withdrawal' || kind === 'transfer-received' || kind === 'gift-received';
+  return (
+    kind === 'vault-withdrawal' ||
+    kind === 'pix-deposit' ||
+    kind === 'transfer-received' ||
+    kind === 'gift-received'
+  );
 }
 
 /** Sinal exibido no Histórico, de acordo com o nome da operação. */
 export function isPositiveHistoryAmount(kind: HistoryKind): boolean {
   if (kind === 'vault-deposit') return true;
   if (kind === 'vault-withdrawal') return false;
+  if (kind === 'pix-deposit') return true;
+  if (kind === 'pix-withdrawal') return false;
   return isIncoming(kind);
 }
 
@@ -85,6 +96,13 @@ function giftStatus(gift: GiftListItem): HistoryStatus {
   }
 }
 
+function rampStatus(status: RampStatus): HistoryStatus {
+  if (status === 'COMPLETED') return 'done';
+  if (status === 'FAILED') return 'failed';
+  if (status === 'REFUNDED') return 'refunded';
+  return 'pending';
+}
+
 function toNumber(value: number | string | null | undefined): number {
   const n = typeof value === 'number' ? value : parseFloat(String(value ?? 0));
   return Number.isFinite(n) ? Math.abs(n) : 0;
@@ -95,6 +113,7 @@ export function buildHistory(sources: {
   withdrawals?: Withdrawal[];
   transfers?: UsdcTransferRecord[];
   gifts?: GiftListItem[];
+  rampTransactions?: RampHistoryTransaction[];
   vaultAssetById?: ReadonlyMap<string, string>;
 }): HistoryItem[] {
   const items: HistoryItem[] = [
@@ -118,6 +137,14 @@ export function buildHistory(sources: {
       status: vaultStatus(w.status),
       createdAt: w.createdAt,
       vaultId: w.vaultId,
+    })),
+    ...(sources.rampTransactions ?? []).map((transaction) => ({
+      key: `pix-${transaction.direction.toLowerCase()}-${transaction.id}`,
+      kind: (transaction.direction === 'ONRAMP' ? 'pix-deposit' : 'pix-withdrawal') as HistoryKind,
+      amount: toNumber(transaction.amountUsdc),
+      assetCode: 'USDC',
+      status: rampStatus(transaction.status),
+      createdAt: transaction.completedAt ?? transaction.createdAt,
     })),
     ...(sources.transfers ?? []).map((t) => ({
       key: `transfer-${t.id}`,
