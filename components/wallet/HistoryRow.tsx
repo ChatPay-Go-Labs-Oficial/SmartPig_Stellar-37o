@@ -27,8 +27,8 @@ const TITLE_KEY: Record<HistoryKind, TermKey> = {
 const ICON: Record<HistoryKind, V2IconName> = {
   'vault-deposit': 'piggy',
   'vault-withdrawal': 'piggy',
-  'transfer-sent': 'pix',
-  'transfer-received': 'pix',
+  'transfer-sent': 'arrow-up',
+  'transfer-received': 'arrow-down',
   'gift-sent': 'gift',
   'gift-received': 'gift',
 };
@@ -50,9 +50,6 @@ function iconColors(kind: HistoryKind, accent: Accent) {
   // Guardar no porquinho é o gesto principal do app: ícone cheio no destaque.
   if (kind === 'vault-deposit') return { bg: accent.base, fg: V2Colors.onPrimary };
   if (kind === 'vault-withdrawal') return { bg: accent.alpha(0.14), fg: accent.base };
-  if (kind === 'transfer-sent' || kind === 'transfer-received') {
-    return { bg: 'rgba(77,163,255,0.14)', fg: '#4da3ff' };
-  }
   return { bg: V2Colors.chip, fg: V2Colors.text };
 }
 

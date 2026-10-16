@@ -1,6 +1,5 @@
 import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import type { StyleProp, TextStyle } from 'react-native';
 import { V2Colors } from '@/constants/theme-v2';
 
@@ -44,11 +43,7 @@ const COMMUNITY = {
   coins: 'circle-multiple-outline',
 } as const;
 
-const MATERIAL = {
-  pix: 'pix',
-} as const;
-
-export type V2IconName = keyof typeof FEATHER | keyof typeof COMMUNITY | keyof typeof MATERIAL;
+export type V2IconName = keyof typeof FEATHER | keyof typeof COMMUNITY;
 
 interface V2IconProps {
   name: V2IconName;
@@ -58,16 +53,6 @@ interface V2IconProps {
 }
 
 export function V2Icon({ name, size = 24, color = V2Colors.text, style }: V2IconProps) {
-  if (name in MATERIAL) {
-    return (
-      <MaterialIcons
-        name={MATERIAL[name as keyof typeof MATERIAL]}
-        size={size}
-        color={color}
-        style={style}
-      />
-    );
-  }
   if (name in COMMUNITY) {
     return (
       <MaterialCommunityIcons
