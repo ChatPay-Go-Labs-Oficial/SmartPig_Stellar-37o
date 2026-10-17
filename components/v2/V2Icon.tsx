@@ -21,6 +21,7 @@ const FEATHER = {
   'chevron-right': 'chevron-right',
   'chevron-left': 'chevron-left',
   'chevron-down': 'chevron-down',
+  download: 'download',
   lock: 'lock',
   x: 'x',
   gift: 'gift',
@@ -48,6 +49,8 @@ const COMMUNITY = {
   coins: 'circle-multiple-outline',
   // Lucide "sparkles" (estrela de quatro pontas): selo "Novo nível" e "Que legal!".
   sparkles: 'star-four-points-outline',
+  // Lucide "fingerprint" (bloqueio por biometria).
+  fingerprint: 'fingerprint',
 } as const;
 
 const MATERIAL = {

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { V2Colors, V2Font, V2Radius, blendOver } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { V2Icon, type V2IconName } from './V2Icon';
+import { V2Spinner } from './V2Spinner';
 
 const HEIGHT = 57;
 // A base aparece 4 px abaixo da face: o degrau do 3D.
@@ -24,14 +25,20 @@ const DEPTH = 4;
 // sombra projetada.
 const GLASS_FACE = ['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.06)'] as const;
 const GLASS_BASE = blendOver('#ffffff', 0.04, V2Colors.background);
+// Claro (Figma "Claro = Apple"): face branca sobre base lilás acinzentada.
+const LIGHT_BASE = '#b9b3c7';
 
 interface Button3DProps {
   label: string;
   onPress: () => void;
-  /** Primária = ação principal; Vidro = ação secundária. */
-  variant?: 'primary' | 'glass';
+  /** Primária = ação principal; Vidro = ação secundária; Claro = Apple. */
+  variant?: 'primary' | 'glass' | 'light';
   icon?: V2IconName;
+  /** No lugar do ícone: uma marca que não é ícone de traço (logo do Google). */
+  leading?: ReactNode;
   loading?: boolean;
+  /** Texto ao lado do spinner enquanto carrega (Figma: "Conectando..."). */
+  loadingLabel?: string;
   disabled?: boolean;
   /** Largura e flex do botão (padrão: largura total). */
   style?: StyleProp<ViewStyle>;
@@ -53,14 +60,18 @@ export const Button3D = memo(function Button3D({
   onPress,
   variant = 'primary',
   icon,
+  leading,
   loading = false,
+  loadingLabel,
   disabled = false,
   style,
   accessibilityHint,
 }: Button3DProps) {
   const accent = useAccent();
   const isPrimary = variant === 'primary';
+  const isLight = variant === 'light';
   const inactive = disabled || loading;
+  const textColor = isLight ? V2Colors.background : V2Colors.onPrimary;
 
   return (
     <Pressable
@@ -77,12 +88,20 @@ export const Button3D = memo(function Button3D({
     >
       {isPrimary ? (
         <View style={[styles.base, { backgroundColor: accent.dark }]} />
+      ) : isLight ? (
+        <View style={[styles.base, { backgroundColor: LIGHT_BASE }]} />
       ) : (
         <View style={[styles.base, styles.glassBase]} />
       )}
 
-      <View style={[styles.face, isPrimary && { backgroundColor: accent.base }]}>
-        {isPrimary ? (
+      <View
+        style={[
+          styles.face,
+          isPrimary && { backgroundColor: accent.base },
+          isLight && styles.lightFace,
+        ]}
+      >
+        {isPrimary || isLight ? (
           <View style={styles.highlight} pointerEvents="none" />
         ) : (
           <>
@@ -93,12 +112,19 @@ export const Button3D = memo(function Button3D({
             <View style={styles.glassBorder} pointerEvents="none" />
           </>
         )}
-        {loading ? (
-          <ActivityIndicator size="small" color={V2Colors.onPrimary} />
+        {loading && loadingLabel ? (
+          <>
+            <V2Spinner size={18} color={textColor} />
+            <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+              {loadingLabel}
+            </Text>
+          </>
+        ) : loading ? (
+          <ActivityIndicator size="small" color={textColor} />
         ) : (
           <>
-            {icon && <V2Icon name={icon} size={isPrimary ? 20 : 24} color={V2Colors.onPrimary} />}
-            <Text style={styles.label} numberOfLines={1}>
+            {leading ?? (icon && <V2Icon name={icon} size={isPrimary ? 20 : 24} color={textColor} />)}
+            <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
               {label}
             </Text>
           </>
@@ -155,6 +181,9 @@ const styles = StyleSheet.create({
     borderRadius: V2Radius.key,
     borderTopWidth: 2,
     borderColor: 'rgba(255,255,255,0.22)',
+  },
+  lightFace: {
+    backgroundColor: '#ffffff',
   },
   glassFill: {
     backgroundColor: '#000000',

@@ -12,18 +12,16 @@ import {
   Colors,
   Font,
   FontSize,
-  Gradients,
-  Radius,
   Spacing,
 } from "@/constants/theme";
 import { useAppLockStore } from "@/lib/stores/app-lock.store";
+import { useOpeningStore } from "@/lib/stores/opening.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useVersionGateStore } from "@/lib/stores/version-gate.store";
 import { setTokenProvider } from "@/lib/api/token";
 import { setSignRawHashProvider } from "@/lib/stellar/signer";
 import { authenticateWithDeviceBiometrics } from "@/lib/security/biometrics";
 import { isNativePickerActive } from "@/lib/security/native-picker-guard";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   Nunito_400Regular,
   Nunito_600SemiBold,
@@ -48,6 +46,15 @@ import {
 import { Stack, router, useSegments } from "expo-router";
 import { DarkTheme, ThemeProvider, type Theme } from "@react-navigation/native";
 import { enableFreeze } from "react-native-screens";
+import { OpeningSplash } from "@/components/entry/OpeningSplash";
+import { EntryBlockScreen } from "@/components/entry/EntryBlockScreen";
+import { V2Colors } from "@/constants/theme-v2";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 // Desliga globalmente o congelamento de telas inativas do react-native-screens.
 // O freezeOnBlur nas screenOptions do Stack cobre as rotas deste layout; esta
@@ -56,18 +63,15 @@ enableFreeze(false);
 import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   AppState,
   InteractionManager,
   Modal,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
-import "react-native-reanimated";
 import { GiftClaimGate, VersionGate } from "@/components/ui";
 
 setAudioModeAsync({
@@ -83,6 +87,10 @@ if (typeof global.Buffer === "undefined") {
 const PRIVY_APP_ID = process.env.EXPO_PUBLIC_PRIVY_APP_ID;
 const PRIVY_CLIENT_ID = process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID;
 const PRIVY_READY_TIMEOUT_MS = 8_000;
+// Depois da entrada da abertura, o logo fica um instante antes de seguir.
+const INTRO_HOLD_MS = 400;
+// A tela do gate (cadeado, erro de sessão) acende por cima da abertura.
+const GATE_FADE_MS = 300;
 
 function getPrivyErrorDetail(error: unknown): string | null {
   if (!error) return null;
@@ -161,6 +169,21 @@ const navigationTheme: Theme = {
 };
 
 export default function RootLayout() {
+  // A abertura anima sozinha, com o aparelho livre; o resto do app (Privy,
+  // rotas, home) só monta quando a entrada termina, por baixo do logo. Montado
+  // junto, disputava a CPU com a animação e ela travava.
+  const [appMounted, setAppMounted] = useState(false);
+  const openingExited = useOpeningStore((s) => s.exited);
+  const openingStatus = useOpeningStore((s) => s.status);
+  const openingExiting = useOpeningStore((s) => s.exiting);
+  const handleIntroEnd = useCallback(() => {
+    setAppMounted(true);
+    setTimeout(() => useOpeningStore.setState({ introDone: true }), INTRO_HOLD_MS);
+  }, []);
+  const handleOpeningExited = useCallback(() => {
+    useOpeningStore.setState({ exited: true });
+  }, []);
+
   const [fontsLoaded] = useFonts({
     Nunito_400Regular,
     Nunito_600SemiBold,
@@ -183,76 +206,87 @@ export default function RootLayout() {
     NavigationBar.setButtonStyleAsync("light").catch(() => {});
   }, []);
 
-  if (!fontsLoaded) {
-    return <View style={styles.splash} />;
-  }
-
   if (!PRIVY_APP_ID || !PRIVY_CLIENT_ID) {
-    return <MissingPrivyConfigScreen />;
+    return fontsLoaded ? <MissingPrivyConfigScreen /> : <View style={styles.splash} />;
   }
 
   return (
     <View style={styles.root}>
-      <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider value={navigationTheme}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: Colors.background },
-                // O react-freeze do react-native-screens suspende a subárvore de
-                // telas inativas e a reativa depois. Essa reativação remonta views
-                // nativas já existentes, e no Fabric isso vira um Insert sem o
-                // Remove correspondente: "addViewAt: cannot insert view [...] View
-                // already has a parent". O tipo da view na mensagem varia
-                // (LinearGradientView, ReactTextView) porque a falha é da
-                // remontagem, não do componente. Ver enableFreeze(false) abaixo.
-                freezeOnBlur: false,
-              }}
-            >
-              <Stack.Screen
-                name="(auth)"
-                options={{ gestureEnabled: false, animation: "fade" }}
-              />
-              <Stack.Screen
-                name="(tabs)"
-                options={{ gestureEnabled: false, animation: "fade" }}
-              />
-              {/* Detalhes do porquinho (V2). No Android, camada transparente
-                  como o Histórico da Carteira: um push comum desmontava as abas
-                  por baixo e a volta mostrava um quadro vazio. No iOS o modal
-                  subiria de baixo e perderia o gesto de voltar: push normal. */}
-              <Stack.Screen
-                name="vault/[id]"
-                options={{
-                  presentation: Platform.OS === "android" ? "transparentModal" : "card",
-                  animation: "slide_from_right",
+      {fontsLoaded && appMounted ? (
+        <PrivyProvider appId={PRIVY_APP_ID} clientId={PRIVY_CLIENT_ID}>
+          <QueryClientProvider client={queryClient}>
+            <ThemeProvider value={navigationTheme}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: Colors.background },
+                  // O react-freeze do react-native-screens suspende a subárvore de
+                  // telas inativas e a reativa depois. Essa reativação remonta views
+                  // nativas já existentes, e no Fabric isso vira um Insert sem o
+                  // Remove correspondente: "addViewAt: cannot insert view [...] View
+                  // already has a parent". O tipo da view na mensagem varia
+                  // (LinearGradientView, ReactTextView) porque a falha é da
+                  // remontagem, não do componente. Ver enableFreeze(false) abaixo.
+                  freezeOnBlur: false,
                 }}
-              />
-              {/* Aceite de riscos do porquinho: mesma apresentação de Detalhes. */}
-              <Stack.Screen
-                name="vault/[id]/risks"
-                options={{
-                  presentation: Platform.OS === "android" ? "transparentModal" : "card",
-                  animation: "slide_from_right",
-                }}
-              />
-              <Stack.Screen name="account/index" options={{ animation: "fade" }} />
-              <Stack.Screen name="(etherfuse-onboarding)" />
-              <Stack.Screen name="(blindpay-onboarding)" />
-              <Stack.Screen name="education" />
-              {/* Evolução do porquinho: uma cópia só na pilha. Toques repetidos
-                  no mascote da Home empilhavam várias, e o "voltar" precisava de
-                  um toque por cópia. Com singular, o push vai para a que já existe. */}
-              <Stack.Screen name="pigs" dangerouslySingular />
-            </Stack>
-          </ThemeProvider>
-          <StatusBar style="light" />
-          <GiftClaimGate />
-          <VersionGate />
-        </QueryClientProvider>
-        <AppGate />
-      </PrivyProvider>
+              >
+                <Stack.Screen
+                  name="(auth)"
+                  options={{ gestureEnabled: false, animation: "fade" }}
+                />
+                <Stack.Screen
+                  name="(tabs)"
+                  options={{ gestureEnabled: false, animation: "fade" }}
+                />
+                {/* Detalhes do porquinho (V2). No Android, camada transparente
+                    como o Histórico da Carteira: um push comum desmontava as abas
+                    por baixo e a volta mostrava um quadro vazio. No iOS o modal
+                    subiria de baixo e perderia o gesto de voltar: push normal. */}
+                <Stack.Screen
+                  name="vault/[id]"
+                  options={{
+                    presentation: Platform.OS === "android" ? "transparentModal" : "card",
+                    animation: "slide_from_right",
+                  }}
+                />
+                {/* Aceite de riscos do porquinho: mesma apresentação de Detalhes. */}
+                <Stack.Screen
+                  name="vault/[id]/risks"
+                  options={{
+                    presentation: Platform.OS === "android" ? "transparentModal" : "card",
+                    animation: "slide_from_right",
+                  }}
+                />
+                <Stack.Screen name="account/index" options={{ animation: "fade" }} />
+                <Stack.Screen name="(etherfuse-onboarding)" />
+                <Stack.Screen name="(blindpay-onboarding)" />
+                <Stack.Screen name="education" />
+                {/* Evolução do porquinho: uma cópia só na pilha. Toques repetidos
+                    no mascote da Home empilhavam várias, e o "voltar" precisava de
+                    um toque por cópia. Com singular, o push vai para a que já existe. */}
+                <Stack.Screen name="pigs" dangerouslySingular />
+              </Stack>
+            </ThemeProvider>
+            <StatusBar style="light" />
+            <GiftClaimGate />
+            <VersionGate />
+          </QueryClientProvider>
+          <AppGate />
+        </PrivyProvider>
+      ) : null}
+      {/* A mesma instância do começo ao fim: trocar por outra recarregava as
+          imagens e o símbolo sumia. Fica na janela do app, não num Modal: no
+          Android o Modal é outra janela, que pinta depois, e o splash nativo
+          saía antes dela — um quadro vazio e o porquinho "voltando". */}
+      {!openingExited ? (
+        <OpeningSplash
+          fontsReady={fontsLoaded}
+          status={openingStatus}
+          exiting={openingExiting}
+          onExited={handleOpeningExited}
+          onIntroEnd={handleIntroEnd}
+        />
+      ) : null}
     </View>
   );
 }
@@ -275,6 +309,14 @@ function AppGate() {
   const setAppLocked = useAppLockStore((s) => s.setLocked);
   const [gateOpen, setGateOpen] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
+  // Abertura (Figma 01, desenhada pelo RootLayout): fica até a entrada
+  // terminar e o gate decidir o que vem depois; então se dissolve no que
+  // estiver embaixo (login, home) ou some sob a tela do gate.
+  const introDone = useOpeningStore((s) => s.introDone);
+  const splashExited = useOpeningStore((s) => s.exited);
+  const setSplashExited = useCallback((exited: boolean) => {
+    useOpeningStore.setState({ exited });
+  }, []);
   const [privyReadyTimedOut, setPrivyReadyTimedOut] = useState(false);
   const [privyRetryCount, setPrivyRetryCount] = useState(0);
   const [biometricLocked, setBiometricLocked] = useState(false);
@@ -462,6 +504,7 @@ function AppGate() {
   useEffect(() => {
     if (
       !splashDone ||
+      !introDone ||
       !gateOpen ||
       !isReady ||
       !isAuthenticated ||
@@ -484,6 +527,7 @@ function AppGate() {
   }, [
     biometricLocked,
     gateOpen,
+    introDone,
     isAuthenticated,
     isReady,
     splashDone,
@@ -527,7 +571,32 @@ function AppGate() {
     isAuthenticated &&
     biometricLocked &&
     restoredSessionRequiresBiometricsRef.current;
-  const gateCovering = !splashDone || showPrivyRecovery || showBiometricLock;
+  const splashVisible = !splashDone || !introDone;
+  const gateCovering = splashVisible || !splashExited || showPrivyRecovery || showBiometricLock;
+
+  const hasGateContent = !splashVisible && (showPrivyRecovery || showBiometricLock);
+  const showSplash = splashVisible || !splashExited;
+
+  // O que a abertura mostra: o status enquanto espera a sessão depois da
+  // entrada; sem tela do gate, dissolve no que está embaixo (login, home).
+  // Com ela, a tela do gate acende por cima e a abertura sai depois.
+  useEffect(() => {
+    useOpeningStore.setState({
+      status: introDone && !splashDone ? "Entrando..." : undefined,
+      exiting: !splashVisible && !hasGateContent,
+    });
+  }, [hasGateContent, introDone, splashDone, splashVisible]);
+
+  // "Tentar novamente" na sessão que não carregou volta para a abertura.
+  useEffect(() => {
+    if (splashVisible) setSplashExited(false);
+  }, [setSplashExited, splashVisible]);
+
+  // Com a atualização obrigatória o gate não desenha nada (o modal dela fica
+  // por cima de tudo): a abertura sai do caminho.
+  useEffect(() => {
+    if (forceUpdateRequired) setSplashExited(true);
+  }, [forceUpdateRequired, setSplashExited]);
 
   useEffect(() => {
     setAppLocked(gateCovering);
@@ -542,128 +611,134 @@ function AppGate() {
 
   let gateContent: ReactNode = null;
 
-  if (!splashDone) {
-    gateContent = (
-      <GateLoadingContent
-        message={hydrated ? "Preparando acesso..." : "Restaurando sessão..."}
-      />
-    );
+  if (splashVisible) {
+    // A abertura fica na camada de cima (abaixo), não aqui.
   } else if (showPrivyRecovery) {
     gateContent = (
-      <PrivyRecoveryContent
-        errorMessage={
+      <EntryBlockScreen
+        icon="refresh-cw"
+        tone="error"
+        title="Sessão não carregou"
+        text={
           privyError
             ? "Não foi possível inicializar a sessão Privy."
             : "A sessão Privy demorou para responder."
         }
-        errorDetail={getPrivyErrorDetail(privyError)}
-        onRetry={() => {
-          // Refaz a carga da WebView da carteira embarcada, de que o `isReady`
-          // depende: cobre carga que falhou e processo da WebView que morreu.
-          privyClient.embeddedWallet.reload();
-          setPrivyReadyTimedOut(false);
-          setPrivyRetryCount((count) => count + 1);
-          setSplashDone(false);
+        alert="Seus dados financeiros continuam bloqueados. Tente novamente ou saia da conta."
+        detail={getPrivyErrorDetail(privyError)}
+        primary={{
+          label: "Tentar novamente",
+          onPress: () => {
+            // Refaz a carga da WebView da carteira embarcada, de que o
+            // `isReady` depende: cobre carga que falhou e processo da WebView
+            // que morreu.
+            privyClient.embeddedWallet.reload();
+            setPrivyReadyTimedOut(false);
+            setPrivyRetryCount((count) => count + 1);
+            setSplashDone(false);
+          },
         }}
-        onLogout={handleLogout}
-        loading={biometricChecking}
+        secondary={{
+          label: biometricChecking ? "Saindo..." : "Sair da conta",
+          onPress: handleLogout,
+          disabled: biometricChecking,
+        }}
       />
     );
   } else if (showBiometricLock) {
     gateContent = (
-      <BiometricLockContent
-        message={biometricMessage}
-        checking={biometricChecking}
-        onUnlock={unlockWithBiometrics}
-        onLogout={handleLogout}
+      <EntryBlockScreen
+        icon="fingerprint"
+        title="Confirme que é você"
+        text="Use a biometria do aparelho para acessar sua conta PigFi."
+        alert={biometricMessage || undefined}
+        primary={{
+          label: "Desbloquear",
+          onPress: unlockWithBiometrics,
+          loading: biometricChecking,
+          loadingLabel: "Verificando...",
+        }}
+        secondary={{ label: "Sair da conta", onPress: handleLogout, disabled: biometricChecking }}
       />
     );
   }
 
   if (!gateContent) return null;
 
-  // Um único Modal para todos os estados do gate, trocando só o conteúdo.
-  // Um Modal por estado fazia o iOS fechar um e apresentar o outro a cada
-  // transição, e no intervalo aparecia a rota de baixo — a tela de login.
-  //
-  // `overFullScreen` mantém a árvore do app na janela por baixo do gate. No
-  // padrão (`fullScreen`) o UIKit a retira da janela, e a WebView oculta do
-  // Privy — de que o `isReady` depende — só cria a WKWebView ao entrar numa
-  // janela (`didMoveToWindow` do react-native-webview). Montada pelo Privy com
-  // o gate já aberto, ela nunca era criada e o `isReady` não chegava.
-  // `accessibilityViewIsModal` impede o VoiceOver de alcançar o app por trás.
+  return (
+    <GateModal fadeIn={showSplash} onShown={() => setSplashExited(true)}>
+      {gateContent}
+    </GateModal>
+  );
+}
+
+/**
+ * Um único Modal para todos os estados do gate, trocando só o conteúdo. Um
+ * Modal por estado fazia o iOS fechar um e apresentar o outro a cada
+ * transição, e no intervalo aparecia a rota de baixo.
+ *
+ * `overFullScreen` mantém a árvore do app na janela por baixo do gate. No
+ * padrão (`fullScreen`) o UIKit a retira da janela, e a WebView oculta do
+ * Privy — de que o `isReady` depende — só cria a WKWebView ao entrar numa
+ * janela (`didMoveToWindow` do react-native-webview). Montada pelo Privy com o
+ * gate já aberto, ela nunca era criada e o `isReady` não chegava.
+ * `accessibilityViewIsModal` impede o VoiceOver de alcançar o app por trás.
+ *
+ * Saindo da abertura, a tela acende por cima dela (`fadeIn`) a partir do
+ * momento em que a janela do Modal aparece; sem abertura (cadeado ao voltar
+ * do segundo plano), entra já visível.
+ */
+function GateModal({
+  fadeIn,
+  onShown,
+  children,
+}: {
+  fadeIn: boolean;
+  onShown: () => void;
+  children: ReactNode;
+}) {
+  const [fadeOnShow] = useState(fadeIn);
+  const opacity = useSharedValue(fadeOnShow ? 0 : 1);
+  const shownRef = useRef(false);
+  const onShownRef = useRef(onShown);
+  onShownRef.current = onShown;
+
+  const handleShow = useCallback(() => {
+    if (shownRef.current) return;
+    shownRef.current = true;
+    const done = () => onShownRef.current();
+    if (!fadeOnShow) {
+      done();
+      return;
+    }
+    opacity.value = withTiming(1, { duration: GATE_FADE_MS }, (finished) => {
+      if (finished) runOnJS(done)();
+    });
+  }, [fadeOnShow, opacity]);
+
+  // Se o onShow não vier, a tela não pode ficar invisível.
+  useEffect(() => {
+    const timer = setTimeout(handleShow, 600);
+    return () => clearTimeout(timer);
+  }, [handleShow]);
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
   return (
     <Modal
       visible
       animationType="none"
-      transparent={false}
+      transparent
       presentationStyle="overFullScreen"
       statusBarTranslucent
+      navigationBarTranslucent
+      onShow={handleShow}
       onRequestClose={() => {}}
     >
-      <View style={styles.gateRoot} accessibilityViewIsModal>
-        {gateContent}
-      </View>
+      <Animated.View style={[styles.gateRoot, style]} accessibilityViewIsModal>
+        {children}
+      </Animated.View>
     </Modal>
-  );
-}
-
-function GateLoadingContent({ message }: { message: string }) {
-  return (
-    <View style={styles.gateLoading}>
-      <ActivityIndicator color={Accent.primary} size="large" />
-      <Text style={styles.gateLoadingText}>{message}</Text>
-    </View>
-  );
-}
-
-function BiometricLockContent({
-  message,
-  checking,
-  onUnlock,
-  onLogout,
-}: {
-  message: string;
-  checking: boolean;
-  onUnlock: () => void;
-  onLogout: () => void;
-}) {
-  return (
-    <View style={styles.lockOverlay}>
-      <LinearGradient
-        colors={Gradients.primary}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.lockIconWrap}
-      >
-        <MaterialIcons name="fingerprint" size={36} color="#fff" />
-      </LinearGradient>
-
-      <Text style={styles.lockTitle}>Confirme que é você</Text>
-      <Text style={styles.lockText}>
-        Use a biometria ou o PIN do aparelho para acessar sua conta PigFi.
-      </Text>
-
-      {message ? <Text style={styles.lockMessage}>{message}</Text> : null}
-
-      <Pressable
-        onPress={onUnlock}
-        disabled={checking}
-        style={[styles.lockPrimaryBtn, checking && styles.lockBtnDisabled]}
-      >
-        <Text style={styles.lockPrimaryText}>
-          {checking ? "Verificando..." : "Desbloquear"}
-        </Text>
-      </Pressable>
-
-      <Pressable
-        onPress={onLogout}
-        disabled={checking}
-        style={styles.lockSecondaryBtn}
-      >
-        <Text style={styles.lockSecondaryText}>Sair da conta</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -684,151 +759,12 @@ function MissingPrivyConfigScreen() {
   );
 }
 
-function PrivyRecoveryContent({
-  errorDetail,
-  errorMessage,
-  loading,
-  onLogout,
-  onRetry,
-}: {
-  errorDetail: string | null;
-  errorMessage: string;
-  loading: boolean;
-  onLogout: () => void;
-  onRetry: () => void;
-}) {
-  return (
-    <View style={styles.lockOverlay}>
-      <View style={styles.recoveryIconWrap}>
-        <MaterialIcons
-          name="sync-problem"
-          size={34}
-          color={Accent.destructive}
-        />
-      </View>
-      <Text style={styles.lockTitle}>Sessão não carregou</Text>
-      <Text style={styles.lockText}>{errorMessage}</Text>
-      <Text style={styles.lockMessage}>
-        Seus dados financeiros continuam bloqueados. Tente novamente ou saia
-        da conta.
-      </Text>
-      {errorDetail ? (
-        <Text style={styles.diagnosticText}>{errorDetail}</Text>
-      ) : null}
-
-      <Pressable
-        onPress={onRetry}
-        disabled={loading}
-        style={[styles.lockPrimaryBtn, loading && styles.lockBtnDisabled]}
-      >
-        <Text style={styles.lockPrimaryText}>Tentar novamente</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={onLogout}
-        disabled={loading}
-        style={styles.lockSecondaryBtn}
-      >
-        <Text style={styles.lockSecondaryText}>
-          {loading ? "Saindo..." : "Sair da conta"}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   // Opaca de propósito: transparente, revela o fundo cinza da janela nativa em
   // qualquer frame que uma tela não pinte.
   root: { flex: 1, backgroundColor: Colors.background },
   splash: { flex: 1, backgroundColor: Colors.background },
-  gateRoot: { flex: 1, backgroundColor: Colors.background },
-  gateLoading: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  gateLoadingText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-  },
-  lockOverlay: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Spacing[6],
-    gap: 14,
-  },
-  lockIconWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: Radius.full,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
-  recoveryIconWrap: {
-    width: 76,
-    height: 76,
-    borderRadius: Radius.full,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.28)",
-  },
-  lockTitle: {
-    fontSize: FontSize.heading,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-    textAlign: "center",
-  },
-  lockText: {
-    fontSize: FontSize.body,
-    fontFamily: Font.regular,
-    color: Colors.mutedForeground,
-    lineHeight: 22,
-    textAlign: "center",
-    maxWidth: 300,
-  },
-  lockMessage: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: Accent.destructive,
-    textAlign: "center",
-    maxWidth: 300,
-  },
-  lockPrimaryBtn: {
-    width: "100%",
-    maxWidth: 320,
-    borderRadius: Radius.sm,
-    backgroundColor: Accent.primary,
-    paddingVertical: 15,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  lockBtnDisabled: {
-    opacity: 0.6,
-  },
-  lockPrimaryText: {
-    fontSize: FontSize.body,
-    fontFamily: Font.black,
-    color: "#fff",
-  },
-  lockSecondaryBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  lockSecondaryText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Colors.mutedForeground,
-  },
+  gateRoot: { flex: 1, backgroundColor: V2Colors.background },
   configError: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -850,13 +786,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: "center",
     maxWidth: 320,
-  },
-  diagnosticText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-    lineHeight: 17,
-    textAlign: "center",
-    maxWidth: 340,
   },
 });

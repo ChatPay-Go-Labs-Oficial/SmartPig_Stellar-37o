@@ -3,6 +3,16 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
+// Avalia cada módulo só quando ele é usado pela primeira vez, não todos antes
+// do primeiro render. O padrão do Expo é false: o app avaliava o bundle inteiro
+// (Privy, ethers, Stellar SDK, todas as rotas) com a splash nativa parada.
+config.transformer.getTransformOptions = async () => ({
+  transform: {
+    experimentalImportSupport: true,
+    inlineRequires: true,
+  },
+});
+
 config.resolver.unstable_enablePackageExports = true;
 config.resolver.unstable_conditionNames = ['browser', 'require', 'default', 'import'];
 

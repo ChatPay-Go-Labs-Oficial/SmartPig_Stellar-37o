@@ -6,7 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pigfi",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0a0712",
     "newArchEnabled": true,
     "ios": {
       "icon": "./assets/images/icon.png",
@@ -47,11 +48,12 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash.png",
+          "image": "./assets/images/v2/mascote-simbolo.png",
+          "imageWidth": 188,
           "resizeMode": "contain",
-          "backgroundColor": "#080113",
+          "backgroundColor": "#0a0712",
           "dark": {
-            "backgroundColor": "#080113"
+            "backgroundColor": "#0a0712"
           }
         }
       ],

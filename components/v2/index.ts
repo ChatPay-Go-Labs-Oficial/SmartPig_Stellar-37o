@@ -11,5 +11,6 @@ export { V2Checkbox } from './V2Checkbox';
 export { ListCard } from './ListCard';
 export { FilterChip } from './FilterChip';
 export { NavChip } from './NavChip';
+export { Wordmark, BRAND_PURPLE } from './Wordmark';
 export { SegmentedControl, type SegmentOption } from './SegmentedControl';
 export { TabBar, type TabBarItem } from './TabBar';

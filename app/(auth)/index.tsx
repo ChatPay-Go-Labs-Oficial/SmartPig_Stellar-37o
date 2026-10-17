@@ -1,25 +1,14 @@
-import { Colors, Font, FontSize, Spacing, scaleFont } from '@/constants/theme';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import { StarryBackground } from '@/components/ui';
+import { V2Colors, V2Font } from '@/constants/theme-v2';
+import { BRAND_PURPLE, Button3D, Wordmark } from '@/components/v2';
+import { EntryBackdrop } from '@/components/entry/EntryBackdrop';
+import { OpeningSplash } from '@/components/entry/OpeningSplash';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { walletLogin } from '@/lib/api/auth';
 import { getActivationXdr, reconcileWalletActivation, submitActivation } from '@/lib/api/wallets';
@@ -33,6 +22,10 @@ import { useCreateWallet } from '@privy-io/expo/extended-chains';
 import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passkey';
 
 const SHOW_PASSKEY_LOGIN = false;
+
+const MASCOT = require('@/assets/images/v2/mascote-baby-pig.png');
+const GOOGLE_LOGO = require('@/assets/images/v2/logo-google.png');
+const APPLE_LOGO = require('@/assets/images/v2/logo-apple.png');
 const OAUTH_REDIRECT_PATH = '/oauth/callback';
 type OAuthProvider = 'google' | 'apple';
 const OAUTH_PROVIDER_LABEL: Record<OAuthProvider, string> = {
@@ -387,372 +380,193 @@ export default function OnboardingScreen() {
   }
 
   // After OAuth/passkey returns, Privy has a user but the backend session is
-  // still being reconciled (wallet + auth). Show a full-screen loader during
-  // that window so the sign-in UI doesn't flicker until navigation to home.
+  // still being reconciled (wallet + auth). Figma 03: a mesma composição da
+  // abertura, com o status "Entrando...", para a passagem abertura → login →
+  // entrada parecer um movimento só.
   const isRestoringSession = !!user && !isAuthenticated && !error;
 
   if (isRestoringSession) {
-    return (
-      <View style={styles.loadingScreen}>
-        <StarryBackground />
-        <View style={styles.brand}>
-          <Image
-            source={require('@/assets/images/PigFi-porquinho.png')}
-            style={styles.brandIcon}
-          />
-          <Text style={styles.brandText}>PigFi</Text>
-        </View>
-        <Image
-          source={require('@/assets/images/v2/mascote-smart-pig.png')}
-          style={styles.image}
-        />
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color="#fff" />
-          <Text style={styles.loadingText}>Entrando...</Text>
-        </View>
-      </View>
-    );
+    return <OpeningSplash animateIn={false} status="Entrando..." />;
   }
 
+  const busy = !canUsePrivy || loading !== null;
+
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior="padding"
-    >
+    <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingBottom: 26 + insets.bottom },
-        ]}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scroll}
         bounces={false}
+        showsVerticalScrollIndicator={false}
       >
-        <StarryBackground />
-        <View style={styles.content}>
-          <View style={styles.hero}>
-            <View style={styles.brand}>
-              <Image
-                source={require('@/assets/images/PigFi-porquinho.png')}
-                style={styles.brandIcon}
-              />
-              <Text style={styles.brandText}>PigFi</Text>
-            </View>
-            <Text style={styles.subtitle}>
-              Pequenos investimentos,{'\n'}
-              <Text style={styles.subtitleAccent}>um universo de possibilidades.</Text>
-            </Text>
+        {/* Figma 02: herói com brilho e estrelas, logo, mascote e slogan. */}
+        <View style={[styles.hero, { paddingTop: insets.top + 12 }]}>
+          <EntryBackdrop />
+          <Wordmark size={24} />
+          <View style={styles.mascotArea}>
+            <Image source={MASCOT} contentFit="contain" style={styles.mascot} />
           </View>
-
-          <Image
-            source={require('@/assets/images/v2/mascote-smart-pig.png')}
-            style={styles.image}
-          />
-
-          <View style={styles.actions}>
-            {authStatusMessage ? (
-              <Text style={styles.authStatusText}>{authStatusMessage}</Text>
-            ) : null}
-
-            <Pressable
-              onPress={() => handleOAuthLogin('google')}
-              disabled={!canUsePrivy || loading !== null}
-              style={({ pressed }) => [
-                styles.googleButtonShell,
-                pressed && loading === null && styles.btnPressed,
-                (!canUsePrivy || loading !== null) && styles.btnDisabled,
-              ]}
-            >
-              <LinearGradient
-                colors={['rgba(130, 58, 143, 0.92)', 'rgba(53, 70, 126, 0.92)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.googleButton}
-              >
-                <View style={styles.googleIconBox}>
-                  <FontAwesome name="google" size={18} color="#4285F4" />
-                </View>
-                <Text style={styles.googleButtonText} numberOfLines={1}>
-                  {loading === 'google' ? 'Conectando...' : 'Continuar com Google'}
-                </Text>
-                <View style={styles.googleButtonTrailing}>
-                  {loading === 'google' ? (
-                    <ActivityIndicator size="small" color="rgba(255,255,255,0.78)" />
-                  ) : (
-                    <MaterialIcons
-                      name="arrow-forward"
-                      size={20}
-                      color="rgba(255,255,255,0.62)"
-                    />
-                  )}
-                </View>
-              </LinearGradient>
-            </Pressable>
-
-            {Platform.OS === 'ios' ? (
-              <Pressable
-                onPress={() => handleOAuthLogin('apple')}
-                disabled={!canUsePrivy || loading !== null}
-                style={({ pressed }) => [
-                  styles.appleButtonShell,
-                  pressed && loading === null && styles.btnPressed,
-                  (!canUsePrivy || loading !== null) && styles.btnDisabled,
-                ]}
-              >
-                <View style={styles.appleButton}>
-                  <View style={styles.appleIconBox}>
-                    <FontAwesome name="apple" size={20} color="#fff" />
-                  </View>
-                  <Text style={styles.appleButtonText} numberOfLines={1}>
-                    {loading === 'apple' ? 'Conectando...' : 'Continuar com Apple'}
-                  </Text>
-                  <View style={styles.appleButtonTrailing}>
-                    {loading === 'apple' ? (
-                      <ActivityIndicator size="small" color="rgba(255,255,255,0.78)" />
-                    ) : (
-                      <MaterialIcons
-                        name="arrow-forward"
-                        size={20}
-                        color="rgba(255,255,255,0.62)"
-                      />
-                    )}
-                  </View>
-                </View>
-              </Pressable>
-            ) : null}
-
-            {SHOW_PASSKEY_LOGIN ? (
-              <Pressable
-                onPress={handleConnectPrivy}
-                disabled={!canUsePrivy || loading !== null}
-                style={[
-                  styles.authButton,
-                  styles.authButtonMuted,
-                  (!canUsePrivy || loading === 'passkey') && styles.btnDisabled,
-                ]}
-              >
-                <MaterialIcons name="fingerprint" size={22} color={Colors.foreground} />
-                <Text style={styles.authButtonText}>
-                  {loading === 'passkey' ? 'Conectando...' : 'Conectar com Passkey'}
-                </Text>
-                <MaterialIcons name="arrow-forward" size={20} color="rgba(255,255,255,0.52)" />
-              </Pressable>
-            ) : null}
-
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
-
-            <Text style={styles.termsText}>
-              Ao continuar, voce concorda com os <Text style={styles.termsLink}>Termos</Text> e a{'\n'}
-              <Text style={styles.termsLink}>Politica de Privacidade</Text> da PigFi.
+          <View style={styles.texts}>
+            <Text style={styles.slogan}>
+              {'Pequenos hábitos,\num '}
+              <Text style={{ color: BRAND_PURPLE }}>universo</Text>
+              {' de possibilidades'}
             </Text>
+            <Text style={styles.tagline}>Guarde em dólar, veja crescer.</Text>
           </View>
         </View>
+
+        <View style={styles.actions}>
+          {authStatusMessage ? (
+            <Text style={styles.statusText}>{authStatusMessage}</Text>
+          ) : null}
+
+          {/* Ordem do Figma: Google primeiro, Apple depois (só no iOS). */}
+          <Button3D
+            variant="glass"
+            label="Continuar com Google"
+            leading={<Image source={GOOGLE_LOGO} style={styles.logo} />}
+            onPress={() => handleOAuthLogin('google')}
+            disabled={busy && loading !== 'google'}
+            loading={loading === 'google'}
+            loadingLabel="Conectando..."
+          />
+
+          {Platform.OS === 'ios' ? (
+            <Button3D
+              variant="light"
+              label="Continuar com Apple"
+              leading={<Image source={APPLE_LOGO} style={styles.logo} />}
+              onPress={() => handleOAuthLogin('apple')}
+              disabled={busy && loading !== 'apple'}
+              loading={loading === 'apple'}
+              loadingLabel="Conectando..."
+            />
+          ) : null}
+
+          {SHOW_PASSKEY_LOGIN ? (
+            <Button3D
+              variant="glass"
+              icon="fingerprint"
+              label="Conectar com Passkey"
+              onPress={handleConnectPrivy}
+              disabled={busy && loading !== 'passkey'}
+              loading={loading === 'passkey'}
+              loadingLabel="Conectando..."
+            />
+          ) : null}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
+        </View>
+
+        <Text style={[styles.terms, { paddingBottom: insets.bottom + 24 }]}>
+          {'Ao continuar, você aceita os '}
+          <Text style={styles.termsStrong}>Termos de uso</Text>
+          {' e a '}
+          <Text style={styles.termsStrong}>Política de privacidade</Text>
+          {'.'}
+        </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingScreen: {
+  screen: {
     flex: 1,
-    backgroundColor: '#080113',
+    backgroundColor: V2Colors.background,
+  },
+  scroll: {
+    flexGrow: 1,
+  },
+  // Figma: o herói ocupa o espaço que sobra e termina em curva de 32.
+  hero: {
+    flex: 1,
+    minHeight: 460,
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    overflow: 'hidden',
+  },
+  mascotArea: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,
-    paddingHorizontal: 24,
+    alignSelf: 'stretch',
   },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  loadingText: { color: '#fff', fontSize: 16 },
-  container: {
-    flexGrow: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: Spacing[6],
-    paddingTop: 54,
+  // Figma: sombra 0 16 12 preta 45% embaixo do mascote.
+  mascot: {
+    width: 204,
+    height: 204,
+    filter: [{ dropShadow: { offsetX: 0, offsetY: 16, standardDeviation: 6, color: 'rgba(0,0,0,0.45)' } }],
   },
-  content: {
-    flex: 1,
-    minHeight: 720,
-    justifyContent: 'space-between',
-  },
-  hero: {
+  texts: {
     alignItems: 'center',
-    gap: Spacing[3],
-    zIndex: 10,
+    gap: 10,
   },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[2],
+  slogan: {
+    fontFamily: V2Font.black,
+    fontSize: 22,
+    lineHeight: 24.6,
+    letterSpacing: -0.66,
+    color: V2Colors.text,
+    textAlign: 'center',
   },
-  brandIcon: {
-    width: 34,
-    height: 34,
-    resizeMode: 'contain',
-  },
-  brandText: {
-    color: Colors.foreground,
-    fontSize: scaleFont(30),
-    fontFamily: Font.black,
-    fontWeight: '900',
-  },
-  image: {
-    width: '100%',
-    maxWidth: 360,
-    height: 365,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-    marginTop: Spacing[2],
+  tagline: {
+    fontFamily: V2Font.medium,
+    fontSize: 15,
+    lineHeight: 22,
+    color: V2Colors.textSecondary,
+    textAlign: 'center',
   },
   actions: {
+    gap: 12,
+    paddingTop: 24,
+    paddingHorizontal: 18,
     width: '100%',
-    gap: Spacing[3],
-    zIndex: 10,
+    maxWidth: 480,
+    alignSelf: 'center',
   },
-  authStatusText: {
-    color: Colors.mutedForeground,
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    lineHeight: 19,
+  logo: {
+    width: 24,
+    height: 24,
+  },
+  // Figma 02e: o aviso de login indisponível fica acima dos botões.
+  statusText: {
+    fontFamily: V2Font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: V2Colors.textTertiary,
     textAlign: 'center',
   },
-  subtitle: {
-    fontSize: FontSize.body,
-    color: 'rgba(255,255,255,0.82)',
-    textAlign: 'center',
-    lineHeight: 23,
-    fontFamily: Font.extraBold,
-    fontWeight: '800',
-  },
-  subtitleAccent: {
-    color: '#F15BD0',
-  },
-  googleButtonShell: {
-    width: '100%',
-    borderRadius: 14,
-    shadowColor: '#F15BD0',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  googleButton: {
-    height: 58,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  googleIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleButtonText: {
-    flex: 1,
-    paddingHorizontal: 8,
-    color: Colors.foreground,
-    fontSize: FontSize.body,
-    fontWeight: '800',
-    fontFamily: Font.extraBold,
-    textAlign: 'center',
-  },
-  googleButtonTrailing: {
-    width: 36,
-    height: 36,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  appleButtonShell: {
-    width: '100%',
-    borderRadius: 14,
-  },
-  appleButton: {
-    height: 58,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    backgroundColor: '#000',
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  appleIconBox: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleButtonText: {
-    flex: 1,
-    paddingHorizontal: 8,
-    color: '#fff',
-    fontSize: FontSize.body,
-    fontWeight: '800',
-    fontFamily: Font.extraBold,
-    textAlign: 'center',
-  },
-  appleButtonTrailing: {
-    width: 36,
-    height: 36,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  authButton: {
-    minHeight: 58,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.20)',
-    paddingHorizontal: Spacing[3],
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[3],
-  },
-  authButtonMuted: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  authButtonText: {
-    flex: 1,
-    color: Colors.foreground,
-    fontSize: FontSize.body,
-    fontWeight: '800',
-    fontFamily: Font.extraBold,
-  },
-  btnPressed: {
-    transform: [{ scale: 0.985 }],
-  },
-  btnDisabled: {
-    opacity: 0.55,
-  },
+  // Figma 02d: o erro fica abaixo dos botões.
   errorText: {
-    color: '#EF4444',
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
+    fontFamily: V2Font.medium,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: V2Colors.error,
+    textAlign: 'center',
   },
   debugText: {
-    color: Colors.mutedForeground,
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    lineHeight: 18,
-  },
-  termsText: {
-    color: 'rgba(255,255,255,0.34)',
-    fontSize: FontSize.label,
-    lineHeight: 18,
+    fontFamily: V2Font.medium,
+    fontSize: 11,
+    lineHeight: 16,
+    color: V2Colors.textTertiary,
     textAlign: 'center',
-    fontFamily: Font.semiBold,
-    fontWeight: '600',
-    marginTop: Spacing[1],
   },
-  termsLink: {
-    color: 'rgba(255,255,255,0.64)',
-    fontFamily: Font.bold,
-    fontWeight: '800',
+  terms: {
+    paddingTop: 18,
+    paddingHorizontal: 34,
+    fontFamily: V2Font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: V2Colors.textTertiary,
+    textAlign: 'center',
+  },
+  termsStrong: {
+    fontFamily: V2Font.semiBold,
+    color: V2Colors.textSecondary,
   },
 });
