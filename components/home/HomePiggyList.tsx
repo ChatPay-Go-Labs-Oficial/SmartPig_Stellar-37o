@@ -1,15 +1,18 @@
 import { memo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
-import { V2Colors, V2Font, V2PiggyTint, withAlpha } from '@/constants/theme-v2';
+import { V2Colors, V2Font, V2PiggyTint, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
-import { ListCard, NavChip, RADIAL_MASK, V2Icon } from '@/components/v2';
+import { AssetIcon, ListCard, NavChip, RADIAL_MASK, V2Icon } from '@/components/v2';
 import type { TermKey } from '@/lib/copy/terms';
 import { formatPositiveApy, formatVaultNameForMode } from '@/lib/utils/format';
 import { formatPiggyAmount, splitAmount, type Piggy } from '@/lib/utils/piggy';
 
 const MASCOT = require('@/assets/images/v2/mascote-baby-pig.png');
+/** Selo da moeda no canto do quadro do mascote: logo de 16 com anel de 2. */
+const COIN_SIZE = 16;
+const COIN_RING = 2;
 
 interface HomePiggyListProps {
   /** null enquanto vaults e portfólio não chegaram. */
@@ -77,15 +80,18 @@ const PiggyRow = memo(function PiggyRow({ piggy, tint, onPress }: PiggyRowProps)
   const name = piggy.asset
     ? t(`guardar.piggy.${piggy.asset}.name` as TermKey)
     : formatVaultNameForMode(piggy.vault.name, mode);
+  // A moeda, como na pílula da Guardar: código no Pro (USDC, EURC, XLM),
+  // nome no Lite (Dólar, Euro, Criptomoeda).
+  const coin = piggy.asset ? t(`carteira.asset.${piggy.asset}.name` as TermKey) : piggy.vault.assetSymbol;
 
   // Lite mostra a quantidade com o símbolo da moeda ("$250.0482137",
-  // "€40.0000000"); Pro, a quantidade e o código do ativo.
+  // "€40.0000000"); Pro, só a quantidade — o código já está na etiqueta.
   let detail: string;
   if (!piggy.balanceKnown) detail = '—';
   else if (!piggy.hasBalance) detail = t('home.piggy.empty');
   else if (isPro) {
     const { integer, fraction } = splitAmount(piggy.amount);
-    detail = `${integer}${fraction} ${piggy.vault.assetSymbol}`;
+    detail = `${integer}${fraction}`;
   } else detail = formatPiggyAmount(piggy);
 
   const apy = formatPositiveApy(piggy.vault.apy);
@@ -95,20 +101,43 @@ const PiggyRow = memo(function PiggyRow({ piggy, tint, onPress }: PiggyRowProps)
       onPress={() => onPress(piggy.vault.id)}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${detail}${apy ? `, rende ${apy} ao ano` : ''}`}
+      accessibilityLabel={`${name}, ${coin}, ${detail}${apy ? `, rende ${apy} ao ano` : ''}`}
     >
-      <View style={[styles.aura, { borderColor: withAlpha(tint, 0.4) }]}>
-        <Image source={RADIAL_MASK} tintColor={tint} contentFit="fill" style={styles.auraGlow} />
-        <Image source={MASCOT} contentFit="contain" style={styles.mascot} />
+      <View>
+        <View style={[styles.aura, { borderColor: withAlpha(tint, 0.4) }]}>
+          <Image source={RADIAL_MASK} tintColor={tint} contentFit="fill" style={styles.auraGlow} />
+          <Image source={MASCOT} contentFit="contain" style={styles.mascot} />
+        </View>
+        {/* Selo da moeda do porquinho, como na pílula da Guardar. Fora do
+            quadro, que corta o que vaza. O anel repete o fundo do cartão
+            (fundo da tela + superfície) para destacar o selo do quadro. */}
+        {piggy.asset && (
+          <View style={styles.coinBadge}>
+            <View style={styles.coinRing}>
+              <AssetIcon asset={piggy.asset} size={COIN_SIZE} round />
+            </View>
+          </View>
+        )}
       </View>
 
       <View style={styles.texts}>
         <Text style={styles.name} numberOfLines={1}>
           {name}
         </Text>
-        <Text style={styles.detail} numberOfLines={1}>
-          {detail}
-        </Text>
+        {/* A moeda abre a linha de baixo: ao lado do nome, dividia a linha
+            com o selo de rendimento e cortava os nomes. */}
+        <View style={styles.detailRow}>
+          {coin ? (
+            <View style={styles.coinTag}>
+              <Text style={styles.coinTagText} numberOfLines={1}>
+                {coin}
+              </Text>
+            </View>
+          ) : null}
+          <Text style={styles.detail} numberOfLines={1}>
+            {detail}
+          </Text>
+        </View>
       </View>
 
       {apy && (
@@ -190,6 +219,18 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
   },
+  coinBadge: {
+    position: 'absolute',
+    right: -5,
+    bottom: -5,
+    borderRadius: COIN_SIZE / 2 + COIN_RING,
+    backgroundColor: V2Colors.background,
+  },
+  coinRing: {
+    padding: COIN_RING,
+    borderRadius: COIN_SIZE / 2 + COIN_RING,
+    backgroundColor: V2Colors.surface,
+  },
   texts: {
     flex: 1,
     minWidth: 0,
@@ -200,7 +241,28 @@ const styles = StyleSheet.create({
     fontSize: 15.5,
     color: V2Colors.text,
   },
+  // Etiqueta da moeda: a pílula da Guardar em tamanho de linha de lista.
+  coinTag: {
+    flexShrink: 0,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: V2Radius.full,
+    borderWidth: 1,
+    borderColor: V2Colors.chipBorder,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  coinTagText: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 10.5,
+    color: V2Colors.textSecondary,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   detail: {
+    flexShrink: 1,
     fontFamily: V2Font.medium,
     fontSize: 13,
     color: V2Colors.textTertiary,
