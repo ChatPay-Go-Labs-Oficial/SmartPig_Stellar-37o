@@ -8,6 +8,7 @@ interface AuthState {
   contractId: string | null;
   isAuthenticated: boolean;
   isActivated: boolean;
+  /** Último nível do porquinho visto, por carteira: o id de constants/pig-levels. */
   lastSeenPigLevelByWallet: Record<string, string>;
   _hydrated: boolean;
   setAuth: (contractId: string) => void;

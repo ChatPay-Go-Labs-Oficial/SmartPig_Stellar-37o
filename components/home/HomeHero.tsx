@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { V2Font } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { RADIAL_MASK, V2Icon } from '@/components/v2';
-import type { LevelProgress } from './pig-levels';
+import { groupThousands, type LevelProgress } from '@/constants/pig-levels';
 
 /** Valor do topo em dois trechos: "$250" + ".0482137", ou "≈ $296" + ".55". */
 export interface HeroAmount {
@@ -38,9 +38,6 @@ function amountSizes(integer: string) {
 }
 
 const MASCOT_SLOT = 128;
-
-const groupThousands =(value: number) =>
-  Math.trunc(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 /**
  * Cabeçalho da Home (Figma "Home · Tela", quadro "herói"): o total guardado,
@@ -171,7 +168,7 @@ function HomeHeroView({
             accessibilityLabel={`${level.current.label}. Ver a evolução do porquinho`}
           >
             <Image
-              source={mascot.source}
+              source={level.current.art}
               contentFit="contain"
               style={[
                 styles.mascot,

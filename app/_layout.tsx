@@ -241,7 +241,10 @@ export default function RootLayout() {
               <Stack.Screen name="(etherfuse-onboarding)" />
               <Stack.Screen name="(blindpay-onboarding)" />
               <Stack.Screen name="education" />
-              <Stack.Screen name="pigs" />
+              {/* Evolução do porquinho: uma cópia só na pilha. Toques repetidos
+                  no mascote da Home empilhavam várias, e o "voltar" precisava de
+                  um toque por cópia. Com singular, o push vai para a que já existe. */}
+              <Stack.Screen name="pigs" dangerouslySingular />
             </Stack>
           </ThemeProvider>
           <StatusBar style="light" />
@@ -425,11 +428,15 @@ function AppGate() {
       setBiometricLocked(false);
       setBiometricMessage("");
       initialPromptScheduledRef.current = false;
-      router.replace("/(tabs)");
+      // dismissTo, não replace: com `anchor: "(tabs)"` as abas já estão no
+      // fundo da pilha, embaixo do (auth). O replace trocava o (auth) por uma
+      // segunda cópia das abas (duas Homes vivas: tudo em dobro, inclusive a
+      // animação de nível). O dismissTo volta até a cópia que já existe.
+      router.dismissTo("/(tabs)");
       requestAnimationFrame(() => setSplashDone(true));
     } else if (!biometricLocked) {
       // Já navegou por baixo do cadeado: navegar de novo remontaria as abas.
-      if (!navigatedUnderLockRef.current) router.replace("/(tabs)");
+      if (!navigatedUnderLockRef.current) router.dismissTo("/(tabs)");
       navigatedUnderLockRef.current = false;
       requestAnimationFrame(() => setSplashDone(true));
     } else {
@@ -438,7 +445,7 @@ function AppGate() {
       // abertura do app, que piscava enquanto as abas entravam em fade.
       if (hasPrivyUser && !navigatedUnderLockRef.current) {
         navigatedUnderLockRef.current = true;
-        router.replace("/(tabs)");
+        router.dismissTo("/(tabs)");
       }
       requestAnimationFrame(() => setSplashDone(true));
     }

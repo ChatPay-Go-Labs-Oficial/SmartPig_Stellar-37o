@@ -135,7 +135,8 @@ const PiggyRow = memo(function PiggyRow({ vault, asset, tint, assetName, positio
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/(tabs)/vaults', params: { vault: vault.id } })}
+      // navigate, não push: troca de aba sem criar outra cópia (ver Home).
+      onPress={() => router.navigate({ pathname: '/(tabs)/vaults', params: { vault: vault.id } })}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${assetName}, ${value}${yieldText ? `, rende ${yieldText}` : ''}`}

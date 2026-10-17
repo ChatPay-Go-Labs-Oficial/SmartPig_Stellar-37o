@@ -202,7 +202,9 @@ export default function OnboardingScreen() {
       setIsActivated(true);
     }
 
-    router.replace('/(tabs)');
+    // As abas ficam no fundo da pilha (anchor): voltar até elas, sem criar
+    // uma segunda cópia (ver app/_layout.tsx).
+    router.dismissTo('/(tabs)');
 
     if (activationMsg) {
       setTimeout(() => {
@@ -401,7 +403,7 @@ export default function OnboardingScreen() {
           <Text style={styles.brandText}>PigFi</Text>
         </View>
         <Image
-          source={require('@/assets/images/pig1.png')}
+          source={require('@/assets/images/v2/mascote-smart-pig.png')}
           style={styles.image}
         />
         <View style={styles.loadingRow}>
@@ -442,7 +444,7 @@ export default function OnboardingScreen() {
           </View>
 
           <Image
-            source={require('@/assets/images/pig1.png')}
+            source={require('@/assets/images/v2/mascote-smart-pig.png')}
             style={styles.image}
           />
 

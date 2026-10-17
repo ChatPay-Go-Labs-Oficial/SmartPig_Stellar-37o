@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   Image,
   Pressable,
@@ -28,7 +28,6 @@ import {
   MonoText,
   TransferModal,
   MyGiftsModal,
-  getPigLevel,
 } from "@/components/ui";
 import {
   useAppMode,
@@ -46,19 +45,12 @@ import { useKycStatus } from "@/lib/queries/blindpay.queries";
 import type { KycStatusResponse } from "@/lib/api/blindpay";
 import { KycStatusBadge } from "@/components/ui/KycStatusBadge";
 import { useWalletBalance } from "@/lib/queries/wallets.queries";
-import { usePortfolioSummary } from "@/lib/queries/portfolio.queries";
-import { portfolioPositionUsdValue } from "@/lib/utils/portfolio";
+import { useInvestedTotal } from "@/hooks/use-invested-total";
+import { levelProgress } from "@/constants/pig-levels";
 import { usePrivy } from "@privy-io/expo";
 import { attemptActivation, findUsdcBalance } from "@/lib/api/wallets";
 import * as Clipboard from "expo-clipboard";
 
-const PIG_IMAGES: Record<string, any> = {
-  "Porquinho Bebê": require("@/assets/images/pig_babe.png"),
-  "Porquinho Esperto": require("@/assets/images/pig1.png"),
-  "Porquinho Forte": require("@/assets/images/pig-muscle.png"),
-  "Porquinho Dourado": require("@/assets/images/pig-gold.png"),
-  "Porquinho Rei": require("@/assets/images/pig-king.png"),
-};
 /**
  * Texto de apoio do card de KYC. A mensagem da rejeição vem da BlindPay em
  * inglês; exibimos verbatim porque é instrução específica do compliance sobre
@@ -97,14 +89,9 @@ export default function ProfileScreen() {
   const { data: balances } = useWalletBalance(walletAddress);
   const usdcBalance = balances ? findUsdcBalance(balances) : null;
 
-  const { data: portfolio } = usePortfolioSummary(!!walletAddress);
-  const totalInvested = useMemo(() => {
-    return (portfolio?.positions ?? []).reduce(
-      (total, position) => total + (portfolioPositionUsdValue(position) ?? 0),
-      0,
-    );
-  }, [portfolio]);
-  const pigLevel = getPigLevel(totalInvested);
+  // Mesmo total e mesmo nível da Home e da Evolução do porquinho.
+  const { totalUsd: totalInvested } = useInvestedTotal();
+  const pigLevel = levelProgress(totalInvested).current;
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -202,9 +189,7 @@ export default function ProfileScreen() {
         >
           <View style={styles.avatarContainer}>
             <Image
-              source={
-                PIG_IMAGES[pigLevel.label] ?? PIG_IMAGES["Porquinho Bebê"]
-              }
+              source={pigLevel.art}
               style={styles.avatarImage}
               resizeMode="contain"
             />

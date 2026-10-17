@@ -1,24 +1,18 @@
-import { LevelUpAnimation } from "@/components/ui";
 import { HomeHero, type HeroAmount } from "@/components/home/HomeHero";
 import { HomePiggyList } from "@/components/home/HomePiggyList";
 import { WalletSummaryCard } from "@/components/home/WalletSummaryCard";
 import { WithdrawAllFlow } from "@/components/home/WithdrawAllFlow";
-import { PIG_LEVELS, levelProgress, type PigLevel } from "@/components/home/pig-levels";
+import { LevelChangeModal } from "@/components/home/LevelChangeModal";
+import { PIG_LEVELS, levelProgress, type PigLevel } from "@/constants/pig-levels";
 import { V2Colors, V2Layout } from "@/constants/theme-v2";
-import { useVaults } from "@/lib/queries/vaults.queries";
-import { usePortfolioSummary } from "@/lib/queries/portfolio.queries";
 import { useAccent } from "@/hooks/use-accent";
 import { useTerms } from "@/hooks/use-terms";
 import { useScreenInsets } from "@/hooks/use-screen-insets";
 import { useVaultAccess } from "@/hooks/use-vault-access";
 import { useLiveAmount } from "@/hooks/use-live-amount";
 import { useWalletTotal } from "@/hooks/use-wallet-total";
-import { apyNumber } from "@/lib/utils/live-amount";
+import { useInvestedTotal } from "@/hooks/use-invested-total";
 import { buildPiggies } from "@/lib/utils/piggy";
-import {
-  portfolioPositionUsdValue,
-  positionUsesMarketPrice,
-} from "@/lib/utils/portfolio";
 import { useAppLockStore } from "@/lib/stores/app-lock.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useSound } from "@/hooks/use-sound";
@@ -65,58 +59,20 @@ export default function HomeScreen() {
   const { t } = useTerms();
   const screenInsets = useScreenInsets();
   const { canAccessVaultAsset } = useVaultAccess();
-  const vaultsQuery = useVaults();
+  const invested = useInvestedTotal();
+  const { vaultsQuery, portfolioQuery, valuationUnavailable, usesMarketPricing } = invested;
   const vaults = vaultsQuery.data;
+  const portfolioSummary = portfolioQuery.data;
+  const displayedPortfolioSummary = invested.summary;
+  const balancesReady = invested.ready;
+  const totalInvested = invested.totalUsd;
+  const investedApy = invested.apy;
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const lastSeenPigLevel = useAuthStore((s) =>
     walletAddress ? s.lastSeenPigLevelByWallet[walletAddress] : undefined,
   );
   const setLastSeenPigLevel = useAuthStore((s) => s.setLastSeenPigLevel);
   const appLocked = useAppLockStore((s) => s.locked);
-  const portfolioQuery = usePortfolioSummary(!!walletAddress);
-  const portfolioSummary = portfolioQuery.data;
-
-  // O hook compartilhado não promove respostas parciais sobre a última
-  // fotografia completa. Se a primeira leitura da sessão já falhar, ainda
-  // não existe um número confiável para mostrar.
-  const displayedPortfolioSummary =
-    portfolioSummary?.totalUsd !== null ? portfolioSummary : undefined;
-  const balancesReady = !!displayedPortfolioSummary;
-
-  const visiblePositions = useMemo(
-    () =>
-      (displayedPortfolioSummary?.positions ?? []).filter((position) =>
-        canAccessVaultAsset(position.assetSymbol),
-      ),
-    [canAccessVaultAsset, displayedPortfolioSummary],
-  );
-  const valuationUnavailable =
-    !displayedPortfolioSummary ||
-    visiblePositions.some((position) => portfolioPositionUsdValue(position) === null);
-  const usesMarketPricing = visiblePositions.some(positionUsesMarketPrice);
-
-  const totalInvested = useMemo(() => {
-    return visiblePositions.reduce((total, position) => {
-      const value = portfolioPositionUsdValue(position);
-      return value === null ? total : total + value;
-    }, 0);
-  }, [visiblePositions]);
-
-  // Rendimento do total investido: a média das taxas, pesada pelo valor de
-  // cada porquinho em dólar (sem taxa, como o de cripto hoje, conta zero).
-  // Arredondada: com um porquinho só, dá exatamente a taxa dele.
-  const investedApy = useMemo(() => {
-    const apyByVault = new Map((vaults ?? []).map((vault) => [vault.id, apyNumber(vault.apy)]));
-    let weighted = 0;
-    let sum = 0;
-    for (const position of visiblePositions) {
-      const value = portfolioPositionUsdValue(position);
-      if (value === null || value <= 0) continue;
-      weighted += value * (apyByVault.get(position.vaultId) ?? 0);
-      sum += value;
-    }
-    return sum > 0 ? Math.round((weighted / sum) * 1e6) / 1e6 : null;
-  }, [vaults, visiblePositions]);
 
   // As casas andam com o rendimento entre uma leitura e outra (só na Home).
   const liveInvested = useLiveAmount(
@@ -145,7 +101,7 @@ export default function HomeScreen() {
   const { sacar } = useLocalSearchParams<{ sacar?: string }>();
 
   const level = levelProgress(totalInvested);
-  const levelLabel = level.current.label;
+  const levelId = level.current.id;
 
   const [refreshing, setRefreshing] = useState(false);
   const [displayBalance, setDisplayBalance] = useState(0);
@@ -164,19 +120,22 @@ export default function HomeScreen() {
     // antes, o Modal da animação seria descartado pelo iOS sem aparecer.
     if (!balancesReady || !walletAddress || appLocked) return;
 
-    const label = levelLabel;
+    // O aparelho guarda o id do nível (não o nome, que já mudou). Um valor
+    // antigo, gravado como nome ("Porquinho Rei" era o 5º nível), não bate
+    // com nenhum id: grava o nível atual sem animação, em vez de mostrar uma
+    // evolução que não aconteceu.
     if (!lastSeenPigLevel) {
-      setLastSeenPigLevel(walletAddress, label);
+      setLastSeenPigLevel(walletAddress, levelId);
       return;
     }
 
-    if (lastSeenPigLevel === label) return;
+    if (lastSeenPigLevel === levelId) return;
 
-    const oldIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.label === lastSeenPigLevel);
-    const newIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.label === label);
+    const oldIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.id === lastSeenPigLevel);
+    const newIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.id === levelId);
 
     // Persist before opening the modal so remounting the screen cannot replay it.
-    setLastSeenPigLevel(walletAddress, label);
+    setLastSeenPigLevel(walletAddress, levelId);
 
     if (oldIdx < 0 || newIdx < 0) return;
 
@@ -188,7 +147,7 @@ export default function HomeScreen() {
     appLocked,
     balancesReady,
     lastSeenPigLevel,
-    levelLabel,
+    levelId,
     setLastSeenPigLevel,
     walletAddress,
   ]);
@@ -247,10 +206,13 @@ export default function HomeScreen() {
     toggleMute();
   }, [playClick, toggleMute]);
   const openPigs = useCallback(() => router.push("/pigs"), []);
-  const openWallet = useCallback(() => router.push("/(tabs)/wallet"), []);
-  const openGuardar = useCallback(() => router.push("/(tabs)/vaults"), []);
+  // Troca de aba é navigate, nunca push: o push não é tratado pelas abas,
+  // sobe para a pilha raiz e abre uma segunda cópia (toque duplo = duas telas).
+  const openWallet = useCallback(() => router.navigate("/(tabs)/wallet"), []);
+  const openGuardar = useCallback(() => router.navigate("/(tabs)/vaults"), []);
+  const closeLevelChange = useCallback(() => setLevelUpModalVisible(false), []);
   const openPiggy = useCallback(
-    (vaultId: string) => router.push({ pathname: "/(tabs)/vaults", params: { vault: vaultId } }),
+    (vaultId: string) => router.navigate({ pathname: "/(tabs)/vaults", params: { vault: vaultId } }),
     [],
   );
 
@@ -324,12 +286,12 @@ export default function HomeScreen() {
         underlyingBalance={String(parseFloat(firstPosition?.amountAsset ?? "0") || 0)}
         walletUsdc={walletUsdc}
       />
-      <LevelUpAnimation
+      <LevelChangeModal
         visible={levelUpModalVisible}
-        oldLevel={oldLevelForAnim}
-        newLevel={newLevelForAnim}
+        from={oldLevelForAnim}
+        to={newLevelForAnim}
         direction={levelDirection}
-        onClose={() => setLevelUpModalVisible(false)}
+        onClose={closeLevelChange}
         onDeposit={openGuardar}
       />
     </View>

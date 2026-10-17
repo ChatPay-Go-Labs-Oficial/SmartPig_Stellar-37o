@@ -20,6 +20,7 @@ const FEATHER = {
   info: 'info',
   'chevron-right': 'chevron-right',
   'chevron-left': 'chevron-left',
+  'chevron-down': 'chevron-down',
   lock: 'lock',
   x: 'x',
   gift: 'gift',
@@ -45,6 +46,8 @@ const COMMUNITY = {
   shield: 'shield-check-outline',
   // Lucide "coins": duas moedas sobrepostas.
   coins: 'circle-multiple-outline',
+  // Lucide "sparkles" (estrela de quatro pontas): selo "Novo nível" e "Que legal!".
+  sparkles: 'star-four-points-outline',
 } as const;
 
 const MATERIAL = {
