@@ -9,9 +9,9 @@ let attemptedThisSession = false;
 
 /**
  * On app open, if the wallet is marked not-activated locally, re-checks with
- * the backend and retries activation once. Mirrors profile.tsx's manual
- * "ativar conta" retry, but runs silently — failures only surface via the
- * existing "Conta não ativada" chip in Profile, no alert.
+ * the backend and retries activation once. Mirrors the Wallet's manual
+ * "Ativar" retry, but runs silently — failures only surface via the
+ * "Conta não ativada" line in the Wallet balance card, no alert.
  */
 export function useAutoWalletActivation() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -37,7 +37,7 @@ export function useAutoWalletActivation() {
         if (result.success) setIsActivated(true);
       })
       .catch(() => {
-        // Silent — chip in Profile still reflects the pending state.
+        // Silent — the Wallet balance card still reflects the pending state.
       });
   }, [contractId, isActivated, isAuthenticated, setIsActivated, walletAccountId, walletAddress]);
 }

@@ -9,7 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { V2Colors, V2Font, V2Layout, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
@@ -28,8 +28,11 @@ import { WalletAssetRow } from '@/components/wallet/WalletAssetRow';
 import { WalletPiggyList } from '@/components/wallet/WalletPiggyList';
 import { SwapSheet } from '@/components/wallet/SwapSheet';
 import { SwapSoonSheet } from '@/components/wallet/SwapSoonSheet';
-import { BlindPayOnrampModal, BlindPayOfframpModal, GiftModal, TransferModal } from '@/components/ui';
+import { MyGiftsSheet } from '@/components/wallet/MyGiftsSheet';
+import { BlindPayOnrampModal, BlindPayOfframpModal, TransferModal } from '@/components/ui';
+import { GiftSendSheet } from '@/components/gifts/GiftSendSheet';
 import { useGiftEligibility } from '@/lib/queries/gifts.queries';
+import { attemptActivation } from '@/lib/api/wallets';
 
 type PixAction = 'deposit' | 'withdraw';
 type WalletSegment = 'coins' | 'piggies';
@@ -61,6 +64,9 @@ export default function WalletScreen() {
   const isFocused = useIsFocused();
   const walletAddress = useAuthStore((s) => s.walletAddress);
   const walletAccountId = useAuthStore((s) => s.walletAccountId);
+  const contractId = useAuthStore((s) => s.contractId);
+  const isActivated = useAuthStore((s) => s.isActivated);
+  const setIsActivated = useAuthStore((s) => s.setIsActivated);
 
   const wallet = useWalletTotal(walletAddress);
   const { assetsQuery, assets, prices, totalUsd } = wallet;
@@ -75,7 +81,35 @@ export default function WalletScreen() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
+  const [giftsOpen, setGiftsOpen] = useState(false);
   const { data: giftEligibility } = useGiftEligibility();
+
+  // ?gifts=1 abre Meus presentes direto (bloqueio "presente" da exclusão de
+  // conta, Figma 29i). O parâmetro sai em seguida, para não reabrir sozinho.
+  const { gifts: giftsParam } = useLocalSearchParams<{ gifts?: string }>();
+  useEffect(() => {
+    if (!giftsParam) return;
+    setGiftsOpen(true);
+    router.setParams({ gifts: undefined });
+  }, [giftsParam]);
+
+  // Conta não ativada na rede (Figma 17i/17j). A tentativa automática da
+  // abertura do app é silenciosa (useAutoWalletActivation); esta é a manual.
+  const [activating, setActivating] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
+  const handleActivate = useCallback(async () => {
+    if (activating || !walletAddress || !walletAccountId || !contractId) return;
+    setActivating(true);
+    setActivationError(null);
+    const result = await attemptActivation({
+      userId: contractId,
+      walletAccountId,
+      stellarAddress: walletAddress,
+    });
+    if (result.success) setIsActivated(true);
+    else setActivationError(t('wallet.activate.fail') + result.error);
+    setActivating(false);
+  }, [activating, walletAddress, walletAccountId, contractId, setIsActivated, t]);
   const [refreshing, setRefreshing] = useState(false);
 
   // Depositar e Sacar via Pix passam pelo mesmo crivo de cadastro/KYC do
@@ -107,6 +141,7 @@ export default function WalletScreen() {
   const handleSend = useCallback(() => setTransferOpen(true), []);
   const handleHistory = useCallback(() => router.push('/(tabs)/wallet/history'), []);
   const handleGift = useCallback(() => setGiftOpen(true), []);
+  const handleGifts = useCallback(() => setGiftsOpen(true), []);
   const refetchPortfolio = portfolioQuery.refetch;
   const refetchVaults = vaultsQuery.refetch;
   const retryPiggies = useCallback(() => {
@@ -180,7 +215,10 @@ export default function WalletScreen() {
               amountUsd={totalUsd}
               estimated={wallet.estimated}
               address={walletAddress}
-              onGift={giftEligibility?.canGift ? handleGift : undefined}
+              onGifts={handleGifts}
+              activation={isActivated ? 'active' : activating ? 'activating' : 'inactive'}
+              onActivate={handleActivate}
+              activationError={activationError}
             />
 
             <View style={styles.actions}>
@@ -265,7 +303,12 @@ export default function WalletScreen() {
         onClose={() => setOfframpOpen(false)}
       />
       <TransferModal visible={transferOpen} onClose={() => setTransferOpen(false)} />
-      <GiftModal visible={giftOpen} onClose={() => setGiftOpen(false)} />
+      <MyGiftsSheet
+        visible={giftsOpen}
+        onClose={() => setGiftsOpen(false)}
+        onSendGift={giftEligibility?.canGift ? handleGift : undefined}
+      />
+      <GiftSendSheet visible={giftOpen} onClose={() => setGiftOpen(false)} />
       {isPro ? (
         <SwapSheet
           visible={swapSheetOpen}

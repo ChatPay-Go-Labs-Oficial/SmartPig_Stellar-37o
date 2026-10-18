@@ -73,7 +73,8 @@ import {
   View,
 } from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
-import { GiftClaimGate, VersionGate } from "@/components/ui";
+import { VersionGate } from "@/components/ui";
+import { GiftClaimGate } from "@/components/gifts/GiftClaimGate";
 
 setAudioModeAsync({
   playsInSilentMode: true,
@@ -283,7 +284,6 @@ export default function RootLayout() {
                     animation: "slide_from_right",
                   }}
                 />
-                <Stack.Screen name="account/index" options={{ animation: "fade" }} />
                 <Stack.Screen name="(etherfuse-onboarding)" />
                 <Stack.Screen name="(blindpay-onboarding)" />
                 <Stack.Screen name="education" />

@@ -182,6 +182,7 @@ export default function OnboardingScreen() {
   const setWalletAddress = useAuthStore((s) => s.setWalletAddress);
   const setWalletAccountId = useAuthStore((s) => s.setWalletAccountId);
   const setIsActivated = useAuthStore((s) => s.setIsActivated);
+  const setAccountCreatedAt = useAuthStore((s) => s.setAccountCreatedAt);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const authPromiseRef = useRef<Promise<void> | null>(null);
   const reconciledUserIdRef = useRef<string | null>(null);
@@ -231,6 +232,7 @@ export default function OnboardingScreen() {
     const { user: backendUser, wallet, needsActivation } = loginResult;
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
+    setAccountCreatedAt(backendUser.createdAt ?? null);
 
     // Ainda no "Entrando...": a Home chegava vazia, com "Cotação
     // temporariamente indisponível", até as primeiras leituras voltarem. A
@@ -303,6 +305,7 @@ export default function OnboardingScreen() {
   }, [
     createWallet,
     queryClient,
+    setAccountCreatedAt,
     setAuth,
     setIsActivated,
     setWalletAccountId,

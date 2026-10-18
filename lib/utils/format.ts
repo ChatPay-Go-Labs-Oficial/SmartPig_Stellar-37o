@@ -39,7 +39,8 @@ export function formatAmountForMode(
  * Valor que está no caminho da exclusão da conta.
  *
  * Duas casas nos dois modos. As sete casas do Pro existem para conferir saldo;
- * aqui o número serve para decidir o que fazer com ele, e o resto é ruído.
+ * aqui o número serve para decidir o que fazer com ele, e o resto é ruído. No
+ * Lite o número segue o dólar do V2 ("$1,250.00"); o símbolo vem na frase.
  */
 export function formatBlockingAmount(
   raw: string | null | undefined,
@@ -49,8 +50,8 @@ export function formatBlockingAmount(
   if (mode === "pro") return truncated;
 
   const n = parseFloat(truncated);
-  if (Number.isNaN(n)) return "0,00";
-  return new Intl.NumberFormat("pt-BR", {
+  if (Number.isNaN(n)) return "0.00";
+  return new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n);
@@ -64,21 +65,16 @@ const RESIDUAL_DECIMALS = 4;
  *
  * Duas casas exibiriam sempre zero, já que o valor é sempre menor que o limite
  * de poeira. Mostra até quatro, sem zeros à direita e nunca menos que duas. O
- * que não couber em quatro vira "menor que", em vez de virar zero.
+ * que não couber em quatro vira "menor que", em vez de virar zero. Igual nos
+ * dois modos, com ponto, como o dólar do V2.
  */
-export function formatResidualAmount(
-  raw: string | null | undefined,
-  mode: AppMode,
-): string {
-  const separator = (value: string) =>
-    mode === "pro" ? value : value.replace(".", ",");
-
+export function formatResidualAmount(raw: string | null | undefined): string {
   const truncated = truncateDecimalString(raw ?? "0", RESIDUAL_DECIMALS);
   if (Number(truncated) === 0 && Number(raw ?? 0) > 0) {
-    return separator(`< 0.${"0".repeat(RESIDUAL_DECIMALS - 1)}1`);
+    return `< 0.${"0".repeat(RESIDUAL_DECIMALS - 1)}1`;
   }
 
-  return separator(truncated.replace(/(.d{2}d*?)0+$/, "$1"));
+  return truncated.replace(/(\.\d{2}\d*?)0+$/, "$1");
 }
 
 /**
@@ -181,4 +177,14 @@ export function formatWalletUsd(value: number | string): string {
 export function shortAddress(address: string, edge = 4): string {
   if (address.length <= edge * 2 + 1) return address;
   return `${address.slice(0, edge)}…${address.slice(-edge)}`;
+}
+
+const MONTHS_SHORT = ["jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."];
+
+/** "set. 2026" (Perfil: "desde set. 2026"). null com data ausente ou inválida. */
+export function formatMonthYear(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${MONTHS_SHORT[date.getMonth()]} ${date.getFullYear()}`;
 }

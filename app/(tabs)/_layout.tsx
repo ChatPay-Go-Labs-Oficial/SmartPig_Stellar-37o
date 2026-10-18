@@ -12,7 +12,7 @@ const TABS: readonly TabBarItem[] = [
 ];
 
 // Abas já migradas para o V2 (fundo V2Colors.background). Sai quando todas forem.
-const V2_ROUTES: ReadonlySet<string> = new Set(['vaults', 'wallet']);
+const V2_ROUTES: ReadonlySet<string> = new Set(['vaults', 'wallet', 'profile']);
 
 export default function TabLayout() {
   useAutoWalletActivation();
