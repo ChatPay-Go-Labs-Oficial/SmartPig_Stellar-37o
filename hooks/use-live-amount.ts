@@ -2,6 +2,7 @@ import { useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore 
 import { AppState } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
 import { fromUnits } from '@/lib/utils/piggy';
+import { useAppLockStore } from '@/lib/stores/app-lock.store';
 import {
   clockNow,
   floorFor,
@@ -19,9 +20,9 @@ const noSubscribe = () => () => {};
  * A quantidade crescendo pelo APY, com 7 casas ("771.8263012"). Sem APY ou
  * sem saldo, devolve a quantidade como veio.
  *
- * Só anda com o app em primeiro plano e a tela em foco (as abas ficam
- * montadas: sem isso, toda aba visitada seguiria contando por trás). O
- * componente só redesenha quando o texto muda.
+ * Só anda com o app em primeiro plano, a tela em foco (as abas ficam
+ * montadas: sem isso, toda aba visitada seguiria contando por trás) e nada do
+ * gate por cima. O componente só redesenha quando o texto muda.
  */
 export function useLiveAmount(amount: string, apyPercent: number | null | undefined): string {
   const growth = useMemo(() => makeGrowth(amount, apyPercent ?? null), [amount, apyPercent]);
@@ -65,8 +66,13 @@ export function useLiveAmount(amount: string, apyPercent: number | null | undefi
   return fromUnits(value);
 }
 
-/** App em primeiro plano e, dentro de uma navegação, a tela em foco. */
+/**
+ * App em primeiro plano, sem o gate cobrindo (abertura, cadeado) e, dentro de
+ * uma navegação, a tela em foco. A home monta por baixo da abertura: contando
+ * ali, redesenhava 10 vezes por segundo enquanto a abertura animava.
+ */
 function useActive(): boolean {
+  const locked = useAppLockStore((s) => s.locked);
   const navigation = useContext(NavigationContext);
   const [focused, setFocused] = useState(() => navigation?.isFocused() ?? true);
   const [foreground, setForeground] = useState(() => AppState.currentState === 'active');
@@ -87,5 +93,5 @@ function useActive(): boolean {
     return () => subscription.remove();
   }, []);
 
-  return focused && foreground;
+  return focused && foreground && !locked;
 }

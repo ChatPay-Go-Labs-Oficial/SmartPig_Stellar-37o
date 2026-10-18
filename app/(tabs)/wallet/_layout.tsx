@@ -22,8 +22,10 @@ export default function WalletLayout() {
           "piscada"). Como camada transparente, a Carteira continua montada
           por baixo do Histórico e a volta é tão limpa quanto a ida. O
           Histórico pinta o próprio fundo. */}
+      {/* Uma cópia só: toque duplo no chip Histórico empilhava duas. */}
       <Stack.Screen
         name="history"
+        dangerouslySingular
         options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
       />
     </Stack>

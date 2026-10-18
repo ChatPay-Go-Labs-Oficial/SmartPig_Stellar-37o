@@ -1,6 +1,6 @@
 import type { useTerms } from '@/hooks/use-terms';
 import type { TermKey } from '@/lib/copy/terms';
-import { formatApy, formatVaultNameForMode } from '@/lib/utils/format';
+import { formatVaultNameForMode, formatPositiveApy } from '@/lib/utils/format';
 import type { Piggy } from '@/lib/utils/piggy';
 
 type Terms = ReturnType<typeof useTerms>;
@@ -14,7 +14,7 @@ export function piggyPill(piggy: Piggy, terms: Terms, dotColor: string) {
   const name = piggy.asset
     ? t(`guardar.piggy.${piggy.asset}.name` as TermKey)
     : formatVaultNameForMode(piggy.vault.name, mode);
-  const apy = piggy.vault.apy != null ? formatApy(piggy.vault.apy) : null;
+  const apy = formatPositiveApy(piggy.vault.apy);
   const rate = apy
     ? p('guardar.rate', { apy })
     : piggy.asset === 'XLM'

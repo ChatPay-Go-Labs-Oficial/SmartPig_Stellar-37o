@@ -11,7 +11,7 @@ import { AssetIcon, ListCard, V2Icon, type AssetLogoId } from '@/components/v2';
 import type { Vault } from '@/lib/api/vaults';
 import type { PortfolioPosition, PortfolioSummary } from '@/lib/api/portfolio';
 import type { TermKey } from '@/lib/copy/terms';
-import { formatApy, formatUsdV2, formatVaultNameForMode, truncateDecimalString } from '@/lib/utils/format';
+import { formatPositiveApy, formatUsdV2, formatVaultNameForMode, truncateDecimalString } from '@/lib/utils/format';
 import { portfolioPositionUsdValue, positionUsesMarketPrice } from '@/lib/utils/portfolio';
 
 const MASCOT = require('@/assets/images/v2/mascote-baby-pig.png');
@@ -131,11 +131,14 @@ const PiggyRow = memo(function PiggyRow({ vault, asset, tint, assetName, positio
 
   // Rendimento como informação de apoio, não como destaque: só fica verde
   // quando há dinheiro rendendo.
-  const yieldText = vault.apy != null ? `${formatApy(vault.apy)} ao ano` : null;
+  // Só taxa positiva (ver formatPositiveApy).
+  const positiveApy = formatPositiveApy(vault.apy);
+  const yieldText = positiveApy ? `${positiveApy} ao ano` : null;
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/(tabs)/vaults', params: { vault: vault.id } })}
+      // navigate, não push: troca de aba sem criar outra cópia (ver Home).
+      onPress={() => router.navigate({ pathname: '/(tabs)/vaults', params: { vault: vault.id } })}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       accessibilityRole="button"
       accessibilityLabel={`${name}, ${assetName}, ${value}${yieldText ? `, rende ${yieldText}` : ''}`}

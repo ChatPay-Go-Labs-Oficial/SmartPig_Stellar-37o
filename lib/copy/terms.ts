@@ -125,6 +125,14 @@ export const TERMS = {
   'history.gift.received': { lite: 'Presente recebido', pro: 'Presente recebido' },
   'history.filter.vaults': { lite: 'Porquinhos', pro: 'Vaults' },
 
+  // ── Home ──────────────────────────────────────────────────────────────
+  'home.total.label': { lite: 'Guardado nos porquinhos', pro: 'Total nos vaults' },
+  'home.wallet.label': { lite: 'Saldo na carteira', pro: 'Saldo na carteira' },
+  'home.wallet.go': { lite: 'Ir pra carteira', pro: 'Ir pra carteira' },
+  'home.piggies.title': { lite: 'Meus porquinhos', pro: 'Meus vaults' },
+  'home.piggies.seeAll': { lite: 'Ver todos', pro: 'Ver todos' },
+  'home.piggy.empty': { lite: 'Comece e veja crescer', pro: 'Sem depósito' },
+
   // ── Guardar (aba dos porquinhos) ──────────────────────────────────────
   // Nomes dos porquinhos por moeda, iguais nos dois modos (Figma 10a e 12a–c:
   // o Pro também mostra "Porquinho Poupador"). Provisórios no Figma.

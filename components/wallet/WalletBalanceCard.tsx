@@ -15,10 +15,12 @@ interface WalletBalanceCardProps {
   /** O total inclui pelo menos uma moeda convertida por cotação. */
   estimated: boolean;
   address: string | null;
+  /** Presentear alguém (Figma 17a, botão no canto). Sem ele, o botão some. */
+  onGift?: () => void;
 }
 
 /** Card de saldo da Carteira (Figma 17a / 17b / 17g). */
-function WalletBalanceCardView({ amountUsd, estimated, address }: WalletBalanceCardProps) {
+function WalletBalanceCardView({ amountUsd, estimated, address, onGift }: WalletBalanceCardProps) {
   const accent = useAccent();
   const { t, isPro } = useTerms();
   const [copied, setCopied] = useState(false);
@@ -59,6 +61,17 @@ function WalletBalanceCardView({ amountUsd, estimated, address }: WalletBalanceC
             <V2Icon name="info" size={11} color={V2Colors.textSecondary} />
             <Text style={styles.estimateText}>estimativa</Text>
           </View>
+        )}
+        {onGift && (
+          <Pressable
+            onPress={onGift}
+            hitSlop={8}
+            style={[styles.gift, { backgroundColor: accent.alpha(0.12), borderColor: accent.alpha(0.24) }]}
+            accessibilityRole="button"
+            accessibilityLabel="Presentear alguém"
+          >
+            <V2Icon name="gift" size={16} color={accent.base} />
+          </Pressable>
         )}
       </View>
 
@@ -129,6 +142,15 @@ const styles = StyleSheet.create({
     fontFamily: V2Font.semiBold,
     fontSize: 13.5,
     color: V2Colors.textSecondary,
+  },
+  gift: {
+    width: 32,
+    height: 32,
+    marginLeft: 'auto',
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   estimateChip: {
     flexShrink: 0,

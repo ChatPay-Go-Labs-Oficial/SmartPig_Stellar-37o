@@ -6,7 +6,7 @@ import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
 import { Button3D, ListCard, V2Icon, type V2IconName } from '@/components/v2';
 import type { TermKey } from '@/lib/copy/terms';
-import { formatApy } from '@/lib/utils/format';
+import { formatPositiveApy } from '@/lib/utils/format';
 import type { Piggy } from '@/lib/utils/piggy';
 
 /** Margem das seções abaixo do carrossel (Figma: 18; o título entra mais 4). */
@@ -68,7 +68,7 @@ interface PiggyHowItWorksProps {
 export const PiggyHowItWorks = memo(function PiggyHowItWorks({ piggy }: PiggyHowItWorksProps) {
   const { t, p } = useTerms();
   const { asset, vault } = piggy;
-  const apy = vault.apy != null ? formatApy(vault.apy) : null;
+  const apy = formatPositiveApy(vault.apy);
 
   return (
     <View style={styles.section}>

@@ -1,273 +1,635 @@
-import { Badge, Button, Card, StarryBackground, getPigLevel, PressableScale, IconSymbol } from '@/components/ui';
-import { Accent, Colors, Font, FontSize, Gradients, Radius, Spacing } from '@/constants/theme';
-import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
-import { useAuthStore } from '@/lib/stores/auth.store';
-import { portfolioPositionUsdValue } from '@/lib/utils/portfolio';
-import { LinearGradient } from 'expo-linear-gradient';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, Image, StyleSheet, Text, View, ViewToken } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { V2Colors, V2Font, V2Layout, V2Radius, withAlpha } from '@/constants/theme-v2';
+import {
+  PIG_LEVELS,
+  groupThousands,
+  levelProgress,
+  mascotBox,
+  type PigLevel,
+} from '@/constants/pig-levels';
+import { useAccent } from '@/hooks/use-accent';
+import { useInvestedTotal } from '@/hooks/use-invested-total';
+import { useScreenInsets } from '@/hooks/use-screen-insets';
+import { Button3D, ListCard, RADIAL_MASK, ScreenGlow, V2Icon } from '@/components/v2';
 
-const PIG_LEVELS = [
-  { label: 'Porquinho Bebê', minBalance: 0, image: require('@/assets/images/pig_babe.png') },
-  { label: 'Porquinho Esperto', minBalance: 100, image: require('@/assets/images/pig1.png') },
-  { label: 'Porquinho Forte', minBalance: 500, image: require('@/assets/images/pig-muscle.png') },
-  { label: 'Porquinho Dourado', minBalance: 1000, image: require('@/assets/images/pig-gold.png') },
-  { label: 'Porquinho Rei', minBalance: 5000, image: require('@/assets/images/pig-king.png') },
-];
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 64;
-const CARD_GAP = 16;
-
+/**
+ * Evolução do porquinho (Figma "Home · Evolução do porquinho", 04e/04f/04g):
+ * um carrossel com a "skin" de cada nível — abre no nível atual, desliza entre
+ * os cinco, e o toque na lista leva ao nível tocado — e a lista dos níveis.
+ * Abre pelo mascote da Home. O nível vem do mesmo total da Home
+ * (useInvestedTotal).
+ */
 export default function PigEvolutionScreen() {
-  const walletAddress = useAuthStore((s) => s.walletAddress);
-  const { data: portfolio } = usePortfolioSummary(!!walletAddress);
+  const accent = useAccent();
+  const screenInsets = useScreenInsets();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const invested = useInvestedTotal();
+  const level = levelProgress(invested.totalUsd);
 
-  const totalInvested = useMemo(() => {
-    return (portfolio?.positions ?? []).reduce(
-      (total, position) => total + (portfolioPositionUsdValue(position) ?? 0),
-      0,
-    );
-  }, [portfolio]);
+  // Página do carrossel = a largura do cartão (coluna menos as margens).
+  const pageWidth = Math.min(width, V2Layout.maxWidth) - 2 * GUTTER;
+  const pager = useRef<ScrollView>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const shown = selected ?? level.index;
 
-  const level = getPigLevel(totalInvested);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    if (viewableItems[0]?.index != null) {
-      setActiveIndex(viewableItems[0].index);
-    }
-  }).current;
+  // Abre no nível atual. O carrossel só monta com o total pronto, então a
+  // posição inicial já é conhecida: vai em contentOffset, congelada na
+  // primeira vez (no Android a prop vira scrollTo a cada valor novo). Um
+  // scrollTo logo ao montar parava no meio, antes de o carrossel medir.
+  const initialOffset = useRef<{ x: number; y: number } | null>(null);
+  if (invested.ready && !initialOffset.current) {
+    initialOffset.current = { x: level.index * pageWidth, y: 0 };
+  }
+  useEffect(() => {
+    if (invested.ready && selected === null) setSelected(level.index);
+  }, [invested.ready, level.index, selected]);
+
+  const showLevel = useCallback(
+    (index: number) => {
+      setSelected(index);
+      pager.current?.scrollTo({ x: index * pageWidth, animated: true });
+    },
+    [pageWidth],
+  );
+
+  const stateOf = (index: number): LevelState =>
+    index === level.index ? 'current' : index < level.index ? 'unlocked' : 'locked';
 
   return (
     <View style={styles.screen}>
-      <LinearGradient
-        colors={Gradients.primary}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
+      <ScreenGlow peak={0.4} />
+      <ScrollView
+        style={{ marginTop: screenInsets.top }}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: screenInsets.topGap, paddingBottom: insets.bottom + 32 },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        <StarryBackground stars={14} nebulas={3} shootingStars={false} />
-        <View style={styles.headerContent}>
-          <PressableScale onPress={() => router.back()} style={styles.backBtn}>
-            <IconSymbol
-              name="chevron.right"
-              size={22}
-              color={Colors.foreground}
-              style={{ transform: [{ rotate: '180deg' }] }}
+        <View style={styles.top}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [styles.back, pressed && styles.backPressed]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar"
+          >
+            <V2Icon name="chevron-left" size={20} color={V2Colors.text} />
+          </Pressable>
+          <View style={styles.titles}>
+            <Text style={styles.title} accessibilityRole="header">
+              Evolução do porquinho
+            </Text>
+            <Text style={styles.subtitle}>Quanto mais você guarda, mais ele cresce</Text>
+          </View>
+        </View>
+
+        {invested.ready ? (
+          <>
+            <ScrollView
+              ref={pager}
+              horizontal
+              pagingEnabled
+              decelerationRate="fast"
+              showsHorizontalScrollIndicator={false}
+              style={styles.pager}
+              contentOffset={initialOffset.current ?? undefined}
+              onMomentumScrollEnd={(event) =>
+                setSelected(Math.round(event.nativeEvent.contentOffset.x / pageWidth))
+              }
+            >
+              {PIG_LEVELS.map((item, index) => (
+                <LevelCard
+                  key={item.label}
+                  width={pageWidth}
+                  level={item}
+                  state={stateOf(index)}
+                  next={PIG_LEVELS[index + 1]}
+                  totalUsd={invested.totalUsd}
+                  valuationUnavailable={invested.valuationUnavailable}
+                />
+              ))}
+            </ScrollView>
+            <View style={styles.dots}>
+              {PIG_LEVELS.map((item, index) => (
+                <View
+                  key={item.label}
+                  style={[
+                    styles.dot,
+                    index === shown && [styles.dotActive, { backgroundColor: accent.base }],
+                  ]}
+                />
+              ))}
+            </View>
+          </>
+        ) : (
+          <View style={[styles.pager, styles.card, styles.loading]}>
+            <ActivityIndicator color={accent.base} />
+          </View>
+        )}
+
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          Todos os níveis
+        </Text>
+        <ListCard style={styles.list}>
+          {PIG_LEVELS.map((item, index) => (
+            <LevelRow
+              key={item.label}
+              index={index}
+              level={item}
+              caption={index === 0 ? 'Começa aqui' : `A partir de $${item.minBalance}`}
+              state={invested.ready ? stateOf(index) : 'locked'}
+              selected={invested.ready && index === shown}
+              onPress={invested.ready ? showLevel : undefined}
             />
-          </PressableScale>
-
-          <Text style={styles.title}>Evolução do Porquinho</Text>
-          <Text style={styles.subtitle}>Veja todos os níveis e o quanto falta para desbloquear</Text>
-        </View>
-      </LinearGradient>
-
-      <View style={styles.content}>
-        <FlatList
-          data={PIG_LEVELS}
-          keyExtractor={(item) => item.label}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={CARD_WIDTH + CARD_GAP}
-          decelerationRate="fast"
-          contentContainerStyle={styles.carouselContent}
-          ItemSeparatorComponent={() => <View style={{ width: CARD_GAP }} />}
-          onViewableItemsChanged={onViewableItemsChanged}
-          viewabilityConfig={viewabilityConfig}
-          renderItem={({ item }) => {
-            const unlocked = totalInvested >= item.minBalance;
-            const isCurrent = level.minBalance === item.minBalance;
-
-            return (
-              <View style={styles.pigCard}>
-                <View style={styles.slideHint}>
-                  <Text style={styles.slideHintText}>Deslize</Text>
-                  <MaterialIcons name="arrow-forward-ios" size={14} color="rgba(255,255,255,0.7)" />
-                </View>
-
-                <View style={styles.pigImageWrap}>
-                  <Image source={item.image} style={styles.pigImage} />
-                </View>
-
-                <View style={styles.pigInfo}>
-                  <Text style={styles.pigName}>{item.label}</Text>
-                  <Text style={styles.pigValue}>Desbloqueia com ${item.minBalance}</Text>
-                  {isCurrent && <Text style={styles.currentTag}>Seu nivel atual</Text>}
-                </View>
-
-                <Badge label={unlocked ? 'Desbloqueado' : 'Bloqueado'} variant={unlocked ? 'sucesso' : 'muted'} />
-
-                {!unlocked && (
-                  <View style={styles.lockOverlay}>
-                    <MaterialIcons name="lock" size={34} color="rgba(255,255,255,0.85)" />
-                  </View>
-                )}
-              </View>
-            );
-          }}
-        />
-
-        <View style={styles.dotsRow}>
-          {PIG_LEVELS.map((_, i) => (
-            <View key={String(i)} style={[styles.dot, i === activeIndex && styles.dotActive]} />
           ))}
-        </View>
+        </ListCard>
 
-        <Card style={styles.ctaCard}>
-          <Text style={styles.ctaTitle}>Alimente seu porquinho para ele crescer cada vez mais e ter ainda mais rendimentos</Text>
-          <Button
+        <View style={styles.action}>
+          <Button3D
             label="Alimentar porquinho"
-            variant="primary"
-            size="lg"
-            fullWidth
-            onPress={() => router.push('/(tabs)/vaults')}
+            icon="piggy"
+            // A Evolução fica por cima das abas: volta até elas e abre a
+            // Guardar, em vez de empilhar outra cópia das abas.
+            onPress={() => router.dismissTo('/(tabs)/vaults')}
           />
-        </Card>
-      </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
+type LevelState = 'current' | 'unlocked' | 'locked';
+
+const GUTTER = 18;
+
+/**
+ * Uma página do carrossel: a arte do nível e o que falta para ele.
+ * - atual: "Seu nível atual" e a barra até o próximo (ou o nível máximo);
+ * - desbloqueado: a arte em cores e o selo verde;
+ * - bloqueado (Figma 04g): a arte apagada, o selo com cadeado e a barra do
+ *   total até o mínimo do nível.
+ */
+const LevelCard = memo(function LevelCard({
+  width,
+  level,
+  state,
+  next,
+  totalUsd,
+  valuationUnavailable,
+}: {
+  width: number;
+  level: PigLevel;
+  state: LevelState;
+  next: PigLevel | undefined;
+  totalUsd: number;
+  valuationUnavailable: boolean;
+}) {
+  const accent = useAccent();
+  const locked = state === 'locked';
+  const total = `$${groupThousands(totalUsd)}`;
+
+  let progress: { left: string; right: string; value: number } | null = null;
+  let note: string | null = null;
+  if (state === 'current') {
+    if (next) {
+      progress = {
+        left: `Próximo: ${next.label}`,
+        right: valuationUnavailable ? '—' : `${total} de $${groupThousands(next.minBalance)}`,
+        value: (totalUsd - level.minBalance) / (next.minBalance - level.minBalance),
+      };
+    } else note = 'Você chegou ao nível máximo';
+  } else if (locked) {
+    progress = {
+      left: `Faltam $${groupThousands(level.minBalance - totalUsd)} para desbloquear`,
+      right: valuationUnavailable ? '—' : `${total} de $${groupThousands(level.minBalance)}`,
+      value: totalUsd / level.minBalance,
+    };
+  } else note = 'Você já passou por este nível';
+
+  return (
+    <View
+      style={{ width }}
+      accessible
+      accessibilityLabel={`${level.label}, ${progress?.left ?? note}`}
+    >
+      <View style={styles.card}>
+        <Image
+          pointerEvents="none"
+          source={RADIAL_MASK}
+          tintColor={accent.base}
+          contentFit="fill"
+          style={styles.cardGlow}
+        />
+        <View style={locked && styles.lockedArtLarge}>
+          <Image source={level.art} contentFit="contain" style={mascotBox(level, 190)} />
+        </View>
+        <View style={styles.nameBlock}>
+          <StateBadge state={state} currentLabel="Seu nível atual" />
+          <Text
+            style={styles.cardName}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+          >
+            {level.label}
+          </Text>
+        </View>
+        {progress ? (
+          <View style={styles.progress}>
+            <View style={styles.progressLegend}>
+              <Text
+                style={styles.progressLabel}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
+                {progress.left}
+              </Text>
+              <Text style={styles.progressValue}>{progress.right}</Text>
+            </View>
+            <View style={styles.track}>
+              <View
+                style={[
+                  styles.fill,
+                  {
+                    width: `${Math.min(1, Math.max(0, progress.value)) * 100}%`,
+                    backgroundColor: accent.base,
+                    boxShadow: `0px 0px 10px ${accent.alpha(0.48)}`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        ) : (
+          <View style={styles.noteWrap}>
+            <Text style={styles.note}>{note}</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+});
+
+/** Selo do estado do nível: atual (destaque), desbloqueado (verde), bloqueado. */
+function StateBadge({ state, currentLabel }: { state: LevelState; currentLabel: string }) {
+  const accent = useAccent();
+  if (state === 'current') {
+    return (
+      <View
+        style={[styles.badge, { backgroundColor: accent.alpha(0.14), borderColor: accent.alpha(0.32) }]}
+      >
+        <Text style={[styles.badgeText, { color: accent.base }]}>{currentLabel}</Text>
+      </View>
+    );
+  }
+  if (state === 'locked') {
+    return (
+      <View style={[styles.badge, styles.badgeLocked]}>
+        <V2Icon name="lock" size={12} color={V2Colors.textSecondary} />
+        <Text style={[styles.badgeText, { color: V2Colors.textSecondary }]}>Bloqueado</Text>
+      </View>
+    );
+  }
+  return (
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: withAlpha(V2Colors.success, 0.14),
+          borderColor: withAlpha(V2Colors.success, 0.32),
+        },
+      ]}
+    >
+      <V2Icon name="check" size={12} color={V2Colors.success} />
+      <Text style={[styles.badgeText, { color: V2Colors.success }]}>Desbloqueado</Text>
+    </View>
+  );
+}
+
+const LevelRow = memo(function LevelRow({
+  index,
+  level,
+  caption,
+  state,
+  selected,
+  onPress,
+}: {
+  index: number;
+  level: PigLevel;
+  caption: string;
+  state: LevelState;
+  /** O nível que está no carrossel (Figma 04g: contorno no destaque). */
+  selected: boolean;
+  onPress?: (index: number) => void;
+}) {
+  const accent = useAccent();
+  const locked = state === 'locked';
+
+  return (
+    <Pressable
+      onPress={onPress ? () => onPress(index) : undefined}
+      disabled={!onPress}
+      style={({ pressed }) => [
+        styles.row,
+        state === 'current' && { backgroundColor: accent.alpha(0.06) },
+        selected && state !== 'current' && [styles.rowSelected, { borderColor: accent.alpha(0.4) }],
+        pressed && styles.rowPressed,
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${level.label}, ${caption}, ${
+        state === 'current' ? 'nível atual' : locked ? 'bloqueado' : 'desbloqueado'
+      }`}
+      accessibilityHint="Mostra o porquinho deste nível"
+    >
+      <View
+        style={[
+          styles.thumb,
+          locked
+            ? styles.thumbLocked
+            : { backgroundColor: accent.alpha(0.16), borderColor: accent.alpha(0.4) },
+        ]}
+      >
+        <View style={locked && styles.lockedArt}>
+          <Image source={level.art} contentFit="contain" style={mascotBox(level, 52, 46 / 52)} />
+        </View>
+        {locked && (
+          <View style={styles.lock}>
+            <V2Icon name="lock" size={11} color={V2Colors.text} />
+          </View>
+        )}
+      </View>
+
+      <View style={styles.rowTexts}>
+        {/* Em telas estreitas o selo "Desbloqueado" aperta o nome: ele reduz
+            um pouco antes de cortar. */}
+        <Text
+          style={[styles.rowName, locked && styles.rowNameLocked]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
+        >
+          {level.label}
+        </Text>
+        <Text style={styles.rowCaption} numberOfLines={1}>
+          {caption}
+        </Text>
+      </View>
+
+      <StateBadge state={state} currentLabel="Atual" />
+    </Pressable>
+  );
+});
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
-  },
-  header: {
-    paddingTop: 56,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    overflow: 'hidden',
-  },
-  headerContent: {
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: FontSize.heading,
-    fontFamily: Font.extraBold,
-    color: Colors.foreground,
-  },
-  subtitle: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: 'rgba(255,255,255,0.75)',
+    backgroundColor: V2Colors.background,
   },
   content: {
-    paddingTop: 16,
-    paddingBottom: 120,
-    gap: 16,
+    width: '100%',
+    maxWidth: V2Layout.maxWidth,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
   },
-  carouselContent: {
-    paddingHorizontal: 20,
-  },
-  pigCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 18,
-    position: 'relative',
-    overflow: 'hidden',
-    width: CARD_WIDTH,
+  top: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  slideHint: {
+  back: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: V2Colors.surfaceBorderStrong,
+    backgroundColor: V2Colors.chip,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backPressed: {
+    opacity: 0.7,
+  },
+  titles: {
+    flex: 1,
+    gap: 2,
+  },
+  title: {
+    fontFamily: V2Font.black,
+    fontSize: 22,
+    letterSpacing: -0.44,
+    color: V2Colors.text,
+  },
+  subtitle: {
+    fontFamily: V2Font.medium,
+    fontSize: 13,
+    color: V2Colors.textSecondary,
+  },
+  pager: {
+    marginTop: 22,
+  },
+  // Figma "nível atual": cartão com brilho do destaque atrás do mascote
+  // (radial 28% → 0, centro a 35% da altura, raios 214 × 191).
+  card: {
+    alignItems: 'center',
+    gap: 14,
+    padding: 18,
+    borderRadius: V2Radius.list,
+    borderWidth: 1,
+    borderColor: V2Colors.surfaceBorderStrong,
+    backgroundColor: V2Colors.surface,
+    overflow: 'hidden',
+  },
+  cardGlow: {
     position: 'absolute',
-    right: 14,
-    top: 12,
-    flexDirection: 'row',
+    left: '50%',
+    top: 121,
+    width: 428,
+    height: 382,
+    marginLeft: -214,
+    marginTop: -191,
+    opacity: 0.28,
+  },
+  loading: {
+    height: 290,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nameBlock: {
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: Radius.full,
   },
-  slideHintText: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.75)',
-    fontFamily: Font.semiBold,
-  },
-  pigImageWrap: {
-    width: '100%',
-    height: 240,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.surface2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  pigImage: {
-    width: 200,
-    height: 200,
-    resizeMode: 'contain',
-  },
-  pigInfo: {
-    width: '100%',
-    gap: 2,
-    alignItems: 'center',
-  },
-  pigName: {
-    fontSize: FontSize.subheading,
-    fontFamily: Font.bold,
-    color: Colors.foreground,
-  },
-  pigValue: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-  },
-  currentTag: {
-    marginTop: 4,
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.bold,
-    color: Accent.gold,
-  },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(40,40,40,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dotsRow: {
+  badge: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: V2Radius.full,
+    borderWidth: 1,
+  },
+  badgeLocked: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: 'rgba(255,255,255,0.32)',
+  },
+  badgeText: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 11.5,
+  },
+  cardName: {
+    fontFamily: V2Font.black,
+    fontSize: 24,
+    letterSpacing: -0.48,
+    color: V2Colors.text,
+  },
+  progress: {
+    alignSelf: 'stretch',
     gap: 8,
   },
-  dot: {
-    width: 8,
+  progressLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  progressLabel: {
+    flexShrink: 1,
+    fontFamily: V2Font.bold,
+    fontSize: 13,
+    color: V2Colors.textSecondary,
+  },
+  progressValue: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 13,
+    color: V2Colors.text,
+  },
+  track: {
     height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  fill: {
+    height: 8,
+    borderRadius: 999,
+  },
+  noteWrap: {
+    height: 32,
+    justifyContent: 'center',
+  },
+  note: {
+    fontFamily: V2Font.semiBold,
+    fontSize: 13,
+    color: V2Colors.textSecondary,
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: 14,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   dotActive: {
     width: 18,
-    backgroundColor: Accent.gold,
   },
-  ctaCard: {
-    marginTop: 4,
-    gap: Spacing[4],
+  // Nível ainda não alcançado, grande (Figma 04g: saturação −90%, exposição
+  // −25%, opacidade 50%). O cinza vale no Android; no iOS, só a transparência.
+  lockedArtLarge: {
+    opacity: 0.5,
+    filter: [{ grayscale: 0.9 }, { brightness: 0.75 }],
   },
-  ctaTitle: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    color: Colors.foreground,
-    lineHeight: 20,
+  sectionTitle: {
+    paddingTop: 26,
+    paddingBottom: 12,
+    fontFamily: V2Font.black,
+    fontSize: 18,
+    letterSpacing: -0.36,
+    color: V2Colors.text,
+  },
+  list: {
+    borderColor: V2Colors.surfaceBorderStrong,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  rowSelected: {
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  rowPressed: {
+    opacity: 0.85,
+  },
+  thumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbLocked: {
+    backgroundColor: V2Colors.surface,
+    borderColor: V2Colors.surfaceBorderStrong,
+  },
+  // Nível ainda não alcançado: arte apagada e sem cor (o cinza vale no
+  // Android; no iOS fica só a transparência).
+  lockedArt: {
+    opacity: 0.5,
+    filter: [{ grayscale: 1 }],
+  },
+  lock: {
+    position: 'absolute',
+    left: 35,
+    top: 35,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: V2Colors.sheetTop,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTexts: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  rowName: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 15,
+    color: V2Colors.text,
+  },
+  rowNameLocked: {
+    color: V2Colors.textSecondary,
+  },
+  rowCaption: {
+    fontFamily: V2Font.medium,
+    fontSize: 12.5,
+    color: V2Colors.textTertiary,
+  },
+  action: {
+    paddingTop: 20,
   },
 });

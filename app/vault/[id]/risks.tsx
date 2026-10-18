@@ -44,7 +44,7 @@ import {
   updatedCardKeys,
 } from '@/lib/copy/disclosures';
 import { classifyOperationError } from '@/lib/guardar/operation-errors';
-import { formatApy, formatVaultNameForMode } from '@/lib/utils/format';
+import { formatPositiveApy, formatVaultNameForMode } from '@/lib/utils/format';
 import { buildPiggies } from '@/lib/utils/piggy';
 import { Button3D, ScreenGlow, V2Checkbox, V2Icon, V2Spinner } from '@/components/v2';
 import { RiskCardView, RisksBanner, RisksIdentity } from '@/components/guardar/RiskParts';
@@ -112,7 +112,8 @@ export default function PiggyRisksScreen() {
       asset,
       symbol,
       isPro,
-      apy: vault?.apy != null ? formatApy(vault.apy) : null,
+      // Taxa negativa não aparece como número: cai no texto geral do APY.
+      apy: formatPositiveApy(vault?.apy),
       lowRate: asset === 'XLM' && (apyNumber == null || Number.isNaN(apyNumber) || apyNumber < 1),
     });
   }, [disclosure, asset, symbol, isPro, vault?.apy, apyNumber]);
