@@ -23,7 +23,7 @@ import type { PortfolioSummary } from '@/lib/api/portfolio';
 import type { TermKey } from '@/lib/copy/terms';
 import { formatFeeBps, piggyDetailsCopy, type DetailsIcon } from '@/lib/copy/piggy-details';
 import { isMainnetNetwork } from '@/lib/stellar/config';
-import { formatApy, formatUsdV2, formatVaultNameForMode } from '@/lib/utils/format';
+import { formatPositiveApy, formatUsdV2, formatVaultNameForMode } from '@/lib/utils/format';
 import { buildPiggies, piggyUnit, type Piggy } from '@/lib/utils/piggy';
 import { AssetIcon, RADIAL_MASK, ScreenGlow, V2Icon, type V2IconName } from '@/components/v2';
 import { PiggyAmount } from '@/components/guardar/PiggyAmount';
@@ -157,7 +157,9 @@ function Summary({ piggy: item }: { piggy: Piggy }) {
     : formatVaultNameForMode(v.name, mode);
   const coin = asset ? t(`carteira.asset.${asset}.name` as TermKey) : v.assetSymbol;
   const coinCaption = asset && isPro ? t(`guardar.pill.${asset}.caption` as TermKey) : '';
-  const apy = v.apy != null ? formatApy(v.apy) : null;
+  // Só taxa positiva, como na Home e na Guardar: o XLM chega negativo, e
+  // mostrá-lo como rendimento seria enganoso (cai no selo de taxa baixa).
+  const apy = formatPositiveApy(v.apy);
   const { prefix, suffix } = piggyUnit(item);
 
   let balance: React.ReactNode;

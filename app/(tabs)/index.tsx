@@ -26,27 +26,24 @@ const BALANCE_ANIMATION_INTERVAL_MS = 30;
 const groupThousands = (integer: string) => integer.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 /** Valor do contador com as 7 casas sempre (largura estável). */
-function liveBalanceParts(value: string): HeroAmount {
+function liveBalanceParts(value: string, estimated: boolean): HeroAmount {
   const [integerPart = "0", fractionPart = ""] = value.split(".");
   return {
-    integer: `$${groupThousands(integerPart)}`,
+    integer: `${estimated ? "≈ " : ""}$${groupThousands(integerPart)}`,
     fraction: `.${fractionPart.padEnd(7, "0").slice(0, 7)}`,
   };
 }
 
-function countingBalanceParts(value: number): HeroAmount {
+function countingBalanceParts(value: number, estimated: boolean): HeroAmount {
   const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
   const [integerPart, fractionPart = ""] = safeValue.toFixed(7).split(".");
   const meaningfulFraction = fractionPart.replace(/0+$/, "");
   const decimals =
     meaningfulFraction.length >= 2 ? meaningfulFraction : fractionPart.slice(0, 2);
-  return { integer: `$${groupThousands(integerPart)}`, fraction: `.${decimals}` };
-}
-
-/** Total com moeda cotada (euro, cripto): equivalente em dólar, 2 casas, "≈". */
-function estimatedParts(value: number): HeroAmount {
-  const [integerPart, fractionPart] = Math.max(0, value).toFixed(2).split(".");
-  return { integer: `≈ $${groupThousands(integerPart)}`, fraction: `.${fractionPart}` };
+  return {
+    integer: `${estimated ? "≈ " : ""}$${groupThousands(integerPart)}`,
+    fraction: `.${decimals}`,
+  };
 }
 
 /**
@@ -235,14 +232,15 @@ export default function HomeScreen() {
   // Enquanto a contagem até um valor novo roda (depósito, saque, primeira
   // leitura), ela manda; parada, o número segue o rendimento com 7 casas.
   // Sem rendimento (sem taxa ou sem saldo), fica o formato de antes.
-  // Com moeda cotada o total é estimado: 2 casas e "≈" (Figma 04h).
+  // Com moeda cotada (euro, cripto) o total é estimado: leva o "≈" (Figma
+  // 04h), mas cresce com as 7 casas como o resto. O Figma mostrava 2 casas;
+  // o Matheus preferiu manter o crescimento (18/10/2026).
   const countingUp = Math.abs(displayBalance - totalInvested) > 1e-9;
   const growing = !countingUp && totalInvested > 0 && investedApy != null;
   let heroAmount: HeroAmount | null = null;
   if (!valuationUnavailable) {
-    if (usesMarketPricing) heroAmount = estimatedParts(displayBalance);
-    else if (growing) heroAmount = liveBalanceParts(liveInvested);
-    else heroAmount = countingBalanceParts(displayBalance);
+    if (growing) heroAmount = liveBalanceParts(liveInvested, usesMarketPricing);
+    else heroAmount = countingBalanceParts(displayBalance, usesMarketPricing);
   }
   const wholeTotal = groupThousands(Math.trunc(totalInvested).toString());
   const legend = valuationUnavailable

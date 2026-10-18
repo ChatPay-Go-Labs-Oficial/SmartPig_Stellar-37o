@@ -7,7 +7,7 @@ import { useAccent } from '@/hooks/use-accent';
 import { RADIAL_MASK, V2Icon } from '@/components/v2';
 import { groupThousands, type LevelProgress } from '@/constants/pig-levels';
 
-/** Valor do topo em dois trechos: "$250" + ".0482137", ou "≈ $296" + ".55". */
+/** Valor do topo em dois trechos: "$250" + ".0482137", ou "≈ $296" + ".5512304". */
 export interface HeroAmount {
   integer: string;
   fraction: string;
