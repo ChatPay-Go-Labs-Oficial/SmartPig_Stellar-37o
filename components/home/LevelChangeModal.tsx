@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { V2Colors, V2Font, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { mascotBox, type PigLevel } from '@/constants/pig-levels';
@@ -244,11 +244,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // O nível que ficou para trás: apagado e sem cor (o cinza vale no Android;
-  // no iOS fica só a transparência).
+  // O nível que ficou para trás: apagado e sem cor. O `filter` só no Android:
+  // no iOS ele desenhava a arte dentro de um retângulo; lá fica só a
+  // transparência.
   oldArt: {
     opacity: 0.5,
-    filter: [{ grayscale: 1 }],
+    ...Platform.select({ android: { filter: [{ grayscale: 1 }] } }),
   },
   oldLabel: {
     fontFamily: V2Font.semiBold,
