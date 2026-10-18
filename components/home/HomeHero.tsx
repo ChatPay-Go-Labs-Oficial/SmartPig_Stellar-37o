@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { V2Font } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { useFirstName } from '@/hooks/use-first-name';
 import { RADIAL_MASK, V2Icon } from '@/components/v2';
 import { groupThousands, type LevelProgress } from '@/constants/pig-levels';
 
@@ -56,6 +57,7 @@ function HomeHeroView({
   onToggleMute,
   onPressMascot,
 }: HomeHeroProps) {
+  const firstName = useFirstName();
   const accent = useAccent();
   const sizes = amountSizes(amount?.integer ?? '');
   const mascot = level.current.hero;
@@ -78,7 +80,9 @@ function HomeHeroView({
         />
 
         <View style={styles.top}>
-          <Text style={styles.greeting}>Oi, Investidor</Text>
+          <Text style={styles.greeting} numberOfLines={1}>
+            {firstName ? `Oi, ${firstName}` : 'Oi!'}
+          </Text>
           <View style={styles.divider} />
           <Pressable
             onPress={onToggleMute}

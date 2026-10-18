@@ -1,11 +1,11 @@
 import { memo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { blendOver, V2Colors, V2Font, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { ProgressRing, RADIAL_MASK, V2Icon, type V2IconName } from '@/components/v2';
-import { mascotBox, type LevelProgress } from '@/constants/pig-levels';
+import { groupThousands, mascotBox, type LevelProgress } from '@/constants/pig-levels';
 
 const ORBIT_DASHED = require('@/assets/images/v2/perfil-orbita-tracejada.png');
 const ORBIT_DOTTED = require('@/assets/images/v2/perfil-orbita-pontilhada.png');
@@ -16,8 +16,13 @@ const PHOTO = 86;
 const RING_THICKNESS = 5;
 /** Figma: o selo de nível sobe 13 sobre a base do anel. */
 const PILL_OVERLAP = 13;
-/** Folga do selo (11 de cada lado + a borda de 3) em volta do texto. */
-const PILL_CHROME = 2 * (11 + 3);
+/**
+ * Contorno do selo, na cor do fundo, recortando o anel. O Figma usa 3; no
+ * aparelho ficou grosso demais (Matheus, 18/10/2026).
+ */
+const PILL_BORDER = 1.5;
+/** Folga do selo (11 de cada lado + o contorno) em volta do texto. */
+const PILL_CHROME = 2 * (11 + PILL_BORDER);
 /**
  * Maior selo numa linha. Cabem o Bebê, o Esperto, o Forte e o Rei; o "Porquinho
  * Rei Dourado" (~164) quebra em duas ("Porquinho" / "Rei Dourado").
@@ -25,6 +30,10 @@ const PILL_CHROME = 2 * (11 + 3);
 const PILL_MAX_WIDTH = 150;
 /** O selo centrado na foto pode ir até aqui da borda da tela; depois, desliza. */
 const PILL_SCREEN_EDGE = 6;
+/** Espaço entre o avatar e os textos (Figma "identidade"). */
+const IDENTITY_GAP = 16;
+/** Folga mínima entre a borda do selo e os textos ao lado. */
+const PILL_TEXT_CLEARANCE = 8;
 /** Altura do mascote na foto (Figma: o Esperto em 124, cortado pelo círculo). */
 const MASCOT_HEIGHT = 124;
 /** Figma: o conteúdo começa a 64 do topo do quadro; as estrelas contam dali. */
@@ -61,6 +70,13 @@ interface ProfileHeaderProps {
   level: LevelProgress;
   /** "set. 2026"; sem data, só o porquinho. */
   since: string | null;
+  /**
+   * false quando o total guardado não pôde ser cotado: sem ele, "quanto falta"
+   * seria um número errado, e a linha não aparece.
+   */
+  levelKnown: boolean;
+  /** Toque no porquinho: abre a Evolução do porquinho. */
+  onOpenLevels: () => void;
   stats: readonly ProfileStat[];
 }
 
@@ -88,7 +104,16 @@ function aroundAvatar(size: number, paddingTop: number) {
  * sistema de XP existir; sem a Chama, a faixa de números segue o cartão
  * "Saldo na carteira" da Home (selo, legenda e valor), também a pedido dele.
  */
-function ProfileHeaderView({ paddingTop, name, verified, level, since, stats }: ProfileHeaderProps) {
+function ProfileHeaderView({
+  paddingTop,
+  name,
+  verified,
+  level,
+  since,
+  levelKnown,
+  onOpenLevels,
+  stats,
+}: ProfileHeaderProps) {
   const accent = useAccent();
   const pig = level.current;
   const art = mascotBox(pig, MASCOT_HEIGHT);
@@ -109,6 +134,11 @@ function ProfileHeaderView({ paddingTop, name, verified, level, since, stats }: 
     singleWidth != null && !twoLines
       ? Math.max(0, (singleWidth + PILL_CHROME) / 2 - (GUTTER + AVATAR / 2 - PILL_SCREEN_EDGE))
       : 0;
+  // O selo largo passa da borda do avatar e chegava a encostar na linha de
+  // baixo dos textos ("Faltam $226..."): a coluna de textos se afasta o que o
+  // selo avança, mais a folga. Em duas linhas, conta a largura máxima.
+  const pillRight = AVATAR / 2 + (pillWidth ?? PILL_MAX_WIDTH) / 2 + pillShift;
+  const textsShift = Math.max(0, pillRight + PILL_TEXT_CLEARANCE - (AVATAR + IDENTITY_GAP));
 
   return (
     <View style={styles.header}>
@@ -147,7 +177,12 @@ function ProfileHeaderView({ paddingTop, name, verified, level, since, stats }: 
 
       <View style={[styles.content, { paddingTop }]}>
         <View style={styles.identity}>
-          <View style={styles.avatar}>
+          <Pressable
+            onPress={onOpenLevels}
+            style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`${pig.label}. Ver a evolução do porquinho`}
+          >
             <View style={styles.ringBox}>
               <ProgressRing
                 size={AVATAR}
@@ -202,9 +237,9 @@ function ProfileHeaderView({ paddingTop, name, verified, level, since, stats }: 
                 {pig.label}
               </Text>
             </View>
-          </View>
+          </Pressable>
 
-          <View style={styles.texts}>
+          <View style={[styles.texts, { marginLeft: textsShift }]}>
             <View style={styles.nameRow}>
               <Text style={styles.name} numberOfLines={1}>
                 {name}
@@ -221,6 +256,21 @@ function ProfileHeaderView({ paddingTop, name, verified, level, since, stats }: 
             <Text style={styles.subtitle}>
               {since ? `${pig.label} · desde ${since}` : pig.label}
             </Text>
+            {/* No lugar da linha de XP do Figma, enquanto o XP não existe: o
+                mesmo "quanto falta" da Home. */}
+            {levelKnown ? (
+              <Text style={styles.goal}>
+                {level.next ? (
+                  <>
+                    {'Faltam '}
+                    <Text style={styles.goalStrong}>${groupThousands(level.remaining)}</Text>
+                    {` pra virar ${level.next.label}`}
+                  </>
+                ) : (
+                  'Nível máximo do porquinho'
+                )}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -292,7 +342,7 @@ const styles = StyleSheet.create({
   identity: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: IDENTITY_GAP,
   },
   avatar: {
     width: AVATAR,
@@ -319,7 +369,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 4,
     borderRadius: 999,
-    borderWidth: 3,
+    borderWidth: PILL_BORDER,
     borderColor: V2Colors.background,
   },
   measureTrack: {
@@ -366,6 +416,20 @@ const styles = StyleSheet.create({
     fontFamily: V2Font.medium,
     fontSize: 13,
     color: V2Colors.textSecondary,
+  },
+  // Figma: 2 de espaço a mais antes da linha de XP.
+  goal: {
+    marginTop: 2,
+    fontFamily: V2Font.semiBold,
+    fontSize: 12,
+    color: V2Colors.textTertiary,
+  },
+  goalStrong: {
+    fontFamily: V2Font.extraBold,
+    color: V2Colors.textSecondary,
+  },
+  avatarPressed: {
+    opacity: 0.85,
   },
   // Mesmo desenho do cartão "Saldo na carteira" da Home, dividido em dois.
   stats: {

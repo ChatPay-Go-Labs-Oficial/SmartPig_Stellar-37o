@@ -14,6 +14,7 @@ import { useSound } from "@/hooks/use-sound";
 import { useInvestedTotal } from "@/hooks/use-invested-total";
 import { useWalletTotal } from "@/hooks/use-wallet-total";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useFirstName } from "@/hooks/use-first-name";
 import { useKycStatus } from "@/lib/queries/blindpay.queries";
 import { formatMonthYear, formatUsdV2 } from "@/lib/utils/format";
 
@@ -33,6 +34,7 @@ function statValue(value: number | null, estimated: boolean): string | null {
  */
 export default function ProfileScreen() {
   const screenInsets = useScreenInsets();
+  const firstName = useFirstName();
   const { isPro } = useTerms();
   const { playClick } = useSound();
   const signOut = useSignOut();
@@ -84,10 +86,12 @@ export default function ProfileScreen() {
       >
         <ProfileHeader
           paddingTop={screenInsets.top + screenInsets.topGap}
-          name="Investidor"
+          name={firstName ?? "Seu cofrinho"}
           verified={verified}
           level={level}
           since={formatMonthYear(accountCreatedAt)}
+          levelKnown={!invested.valuationUnavailable}
+          onOpenLevels={() => router.push("/pigs")}
           stats={stats}
         />
 
