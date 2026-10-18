@@ -15,6 +15,7 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { useAppLockStore } from "@/lib/stores/app-lock.store";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useOpeningStore } from "@/lib/stores/opening.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useVersionGateStore } from "@/lib/stores/version-gate.store";
@@ -91,6 +92,8 @@ const PRIVY_READY_TIMEOUT_MS = 8_000;
 const INTRO_HOLD_MS = 400;
 // A tela do gate (cadeado, erro de sessão) acende por cima da abertura.
 const GATE_FADE_MS = 300;
+// Entrada do login (deslize do Stack.Screen "(auth)") e o primeiro desenho dele.
+const AUTH_ENTER_MS = 500;
 
 function getPrivyErrorDetail(error: unknown): string | null {
   if (!error) return null;
@@ -169,15 +172,18 @@ const navigationTheme: Theme = {
 };
 
 export default function RootLayout() {
-  // A abertura anima sozinha, com o aparelho livre; o resto do app (Privy,
-  // rotas, home) só monta quando a entrada termina, por baixo do logo. Montado
-  // junto, disputava a CPU com a animação e ela travava.
+  // O resto do app (Privy, rotas, home) começa a montar junto com a entrada
+  // da abertura: a montagem é quase toda JS (avaliar módulos e renderizar), e
+  // a entrada roda na thread de UI; o que vai para a tela chega por volta do
+  // fim dela. Antes da entrada, com o splash nativo na frente, disputava o
+  // aparelho com o primeiro desenho e a entrada começava travada; depois dela,
+  // atrasava o Privy, de que a sessão depende.
   const [appMounted, setAppMounted] = useState(false);
   const openingExited = useOpeningStore((s) => s.exited);
   const openingStatus = useOpeningStore((s) => s.status);
   const openingExiting = useOpeningStore((s) => s.exiting);
+  const handleIntroStart = useCallback(() => setAppMounted(true), []);
   const handleIntroEnd = useCallback(() => {
-    setAppMounted(true);
     setTimeout(() => useOpeningStore.setState({ introDone: true }), INTRO_HOLD_MS);
   }, []);
   const handleOpeningExited = useCallback(() => {
@@ -230,9 +236,29 @@ export default function RootLayout() {
                   freezeOnBlur: false,
                 }}
               >
+                {/* Abre por cima das abas, que seguem montadas embaixo (ver
+                    o AppGate), e desliza pela esquerda: entra ao sair da conta
+                    e, ao entrar, sai para a esquerda revelando a Home. No
+                    Android, camada transparente: numa tela comum as abas eram
+                    desanexadas por baixo e, ao sair, a Home redesenhava do zero
+                    (a tela ficava escura por um instante). Nela a animação
+                    nativa de saída não roda, então o próprio login desliza
+                    (app/(auth)/index.tsx). */}
                 <Stack.Screen
                   name="(auth)"
-                  options={{ gestureEnabled: false, animation: "fade" }}
+                  dangerouslySingular
+                  options={{
+                    gestureEnabled: false,
+                    ...(Platform.OS === "android"
+                      ? {
+                          presentation: "transparentModal",
+                          animation: "none",
+                          // Sem o fundo padrão das telas: é a Home embaixo que
+                          // aparece quando o login desliza.
+                          contentStyle: { backgroundColor: "transparent" },
+                        }
+                      : { presentation: "card", animation: "slide_from_left" }),
+                  }}
                 />
                 <Stack.Screen
                   name="(tabs)"
@@ -265,6 +291,13 @@ export default function RootLayout() {
                     no mascote da Home empilhavam várias, e o "voltar" precisava de
                     um toque por cópia. Com singular, o push vai para a que já existe. */}
                 <Stack.Screen name="pigs" dangerouslySingular />
+                {/* Volta do OAuth: só devolve ao login que já está embaixo
+                    (ver app/oauth/callback.tsx). Transparente e sem animação,
+                    para não aparecer um quadro vazio entre o navegador e o login. */}
+                <Stack.Screen
+                  name="oauth/callback"
+                  options={{ presentation: "transparentModal", animation: "none" }}
+                />
               </Stack>
             </ThemeProvider>
             <StatusBar style="light" />
@@ -284,6 +317,7 @@ export default function RootLayout() {
           status={openingStatus}
           exiting={openingExiting}
           onExited={handleOpeningExited}
+          onIntroStart={handleIntroStart}
           onIntroEnd={handleIntroEnd}
         />
       ) : null}
@@ -298,7 +332,6 @@ function AppGate() {
     error: privyError,
     getAccessToken,
     isReady,
-    logout,
     user,
   } = usePrivy();
   const privyClient = usePrivyClient();
@@ -307,6 +340,11 @@ function AppGate() {
   const hydrated = useAuthStore((s) => s._hydrated);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setAppLocked = useAppLockStore((s) => s.setLocked);
+  const signOut = useSignOut();
+  // Saindo da conta a partir de uma tela do gate: ela segue cobrindo o app
+  // até o login estar na tela. Sem isso, a sessão acabava antes da navegação
+  // e a home da conta que saía aparecia por um instante.
+  const [signingOutFrom, setSigningOutFrom] = useState<"recovery" | "lock" | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [splashDone, setSplashDone] = useState(false);
   // Abertura (Figma 01, desenhada pelo RootLayout): fica até a entrada
@@ -329,7 +367,10 @@ function AppGate() {
   const hydrationCapturedRef = useRef(false);
   const navigatedUnderLockRef = useRef(false);
   const inAuthFlow = segments[0] === "(auth)";
-  const hasPrivyUser = Boolean(user);
+  // Lido pelo efeito de sessão sem ser dependência dele: a troca de rota não
+  // pode reexecutá-lo (repetiria a navegação para as abas).
+  const inAuthFlowRef = useRef(inAuthFlow);
+  inAuthFlowRef.current = inAuthFlow;
 
   const unlockWithBiometrics = useCallback(async () => {
     if (authenticatingRef.current) return;
@@ -362,21 +403,32 @@ function AppGate() {
     }
   }, []);
 
-  const handleLogout = useCallback(async () => {
-    setBiometricChecking(true);
-    clearAuth();
-    await Promise.race([
-      logout().catch(() => {}),
-      new Promise((resolve) => setTimeout(resolve, 1500)),
-    ]);
-    setBiometricLocked(true);
-    setBiometricMessage("");
-    restoredSessionRequiresBiometricsRef.current = false;
-    initialPromptScheduledRef.current = false;
-    navigatedUnderLockRef.current = false;
-    setBiometricChecking(false);
-    router.replace("/(auth)");
-  }, [clearAuth, logout]);
+  // A navegação e a limpeza do estado do gate vêm do efeito de sessão
+  // encerrada, abaixo — o mesmo caminho da saída pelo Perfil.
+  const handleLogout = useCallback(
+    async (from: "recovery" | "lock") => {
+      if (signingOutFrom) return;
+      setSigningOutFrom(from);
+      await signOut();
+    },
+    [signOut, signingOutFrom],
+  );
+
+  // O login já é a rota: a tela do gate sai depois da entrada dele, que é
+  // animada — saindo antes, a home aparecia por baixo durante a animação.
+  useEffect(() => {
+    if (!signingOutFrom || !inAuthFlow) return;
+    const timer = setTimeout(() => setSigningOutFrom(null), AUTH_ENTER_MS);
+    return () => clearTimeout(timer);
+  }, [inAuthFlow, signingOutFrom]);
+
+  // Sessão encerrada (saída, exclusão, sessão do Privy que caiu): nada do que
+  // foi consultado para a conta anterior pode sobrar para a próxima.
+  const wasAuthenticatedRef = useRef(isAuthenticated);
+  useEffect(() => {
+    if (wasAuthenticatedRef.current && !isAuthenticated) queryClient.clear();
+    wasAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -446,7 +498,12 @@ function AppGate() {
     if (!gateOpen) return;
 
     if (!isAuthenticated) {
-      router.replace("/(auth)");
+      // Por cima das abas (push, não replace): elas seguem montadas, e ao
+      // entrar o login sai revelando a Home já desenhada. Trocando as abas
+      // pelo login, a Home montava do zero na entrada e a tela ficava preta
+      // por alguns quadros. Uma vez só: com o login já na tela, navegar de
+      // novo o remontava.
+      if (!inAuthFlowRef.current) router.push("/(auth)");
       setBiometricLocked(false);
       setBiometricMessage("");
       restoredSessionRequiresBiometricsRef.current = false;
@@ -456,24 +513,28 @@ function AppGate() {
       return;
     }
 
-    if (!isReady) {
+    const shouldRequireBiometrics =
+      restoredSessionRequiresBiometricsRef.current;
+
+    // Sessão salva com cadeado: o cadeado (e a biometria) não dependem do
+    // Privy, que carrega por trás dele — a carteira embarcada leva de 5 a 7 s
+    // num aparelho modesto, e a biometria esperava por ela. O restante (sessão
+    // sem cadeado, depois de desbloquear) segue esperando o Privy.
+    if (!isReady && !(shouldRequireBiometrics && biometricLocked)) {
       if (privyError || privyReadyTimedOut) {
         requestAnimationFrame(() => setSplashDone(true));
       }
       return;
     }
 
-    const shouldRequireBiometrics =
-      restoredSessionRequiresBiometricsRef.current;
-
     if (!shouldRequireBiometrics) {
       setBiometricLocked(false);
       setBiometricMessage("");
       initialPromptScheduledRef.current = false;
-      // dismissTo, não replace: com `anchor: "(tabs)"` as abas já estão no
-      // fundo da pilha, embaixo do (auth). O replace trocava o (auth) por uma
-      // segunda cópia das abas (duas Homes vivas: tudo em dobro, inclusive a
-      // animação de nível). O dismissTo volta até a cópia que já existe.
+      // dismissTo, não replace: as abas já estão no fundo da pilha, embaixo
+      // do (auth). O replace trocava o (auth) por uma segunda cópia das abas
+      // (duas Homes vivas: tudo em dobro, inclusive a animação de nível). O
+      // dismissTo volta até a cópia que já existe.
       router.dismissTo("/(tabs)");
       requestAnimationFrame(() => setSplashDone(true));
     } else if (!biometricLocked) {
@@ -485,7 +546,7 @@ function AppGate() {
       // Navega para as abas por baixo do cadeado. Ao desbloquear, o Modal sai
       // revelando a home — não a rota que estava embaixo, como a de login na
       // abertura do app, que piscava enquanto as abas entravam em fade.
-      if (hasPrivyUser && !navigatedUnderLockRef.current) {
+      if (!navigatedUnderLockRef.current) {
         navigatedUnderLockRef.current = true;
         router.dismissTo("/(tabs)");
       }
@@ -494,7 +555,6 @@ function AppGate() {
   }, [
     biometricLocked,
     gateOpen,
-    hasPrivyUser,
     isAuthenticated,
     isReady,
     privyError,
@@ -506,7 +566,6 @@ function AppGate() {
       !splashDone ||
       !introDone ||
       !gateOpen ||
-      !isReady ||
       !isAuthenticated ||
       !biometricLocked ||
       !restoredSessionRequiresBiometricsRef.current
@@ -529,7 +588,6 @@ function AppGate() {
     gateOpen,
     introDone,
     isAuthenticated,
-    isReady,
     splashDone,
     unlockWithBiometrics,
   ]);
@@ -566,11 +624,13 @@ function AppGate() {
   }, [biometricLocked, inAuthFlow, isAuthenticated, unlockWithBiometrics]);
 
   const showPrivyRecovery =
-    isAuthenticated && !isReady && Boolean(privyError || privyReadyTimedOut);
+    (isAuthenticated && !isReady && Boolean(privyError || privyReadyTimedOut)) ||
+    signingOutFrom === "recovery";
   const showBiometricLock =
-    isAuthenticated &&
-    biometricLocked &&
-    restoredSessionRequiresBiometricsRef.current;
+    (isAuthenticated &&
+      biometricLocked &&
+      restoredSessionRequiresBiometricsRef.current) ||
+    signingOutFrom === "lock";
   const splashVisible = !splashDone || !introDone;
   const gateCovering = splashVisible || !splashExited || showPrivyRecovery || showBiometricLock;
 
@@ -639,9 +699,9 @@ function AppGate() {
           },
         }}
         secondary={{
-          label: biometricChecking ? "Saindo..." : "Sair da conta",
-          onPress: handleLogout,
-          disabled: biometricChecking,
+          label: signingOutFrom ? "Saindo..." : "Sair da conta",
+          onPress: () => handleLogout("recovery"),
+          disabled: signingOutFrom !== null,
         }}
       />
     );
@@ -654,11 +714,15 @@ function AppGate() {
         alert={biometricMessage || undefined}
         primary={{
           label: "Desbloquear",
-          onPress: unlockWithBiometrics,
+          onPress: signingOutFrom ? () => {} : unlockWithBiometrics,
           loading: biometricChecking,
           loadingLabel: "Verificando...",
         }}
-        secondary={{ label: "Sair da conta", onPress: handleLogout, disabled: biometricChecking }}
+        secondary={{
+          label: signingOutFrom ? "Saindo..." : "Sair da conta",
+          onPress: () => handleLogout("lock"),
+          disabled: biometricChecking || signingOutFrom !== null,
+        }}
       />
     );
   }

@@ -36,18 +36,15 @@ import {
   type AppMode,
 } from "@/hooks/use-app-mode";
 import { useTerms } from "@/hooks/use-terms";
-import { useSmartAccount } from "@/hooks/use-smart-account";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useSound } from "@/hooks/use-sound";
-import { usePixStore } from "@/lib/stores/pix.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
-import { useBlindPayStore } from "@/lib/stores/blindpay.store";
 import { useKycStatus } from "@/lib/queries/blindpay.queries";
 import type { KycStatusResponse } from "@/lib/api/blindpay";
 import { KycStatusBadge } from "@/components/ui/KycStatusBadge";
 import { useWalletBalance } from "@/lib/queries/wallets.queries";
 import { useInvestedTotal } from "@/hooks/use-invested-total";
 import { levelProgress } from "@/constants/pig-levels";
-import { usePrivy } from "@privy-io/expo";
 import { attemptActivation, findUsdcBalance } from "@/lib/api/wallets";
 import * as Clipboard from "expo-clipboard";
 
@@ -79,9 +76,7 @@ export default function ProfileScreen() {
   const contractId = useAuthStore((s) => s.contractId);
   const isActivated = useAuthStore((s) => s.isActivated);
   const setIsActivated = useAuthStore((s) => s.setIsActivated);
-  const clearAuth = useAuthStore((s) => s.clearAuth);
-  const { disconnect } = useSmartAccount();
-  const { logout } = usePrivy();
+  const signOut = useSignOut();
   const { playClick, playInvestirConfirmacao } = useSound();
 
   const { data: kyc, isLoading: kycLoading } = useKycStatus(contractId);
@@ -94,6 +89,7 @@ export default function ProfileScreen() {
   const pigLevel = levelProgress(totalInvested).current;
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showGiftsModal, setShowGiftsModal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -140,17 +136,18 @@ export default function ProfileScreen() {
     playInvestirConfirmacao();
   }
 
+  // O modal fica aberto, carregando, até a saída terminar; o AppGate leva ao
+  // login quando a sessão acaba (ver useSignOut). Fechado antes, o Perfil
+  // ficava à mostra enquanto o Privy saía.
   async function handleConfirmLogout() {
-    setShowLogoutModal(false);
-    await Promise.allSettled([logout(), disconnect()]);
-    clearAuth();
-    // Dado sensível (chave Pix, rascunho de KYC e URLs de documentos) não pode
-    // sobreviver ao logout num aparelho que outra pessoa pode voltar a usar —
-    // ver docs/security.md. hasBankAccount/hasWallet/receiverId são só um
-    // cache local; o backend continua sendo a fonte de verdade no próximo login.
-    useBlindPayStore.getState().resetOnboarding();
-    usePixStore.getState().clearPixKey();
-    router.replace("/(auth)");
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+      setShowLogoutModal(false);
+    }
   }
 
   async function handleRetryActivation() {
@@ -468,6 +465,7 @@ export default function ProfileScreen() {
         confirmLabel="Sair"
         cancelLabel="Cancelar"
         variant="destructive"
+        loading={signingOut}
         onConfirm={handleConfirmLogout}
         onCancel={() => setShowLogoutModal(false)}
       />

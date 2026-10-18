@@ -31,6 +31,10 @@ export const useVaults = () => {
   return useQuery({ queryKey: vaultKeys.all, queryFn: getVaults, enabled: isAuthenticated });
 };
 
+/** Busca os porquinhos antes de a Home montar (fim do login). Mesma chave do useVaults. */
+export const prefetchVaults = (qc: QueryClient) =>
+  qc.prefetchQuery({ queryKey: vaultKeys.all, queryFn: getVaults });
+
 export const useVault = (id: string) =>
   useQuery({ queryKey: vaultKeys.detail(id), queryFn: () => getVault(id), enabled: !!id });
 

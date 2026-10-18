@@ -15,6 +15,7 @@ import { V2Colors, V2Font } from '@/constants/theme-v2';
 import { V2Spinner } from '@/components/v2/V2Spinner';
 import { Wordmark } from '@/components/v2/Wordmark';
 import { EntryBackdrop } from './EntryBackdrop';
+import { waitForCalm } from '@/lib/utils/wait-for-calm';
 
 const SYMBOL = require('@/assets/images/v2/mascote-simbolo.png');
 
@@ -33,11 +34,6 @@ const STATUS_IN_MS = 250;
 
 /** Sem o evento de carga do símbolo, segue sem ele depois disso. */
 const SYMBOL_TIMEOUT_MS = 1_200;
-/** Quadros seguidos dentro do prazo que contam como "aparelho livre". */
-const CALM_FRAMES = 8;
-const CALM_FRAME_MS = 34;
-/** Espera máxima por quadros livres antes de animar mesmo assim. */
-const CALM_MAX_MS = 1_500;
 /**
  * Opacidade mínima do que acende na entrada (fundo, logo). O Android não
  * desenha uma view com opacidade 0, e as imagens dela só subiam para a GPU no
@@ -45,37 +41,6 @@ const CALM_MAX_MS = 1_500;
  * fundo escuro, esse custo fica no porquinho parado, antes da entrada.
  */
 const WARM_OPACITY = 0.01;
-
-/**
- * Chama `onCalm` quando o aparelho volta a entregar quadros no ritmo: alguns
- * seguidos sem atraso, ou o tempo-limite. Os quadros do JS só chegam quando a
- * thread de UI os libera, então um travamento em qualquer uma das duas atrasa
- * a contagem.
- */
-function waitForCalm(onCalm: () => void): () => void {
-  const start = performance.now();
-  let last = start;
-  let streak = 0;
-  let frame = 0;
-  let done = false;
-
-  const tick = () => {
-    const now = performance.now();
-    streak = now - last < CALM_FRAME_MS ? streak + 1 : 0;
-    last = now;
-    if (streak >= CALM_FRAMES || now - start > CALM_MAX_MS) {
-      done = true;
-      onCalm();
-      return;
-    }
-    frame = requestAnimationFrame(tick);
-  };
-  frame = requestAnimationFrame(tick);
-
-  return () => {
-    if (!done) cancelAnimationFrame(frame);
-  };
-}
 
 interface OpeningSplashProps {
   /** Status abaixo do logo (Figma 03 "Entrando..."); aparece sem mover o logo. */
@@ -90,6 +55,8 @@ interface OpeningSplashProps {
   /** Saindo: dissolve e avisa ao terminar. */
   exiting?: boolean;
   onExited?: () => void;
+  /** A entrada começou (ou não havia entrada). */
+  onIntroStart?: () => void;
   /** A entrada terminou (ou não havia entrada). */
   onIntroEnd?: () => void;
 }
@@ -110,6 +77,7 @@ export function OpeningSplash({
   fontsReady = true,
   exiting = false,
   onExited,
+  onIntroStart,
   onIntroEnd,
 }: OpeningSplashProps) {
   const intro = useSharedValue(animateIn ? 0 : 1);
@@ -123,6 +91,8 @@ export function OpeningSplash({
   // conjunto não deve se mexer nessa hora. O último texto fica.
   const [shownStatus, setShownStatus] = useState(status);
   if (status && status !== shownStatus) setShownStatus(status);
+  const onIntroStartRef = useRef(onIntroStart);
+  onIntroStartRef.current = onIntroStart;
   const onIntroEndRef = useRef(onIntroEnd);
   onIntroEndRef.current = onIntroEnd;
 
@@ -155,10 +125,12 @@ export function OpeningSplash({
   useEffect(() => {
     if (!nativeHidden || !fontsReady) return;
     if (!animateIn) {
+      onIntroStartRef.current?.();
       onIntroEndRef.current?.();
       return;
     }
     return waitForCalm(() => {
+      onIntroStartRef.current?.();
       const end = () => onIntroEndRef.current?.();
       intro.value = withTiming(1, { duration: INTRO_MS, easing: Easing.out(Easing.back(1.6)) }, (done) => {
         if (done) runOnJS(end)();

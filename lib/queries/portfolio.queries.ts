@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { getPortfolioSummary, type PortfolioSummary } from '@/lib/api/portfolio';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
@@ -20,6 +20,18 @@ async function getReliablePortfolioSummary(owner: string): Promise<PortfolioSumm
     return summary;
   }
   return reliableSummaries.get(owner) ?? summary;
+}
+
+/**
+ * Busca o portfólio antes de a Home montar (fim do login). Mesma chave e mesma
+ * busca do usePortfolioSummary, que aproveita o resultado.
+ */
+export function prefetchPortfolioSummary(qc: QueryClient, owner: string) {
+  return qc.prefetchQuery({
+    queryKey: portfolioKeys.summary(owner),
+    queryFn: () => getReliablePortfolioSummary(owner),
+    staleTime: 30_000,
+  });
 }
 
 export function usePortfolioSummary(enabled = true) {

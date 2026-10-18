@@ -1,18 +1,37 @@
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  BackHandler,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useFocusEffect } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { V2Colors, V2Font } from '@/constants/theme-v2';
 import { BRAND_PURPLE, Button3D, Wordmark } from '@/components/v2';
 import { EntryBackdrop } from '@/components/entry/EntryBackdrop';
-import { OpeningSplash } from '@/components/entry/OpeningSplash';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { prefetchPortfolioSummary } from '@/lib/queries/portfolio.queries';
+import { prefetchVaults } from '@/lib/queries/vaults.queries';
 import { walletLogin } from '@/lib/api/auth';
 import { getActivationXdr, reconcileWalletActivation, submitActivation } from '@/lib/api/wallets';
 import { signXdr } from '@/lib/stellar/kit';
+import { calmFrames } from '@/lib/utils/wait-for-calm';
 import {
   consumeSessionRestoreBlock,
   isSessionRestoreBlocked,
@@ -24,10 +43,28 @@ import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passke
 const SHOW_PASSKEY_LOGIN = false;
 
 const MASCOT = require('@/assets/images/v2/mascote-baby-pig.png');
+/**
+ * Figma 02: o logo fica 66 abaixo do topo da tela (12 sob a barra de status do
+ * iPhone). No Android a barra é mais baixa e "barra + 12" colava o logo no topo.
+ */
+const LOGO_TOP = 66;
+/** Quanto o "Entrando..." espera os dados da Home antes de seguir sem eles. */
+const HOME_PREFETCH_TIMEOUT_MS = 4_000;
+/**
+ * No Android o login é uma camada transparente sobre as abas (app/_layout.tsx),
+ * e nela a animação nativa de saída não roda: ele mesmo desliza. Entra pela
+ * esquerda e, ao entrar na conta, sai para a esquerda revelando a Home, que
+ * já está desenhada embaixo. No iOS a pilha anima.
+ */
+const SLIDES_ITSELF = Platform.OS === 'android';
+const SLIDE_MS = 380;
+/** Curva padrão do Material: acelera e desacelera, o movimento aparece inteiro. */
+const SLIDE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 const GOOGLE_LOGO = require('@/assets/images/v2/logo-google.png');
 const APPLE_LOGO = require('@/assets/images/v2/logo-apple.png');
 const OAUTH_REDIRECT_PATH = '/oauth/callback';
 type OAuthProvider = 'google' | 'apple';
+type LoginMethod = OAuthProvider | 'passkey';
 const OAUTH_PROVIDER_LABEL: Record<OAuthProvider, string> = {
   google: 'Google',
   apple: 'Apple',
@@ -107,8 +144,39 @@ function createStellarWalletOnce(
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const [loading, setLoading] = useState<OAuthProvider | 'passkey' | null>(null);
+  const { width } = useWindowDimensions();
+  const slideX = useSharedValue(SLIDES_ITSELF ? -width : 0);
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slideX.value }] }));
+
+  useEffect(() => {
+    if (!SLIDES_ITSELF) return;
+    slideX.value = withTiming(0, { duration: SLIDE_MS, easing: SLIDE_EASING });
+  }, [slideX]);
+
+  // Sai para a esquerda; resolve ao fim (ou no tempo-limite, se a animação
+  // não avisar).
+  const slideOut = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, SLIDE_MS + 200);
+        const done = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        slideX.value = withTiming(
+          -width,
+          { duration: SLIDE_MS, easing: SLIDE_EASING },
+          () => runOnJS(done)(),
+        );
+      }),
+    [slideX, width],
+  );
+  const [loading, setLoading] = useState<LoginMethod | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A entrada começou (Privy conectado, falta a sessão no backend), por este
+  // botão: ele fica em "Entrando..." até a tela sair, mesmo depois de a sessão
+  // ser marcada — só um erro o devolve ao normal.
+  const [entering, setEntering] = useState<LoginMethod | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setWalletAddress = useAuthStore((s) => s.setWalletAddress);
@@ -119,6 +187,7 @@ export default function OnboardingScreen() {
   const reconciledUserIdRef = useRef<string | null>(null);
   const pendingOAuthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingProviderRef = useRef<OAuthProvider>('google');
+  const queryClient = useQueryClient();
   const { createWallet } = useCreateWallet();
   const { loginWithPasskey } = useLoginWithPasskey();
   const { signupWithPasskey } = useSignupWithPasskey();
@@ -126,13 +195,17 @@ export default function OnboardingScreen() {
   const { error: privyError, isReady, user } = usePrivy();
   const canUsePrivy = PRIVY_CONFIGURED && isReady && !privyError;
   const privyErrorDetail = getErrorDetail(privyError);
+  // O Privy leva alguns segundos para ficar pronto depois que o login já está
+  // na tela (a carteira embarcada carrega numa WebView). Nesse meio-tempo o
+  // botão aceita o toque: mostra "Conectando..." e o login segue sozinho
+  // quando o Privy fica pronto, em vez de um botão desabilitado com aviso.
+  const privyStarting = PRIVY_CONFIGURED && !privyError && !isReady;
   const authStatusMessage = !PRIVY_CONFIGURED
     ? 'Login indisponível: configuração Privy ausente neste build.'
     : privyError
       ? `Login indisponível: ${privyErrorDetail ?? 'não foi possível inicializar o Privy.'}`
-      : !isReady
-        ? 'Preparando login seguro...'
-        : null;
+      : null;
+  const [queuedProvider, setQueuedProvider] = useState<OAuthProvider | null>(null);
 
   const createAndAuth = useCallback(async (privyUser?: NonNullable<typeof user>) => {
     const effectiveUser = privyUser ?? user;
@@ -158,6 +231,29 @@ export default function OnboardingScreen() {
     const { user: backendUser, wallet, needsActivation } = loginResult;
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
+
+    // Ainda no "Entrando...": a Home chegava vazia, com "Cotação
+    // temporariamente indisponível", até as primeiras leituras voltarem. A
+    // conta é registrada antes (o cliente da API manda o userId a partir dela),
+    // mas a sessão só é marcada depois — marcá-la leva às abas. Com rede lenta,
+    // segue sem os dados depois do tempo-limite.
+    useAuthStore.setState({ contractId: backendUser.id });
+    await Promise.race([
+      Promise.allSettled([
+        prefetchPortfolioSummary(queryClient, backendUser.id),
+        prefetchVaults(queryClient),
+      ]),
+      new Promise((resolve) => setTimeout(resolve, HOME_PREFETCH_TIMEOUT_MS)),
+    ]);
+
+    // Marcar a sessão leva às abas (AppGate): antes, o login sai de cena.
+    if (SLIDES_ITSELF) {
+      // Com os dados pré-carregados, a Home embaixo se redesenha agora. Na
+      // mesma hora que o deslize, ela ocupava a thread de UI e a animação
+      // não ganhava quadros: o login sumia de uma vez. Espera ela assentar.
+      await calmFrames();
+      await slideOut();
+    }
     setAuth(backendUser.id);
 
     let activationMsg: string | null = null;
@@ -195,9 +291,9 @@ export default function OnboardingScreen() {
       setIsActivated(true);
     }
 
-    // As abas ficam no fundo da pilha (anchor): voltar até elas, sem criar
-    // uma segunda cópia (ver app/_layout.tsx).
-    router.dismissTo('/(tabs)');
+    // Sem navegar daqui: com a sessão marcada (setAuth, acima), o AppGate
+    // leva às abas. Navegar também daqui fechava, ao fim da ativação, a tela
+    // que a pessoa já tivesse aberto.
 
     if (activationMsg) {
       setTimeout(() => {
@@ -206,18 +302,26 @@ export default function OnboardingScreen() {
     }
   }, [
     createWallet,
+    queryClient,
     setAuth,
     setIsActivated,
     setWalletAccountId,
     setWalletAddress,
+    slideOut,
     user,
   ]);
 
-  const completePrivyLogin = useCallback((privyUser: NonNullable<typeof user>) => {
+  const completePrivyLogin = useCallback((method: LoginMethod, privyUser?: NonNullable<typeof user>) => {
     if (!authPromiseRef.current) {
-      authPromiseRef.current = createAndAuth(privyUser).finally(() => {
-        authPromiseRef.current = null;
-      });
+      setEntering(method);
+      authPromiseRef.current = createAndAuth(privyUser)
+        .catch((authErr) => {
+          setEntering(null);
+          throw authErr;
+        })
+        .finally(() => {
+          authPromiseRef.current = null;
+        });
     }
 
     return authPromiseRef.current;
@@ -237,8 +341,9 @@ export default function OnboardingScreen() {
       isAuthenticated ||
       authPromiseRef.current ||
       reconciledUserIdRef.current === user.id ||
-      // Depois de excluir a conta, o usuário do Privy ainda vive em memória e
-      // restaurar aqui recriaria a conta recém-destruída.
+      // Depois de sair ou de excluir a conta, o usuário do Privy ainda pode
+      // estar em memória: restaurar aqui entraria de novo na conta que saiu
+      // (ou recriaria a excluída).
       isSessionRestoreBlocked()
     ) return;
 
@@ -247,7 +352,7 @@ export default function OnboardingScreen() {
     const provider = pendingProviderRef.current;
     setLoading(provider);
     setError(null);
-    void completePrivyLogin(user)
+    void completePrivyLogin(provider, user)
       .catch((restoreErr) => {
         setError(`Sua conta ${OAUTH_PROVIDER_LABEL[provider]} foi conectada, mas não foi possível restaurar a sessão.`);
         console.error('[privy:restore-session]', getErrorDetail(restoreErr) ?? restoreErr);
@@ -258,6 +363,14 @@ export default function OnboardingScreen() {
   useEffect(() => clearPendingOAuthTimer, [clearPendingOAuthTimer]);
 
   async function handleOAuthLogin(provider: OAuthProvider) {
+    if (privyStarting) {
+      pendingProviderRef.current = provider;
+      setLoading(provider);
+      setError(null);
+      setQueuedProvider(provider);
+      return;
+    }
+
     if (!canUsePrivy) {
       setError(authStatusMessage ?? 'Login indisponível no momento.');
       return;
@@ -276,11 +389,11 @@ export default function OnboardingScreen() {
     try {
       redirectUrl = Linking.createURL(OAUTH_REDIRECT_PATH);
 
-      // Depois de uma exclusão o usuário em cache aponta para uma identidade
-      // que não existe mais, então o login é refeito do zero.
-      const afterDeletion = consumeSessionRestoreBlock();
+      // Depois de sair ou de excluir a conta, o usuário em cache é o da conta
+      // que saiu, então o login é refeito do zero.
+      const restoreBlocked = consumeSessionRestoreBlock();
 
-      loggedInUser = (afterDeletion ? undefined : user) ?? await loginWithOAuth({
+      loggedInUser = (restoreBlocked ? undefined : user) ?? await loginWithOAuth({
         provider,
         redirectUri: OAUTH_REDIRECT_PATH,
       });
@@ -298,6 +411,14 @@ export default function OnboardingScreen() {
       }
     } catch (oauthErr) {
       const detail = getErrorDetail(oauthErr);
+
+      // A pessoa fechou o navegador sem escolher a conta: não é erro, o login
+      // só volta ao normal.
+      if (/cancel/i.test(detail ?? '')) {
+        setLoading(null);
+        return;
+      }
+
       const isRedirectSchemeError = detail?.includes('Redirect URL scheme is not allowed');
 
       setError(
@@ -323,7 +444,7 @@ export default function OnboardingScreen() {
 
     try {
       clearPendingOAuthTimer();
-      await completePrivyLogin(loggedInUser);
+      await completePrivyLogin(provider, loggedInUser);
     } catch (backendErr) {
       setError(`Login com ${providerLabel} realizado, mas não foi possível conectar com a API.`);
       console.error(`[${provider}:createAndAuth]`, getErrorDetail(backendErr) ?? backendErr);
@@ -332,9 +453,28 @@ export default function OnboardingScreen() {
     }
   }
 
+  // O toque que chegou antes do Privy ficar pronto segue agora (ou volta ao
+  // normal, se o Privy falhou).
+  const handleOAuthLoginRef = useRef(handleOAuthLogin);
+  handleOAuthLoginRef.current = handleOAuthLogin;
+  useEffect(() => {
+    if (!queuedProvider) return;
+    if (privyError || !PRIVY_CONFIGURED) {
+      setQueuedProvider(null);
+      setLoading(null);
+      return;
+    }
+    if (!canUsePrivy) return;
+    setQueuedProvider(null);
+    void handleOAuthLoginRef.current(queuedProvider);
+  }, [canUsePrivy, privyError, queuedProvider]);
+
   async function handleConnectPrivy() {
     if (!canUsePrivy) {
-      setError(authStatusMessage ?? 'Login indisponível no momento.');
+      setError(
+        authStatusMessage ??
+          (privyStarting ? 'Preparando o login. Tente de novo em instantes.' : 'Login indisponível no momento.'),
+      );
       return;
     }
 
@@ -345,8 +485,9 @@ export default function OnboardingScreen() {
 
     setLoading('passkey');
     setError(null);
+    const restoreBlocked = consumeSessionRestoreBlock();
     try {
-      if (!user) {
+      if (!user || restoreBlocked) {
         try {
           await loginWithPasskey({ relyingParty: RELYING_PARTY! });
         } catch (loginErr) {
@@ -370,7 +511,7 @@ export default function OnboardingScreen() {
     }
 
     try {
-      await createAndAuth();
+      await completePrivyLogin('passkey');
     } catch (backendErr) {
       setError('Passkey autenticada, mas não foi possível conectar com a API.');
       console.error('[passkey:createAndAuth]', getErrorDetail(backendErr) ?? backendErr);
@@ -379,34 +520,49 @@ export default function OnboardingScreen() {
     }
   }
 
-  // After OAuth/passkey returns, Privy has a user but the backend session is
-  // still being reconciled (wallet + auth). Figma 03: a mesma composição da
-  // abertura, com o status "Entrando...", para a passagem abertura → login →
-  // entrada parecer um movimento só.
-  const isRestoringSession = !!user && !isAuthenticated && !error;
+  // As abas ficam montadas embaixo do login (ver AppGate): o voltar do
+  // Android levaria a uma home sem sessão. No login, ele fecha o app.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        BackHandler.exitApp();
+        return true;
+      });
+      return () => subscription.remove();
+    }, []),
+  );
 
-  if (isRestoringSession) {
-    return <OpeningSplash animateIn={false} status="Entrando..." />;
-  }
+  // Figma 02b/03: o botão tocado mostra o progresso — "Conectando..." até o
+  // Privy devolver o usuário, "Entrando..." enquanto a sessão é montada — e a
+  // tela segue sendo o login até se dissolver na Home. O usuário do Privy que
+  // sobrou de uma saída (restauração bloqueada) não conta como entrada.
+  const restoring = !!user && !isAuthenticated && !isSessionRestoreBlocked();
+  const activeMethod: LoginMethod | null = error
+    ? loading
+    : entering ?? loading ?? (restoring ? pendingProviderRef.current : null);
+  const progressLabel = !error && (entering || restoring) ? 'Entrando...' : 'Conectando...';
 
-  const busy = !canUsePrivy || loading !== null;
+  const busy = (!canUsePrivy && !privyStarting) || activeMethod !== null;
 
   return (
-    <View style={styles.screen}>
+    <Animated.View style={[styles.screen, slideStyle]}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         bounces={false}
         showsVerticalScrollIndicator={false}
       >
         {/* Figma 02: herói com brilho e estrelas, logo, mascote e slogan. */}
-        <View style={[styles.hero, { paddingTop: insets.top + 12 }]}>
+        <View style={[styles.hero, { paddingTop: Math.max(insets.top + 12, LOGO_TOP) }]}>
           <EntryBackdrop />
           <Wordmark size={24} />
           <View style={styles.mascotArea}>
             <Image source={MASCOT} contentFit="contain" style={styles.mascot} />
           </View>
           <View style={styles.texts}>
-            <Text style={styles.slogan}>
+            {/* Duas linhas, como no Figma: em tela estreita a fonte diminui
+                um pouco em vez de quebrar em três. */}
+            <Text style={styles.slogan} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
               {'Pequenos hábitos,\num '}
               <Text style={{ color: BRAND_PURPLE }}>universo</Text>
               {' de possibilidades'}
@@ -426,9 +582,9 @@ export default function OnboardingScreen() {
             label="Continuar com Google"
             leading={<Image source={GOOGLE_LOGO} style={styles.logo} />}
             onPress={() => handleOAuthLogin('google')}
-            disabled={busy && loading !== 'google'}
-            loading={loading === 'google'}
-            loadingLabel="Conectando..."
+            disabled={busy && activeMethod !== 'google'}
+            loading={activeMethod === 'google'}
+            loadingLabel={progressLabel}
           />
 
           {Platform.OS === 'ios' ? (
@@ -437,9 +593,9 @@ export default function OnboardingScreen() {
               label="Continuar com Apple"
               leading={<Image source={APPLE_LOGO} style={styles.logo} />}
               onPress={() => handleOAuthLogin('apple')}
-              disabled={busy && loading !== 'apple'}
-              loading={loading === 'apple'}
-              loadingLabel="Conectando..."
+              disabled={busy && activeMethod !== 'apple'}
+              loading={activeMethod === 'apple'}
+              loadingLabel={progressLabel}
             />
           ) : null}
 
@@ -449,9 +605,9 @@ export default function OnboardingScreen() {
               icon="fingerprint"
               label="Conectar com Passkey"
               onPress={handleConnectPrivy}
-              disabled={busy && loading !== 'passkey'}
-              loading={loading === 'passkey'}
-              loadingLabel="Conectando..."
+              disabled={busy && activeMethod !== 'passkey'}
+              loading={activeMethod === 'passkey'}
+              loadingLabel={progressLabel}
             />
           ) : null}
 
@@ -467,7 +623,7 @@ export default function OnboardingScreen() {
           {'.'}
         </Text>
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -484,7 +640,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 460,
     alignItems: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
     paddingBottom: 30,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,

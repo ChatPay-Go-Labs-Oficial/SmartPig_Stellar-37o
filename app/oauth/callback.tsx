@@ -1,19 +1,24 @@
-import { Colors } from '@/constants/theme';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
 
+/**
+ * Destino do redirect do OAuth (Google, Apple). O Privy recebe o resultado pela
+ * sessão do navegador, e o app/+native-intent.tsx descarta o link antes de o
+ * expo-router navegar. Esta rota fica de reserva, se ele chegar a navegar.
+ *
+ * Ela só devolve a pessoa ao login que abriu o OAuth — a mesma instância, com
+ * a entrada em andamento. Um `replace` montava um login novo: o "Conectando..."
+ * sumia, o formulário voltava parado por alguns segundos e as duas instâncias
+ * faziam o login no backend. Sem login embaixo (o Android fechou o app durante
+ * o OAuth), o `dismissTo` abre um.
+ *
+ * Transparente e sem animação (app/_layout.tsx): nada aparece entre o
+ * navegador e o login.
+ */
 export default function OAuthCallbackScreen() {
   useEffect(() => {
-    router.replace('/(auth)');
+    router.dismissTo('/(auth)');
   }, []);
 
-  return <View style={styles.container} />;
+  return null;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-});

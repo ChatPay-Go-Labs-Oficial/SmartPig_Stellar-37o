@@ -73,6 +73,9 @@ export default function HomeScreen() {
   );
   const setLastSeenPigLevel = useAuthStore((s) => s.setLastSeenPigLevel);
   const appLocked = useAppLockStore((s) => s.locked);
+  // A home fica montada embaixo do login (ver AppGate): sem sessão, ela não
+  // conta nem abre a animação de nível por trás dele.
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   // As casas andam com o rendimento entre uma leitura e outra (só na Home).
   const liveInvested = useLiveAmount(
@@ -118,7 +121,7 @@ export default function HomeScreen() {
   useEffect(() => {
     // Montada por baixo do cadeado, a home espera o app ser liberado: aberto
     // antes, o Modal da animação seria descartado pelo iOS sem aparecer.
-    if (!balancesReady || !walletAddress || appLocked) return;
+    if (!balancesReady || !walletAddress || appLocked || !isAuthenticated) return;
 
     // O aparelho guarda o id do nível (não o nome, que já mudou). Um valor
     // antigo, gravado como nome ("Porquinho Rei" era o 5º nível), não bate
@@ -146,6 +149,7 @@ export default function HomeScreen() {
   }, [
     appLocked,
     balancesReady,
+    isAuthenticated,
     lastSeenPigLevel,
     levelId,
     setLastSeenPigLevel,
@@ -153,6 +157,10 @@ export default function HomeScreen() {
   ]);
 
   useEffect(() => {
+    // Coberta (abertura, cadeado) ou embaixo do login, a contagem espera:
+    // corria escondida e a pessoa via só o fim dela quando a home aparecia.
+    if (appLocked || !isAuthenticated) return;
+
     const target = totalInvested;
     const currentDisplayBalance = displayBalanceRef.current;
 
@@ -184,7 +192,15 @@ export default function HomeScreen() {
       clearInterval(interval);
       isAnimating.current = false;
     };
-  }, [totalInvested]);
+  }, [appLocked, isAuthenticated, totalInvested]);
+
+  // Sem conta (saiu), a contagem recomeça do zero: a próxima conta não parte
+  // do valor da anterior.
+  useEffect(() => {
+    if (walletAddress) return;
+    displayBalanceRef.current = 0;
+    setDisplayBalance(0);
+  }, [walletAddress]);
 
   const refetchVaults = vaultsQuery.refetch;
   const refetchPortfolio = portfolioQuery.refetch;
