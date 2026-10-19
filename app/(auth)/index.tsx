@@ -1,29 +1,37 @@
-import { Colors, Font, FontSize, Spacing, scaleFont } from '@/constants/theme';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
-  Image,
-  KeyboardAvoidingView,
+  BackHandler,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { useFocusEffect } from 'expo-router';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
-import { StarryBackground } from '@/components/ui';
+import { V2Colors, V2Font } from '@/constants/theme-v2';
+import { BRAND_PURPLE, Button3D, Wordmark } from '@/components/v2';
+import { EntryBackdrop } from '@/components/entry/EntryBackdrop';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { prefetchPortfolioSummary } from '@/lib/queries/portfolio.queries';
+import { prefetchVaults } from '@/lib/queries/vaults.queries';
 import { walletLogin } from '@/lib/api/auth';
 import { getActivationXdr, reconcileWalletActivation, submitActivation } from '@/lib/api/wallets';
 import { signXdr } from '@/lib/stellar/kit';
+import { calmFrames } from '@/lib/utils/wait-for-calm';
 import {
   consumeSessionRestoreBlock,
   isSessionRestoreBlocked,
@@ -33,8 +41,30 @@ import { useCreateWallet } from '@privy-io/expo/extended-chains';
 import { useLoginWithPasskey, useSignupWithPasskey } from '@privy-io/expo/passkey';
 
 const SHOW_PASSKEY_LOGIN = false;
+
+const MASCOT = require('@/assets/images/v2/mascote-baby-pig.png');
+/**
+ * Figma 02: o logo fica 66 abaixo do topo da tela (12 sob a barra de status do
+ * iPhone). No Android a barra é mais baixa e "barra + 12" colava o logo no topo.
+ */
+const LOGO_TOP = 66;
+/** Quanto o "Entrando..." espera os dados da Home antes de seguir sem eles. */
+const HOME_PREFETCH_TIMEOUT_MS = 4_000;
+/**
+ * No Android o login é uma camada transparente sobre as abas (app/_layout.tsx),
+ * e nela a animação nativa de saída não roda: ele mesmo desliza. Entra pela
+ * esquerda e, ao entrar na conta, sai para a esquerda revelando a Home, que
+ * já está desenhada embaixo. No iOS a pilha anima.
+ */
+const SLIDES_ITSELF = Platform.OS === 'android';
+const SLIDE_MS = 380;
+/** Curva padrão do Material: acelera e desacelera, o movimento aparece inteiro. */
+const SLIDE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
+const GOOGLE_LOGO = require('@/assets/images/v2/logo-google.png');
+const APPLE_LOGO = require('@/assets/images/v2/logo-apple.png');
 const OAUTH_REDIRECT_PATH = '/oauth/callback';
 type OAuthProvider = 'google' | 'apple';
+type LoginMethod = OAuthProvider | 'passkey';
 const OAUTH_PROVIDER_LABEL: Record<OAuthProvider, string> = {
   google: 'Google',
   apple: 'Apple',
@@ -114,18 +144,51 @@ function createStellarWalletOnce(
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const [loading, setLoading] = useState<OAuthProvider | 'passkey' | null>(null);
+  const { width } = useWindowDimensions();
+  const slideX = useSharedValue(SLIDES_ITSELF ? -width : 0);
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slideX.value }] }));
+
+  useEffect(() => {
+    if (!SLIDES_ITSELF) return;
+    slideX.value = withTiming(0, { duration: SLIDE_MS, easing: SLIDE_EASING });
+  }, [slideX]);
+
+  // Sai para a esquerda; resolve ao fim (ou no tempo-limite, se a animação
+  // não avisar).
+  const slideOut = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, SLIDE_MS + 200);
+        const done = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        slideX.value = withTiming(
+          -width,
+          { duration: SLIDE_MS, easing: SLIDE_EASING },
+          () => runOnJS(done)(),
+        );
+      }),
+    [slideX, width],
+  );
+  const [loading, setLoading] = useState<LoginMethod | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A entrada começou (Privy conectado, falta a sessão no backend), por este
+  // botão: ele fica em "Entrando..." até a tela sair, mesmo depois de a sessão
+  // ser marcada — só um erro o devolve ao normal.
+  const [entering, setEntering] = useState<LoginMethod | null>(null);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const setAuth = useAuthStore((s) => s.setAuth);
   const setWalletAddress = useAuthStore((s) => s.setWalletAddress);
   const setWalletAccountId = useAuthStore((s) => s.setWalletAccountId);
   const setIsActivated = useAuthStore((s) => s.setIsActivated);
+  const setAccountCreatedAt = useAuthStore((s) => s.setAccountCreatedAt);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const authPromiseRef = useRef<Promise<void> | null>(null);
   const reconciledUserIdRef = useRef<string | null>(null);
   const pendingOAuthTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingProviderRef = useRef<OAuthProvider>('google');
+  const queryClient = useQueryClient();
   const { createWallet } = useCreateWallet();
   const { loginWithPasskey } = useLoginWithPasskey();
   const { signupWithPasskey } = useSignupWithPasskey();
@@ -133,13 +196,17 @@ export default function OnboardingScreen() {
   const { error: privyError, isReady, user } = usePrivy();
   const canUsePrivy = PRIVY_CONFIGURED && isReady && !privyError;
   const privyErrorDetail = getErrorDetail(privyError);
+  // O Privy leva alguns segundos para ficar pronto depois que o login já está
+  // na tela (a carteira embarcada carrega numa WebView). Nesse meio-tempo o
+  // botão aceita o toque: mostra "Conectando..." e o login segue sozinho
+  // quando o Privy fica pronto, em vez de um botão desabilitado com aviso.
+  const privyStarting = PRIVY_CONFIGURED && !privyError && !isReady;
   const authStatusMessage = !PRIVY_CONFIGURED
     ? 'Login indisponível: configuração Privy ausente neste build.'
     : privyError
       ? `Login indisponível: ${privyErrorDetail ?? 'não foi possível inicializar o Privy.'}`
-      : !isReady
-        ? 'Preparando login seguro...'
-        : null;
+      : null;
+  const [queuedProvider, setQueuedProvider] = useState<OAuthProvider | null>(null);
 
   const createAndAuth = useCallback(async (privyUser?: NonNullable<typeof user>) => {
     const effectiveUser = privyUser ?? user;
@@ -165,6 +232,30 @@ export default function OnboardingScreen() {
     const { user: backendUser, wallet, needsActivation } = loginResult;
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
+    setAccountCreatedAt(backendUser.createdAt ?? null);
+
+    // Ainda no "Entrando...": a Home chegava vazia, com "Cotação
+    // temporariamente indisponível", até as primeiras leituras voltarem. A
+    // conta é registrada antes (o cliente da API manda o userId a partir dela),
+    // mas a sessão só é marcada depois — marcá-la leva às abas. Com rede lenta,
+    // segue sem os dados depois do tempo-limite.
+    useAuthStore.setState({ contractId: backendUser.id });
+    await Promise.race([
+      Promise.allSettled([
+        prefetchPortfolioSummary(queryClient, backendUser.id),
+        prefetchVaults(queryClient),
+      ]),
+      new Promise((resolve) => setTimeout(resolve, HOME_PREFETCH_TIMEOUT_MS)),
+    ]);
+
+    // Marcar a sessão leva às abas (AppGate): antes, o login sai de cena.
+    if (SLIDES_ITSELF) {
+      // Com os dados pré-carregados, a Home embaixo se redesenha agora. Na
+      // mesma hora que o deslize, ela ocupava a thread de UI e a animação
+      // não ganhava quadros: o login sumia de uma vez. Espera ela assentar.
+      await calmFrames();
+      await slideOut();
+    }
     setAuth(backendUser.id);
 
     let activationMsg: string | null = null;
@@ -202,7 +293,9 @@ export default function OnboardingScreen() {
       setIsActivated(true);
     }
 
-    router.replace('/(tabs)');
+    // Sem navegar daqui: com a sessão marcada (setAuth, acima), o AppGate
+    // leva às abas. Navegar também daqui fechava, ao fim da ativação, a tela
+    // que a pessoa já tivesse aberto.
 
     if (activationMsg) {
       setTimeout(() => {
@@ -211,18 +304,27 @@ export default function OnboardingScreen() {
     }
   }, [
     createWallet,
+    queryClient,
+    setAccountCreatedAt,
     setAuth,
     setIsActivated,
     setWalletAccountId,
     setWalletAddress,
+    slideOut,
     user,
   ]);
 
-  const completePrivyLogin = useCallback((privyUser: NonNullable<typeof user>) => {
+  const completePrivyLogin = useCallback((method: LoginMethod, privyUser?: NonNullable<typeof user>) => {
     if (!authPromiseRef.current) {
-      authPromiseRef.current = createAndAuth(privyUser).finally(() => {
-        authPromiseRef.current = null;
-      });
+      setEntering(method);
+      authPromiseRef.current = createAndAuth(privyUser)
+        .catch((authErr) => {
+          setEntering(null);
+          throw authErr;
+        })
+        .finally(() => {
+          authPromiseRef.current = null;
+        });
     }
 
     return authPromiseRef.current;
@@ -242,8 +344,9 @@ export default function OnboardingScreen() {
       isAuthenticated ||
       authPromiseRef.current ||
       reconciledUserIdRef.current === user.id ||
-      // Depois de excluir a conta, o usuário do Privy ainda vive em memória e
-      // restaurar aqui recriaria a conta recém-destruída.
+      // Depois de sair ou de excluir a conta, o usuário do Privy ainda pode
+      // estar em memória: restaurar aqui entraria de novo na conta que saiu
+      // (ou recriaria a excluída).
       isSessionRestoreBlocked()
     ) return;
 
@@ -252,7 +355,7 @@ export default function OnboardingScreen() {
     const provider = pendingProviderRef.current;
     setLoading(provider);
     setError(null);
-    void completePrivyLogin(user)
+    void completePrivyLogin(provider, user)
       .catch((restoreErr) => {
         setError(`Sua conta ${OAUTH_PROVIDER_LABEL[provider]} foi conectada, mas não foi possível restaurar a sessão.`);
         console.error('[privy:restore-session]', getErrorDetail(restoreErr) ?? restoreErr);
@@ -263,6 +366,14 @@ export default function OnboardingScreen() {
   useEffect(() => clearPendingOAuthTimer, [clearPendingOAuthTimer]);
 
   async function handleOAuthLogin(provider: OAuthProvider) {
+    if (privyStarting) {
+      pendingProviderRef.current = provider;
+      setLoading(provider);
+      setError(null);
+      setQueuedProvider(provider);
+      return;
+    }
+
     if (!canUsePrivy) {
       setError(authStatusMessage ?? 'Login indisponível no momento.');
       return;
@@ -281,11 +392,11 @@ export default function OnboardingScreen() {
     try {
       redirectUrl = Linking.createURL(OAUTH_REDIRECT_PATH);
 
-      // Depois de uma exclusão o usuário em cache aponta para uma identidade
-      // que não existe mais, então o login é refeito do zero.
-      const afterDeletion = consumeSessionRestoreBlock();
+      // Depois de sair ou de excluir a conta, o usuário em cache é o da conta
+      // que saiu, então o login é refeito do zero.
+      const restoreBlocked = consumeSessionRestoreBlock();
 
-      loggedInUser = (afterDeletion ? undefined : user) ?? await loginWithOAuth({
+      loggedInUser = (restoreBlocked ? undefined : user) ?? await loginWithOAuth({
         provider,
         redirectUri: OAUTH_REDIRECT_PATH,
       });
@@ -303,6 +414,14 @@ export default function OnboardingScreen() {
       }
     } catch (oauthErr) {
       const detail = getErrorDetail(oauthErr);
+
+      // A pessoa fechou o navegador sem escolher a conta: não é erro, o login
+      // só volta ao normal.
+      if (/cancel/i.test(detail ?? '')) {
+        setLoading(null);
+        return;
+      }
+
       const isRedirectSchemeError = detail?.includes('Redirect URL scheme is not allowed');
 
       setError(
@@ -328,7 +447,7 @@ export default function OnboardingScreen() {
 
     try {
       clearPendingOAuthTimer();
-      await completePrivyLogin(loggedInUser);
+      await completePrivyLogin(provider, loggedInUser);
     } catch (backendErr) {
       setError(`Login com ${providerLabel} realizado, mas não foi possível conectar com a API.`);
       console.error(`[${provider}:createAndAuth]`, getErrorDetail(backendErr) ?? backendErr);
@@ -337,9 +456,28 @@ export default function OnboardingScreen() {
     }
   }
 
+  // O toque que chegou antes do Privy ficar pronto segue agora (ou volta ao
+  // normal, se o Privy falhou).
+  const handleOAuthLoginRef = useRef(handleOAuthLogin);
+  handleOAuthLoginRef.current = handleOAuthLogin;
+  useEffect(() => {
+    if (!queuedProvider) return;
+    if (privyError || !PRIVY_CONFIGURED) {
+      setQueuedProvider(null);
+      setLoading(null);
+      return;
+    }
+    if (!canUsePrivy) return;
+    setQueuedProvider(null);
+    void handleOAuthLoginRef.current(queuedProvider);
+  }, [canUsePrivy, privyError, queuedProvider]);
+
   async function handleConnectPrivy() {
     if (!canUsePrivy) {
-      setError(authStatusMessage ?? 'Login indisponível no momento.');
+      setError(
+        authStatusMessage ??
+          (privyStarting ? 'Preparando o login. Tente de novo em instantes.' : 'Login indisponível no momento.'),
+      );
       return;
     }
 
@@ -350,8 +488,9 @@ export default function OnboardingScreen() {
 
     setLoading('passkey');
     setError(null);
+    const restoreBlocked = consumeSessionRestoreBlock();
     try {
-      if (!user) {
+      if (!user || restoreBlocked) {
         try {
           await loginWithPasskey({ relyingParty: RELYING_PARTY! });
         } catch (loginErr) {
@@ -375,7 +514,7 @@ export default function OnboardingScreen() {
     }
 
     try {
-      await createAndAuth();
+      await completePrivyLogin('passkey');
     } catch (backendErr) {
       setError('Passkey autenticada, mas não foi possível conectar com a API.');
       console.error('[passkey:createAndAuth]', getErrorDetail(backendErr) ?? backendErr);
@@ -384,373 +523,221 @@ export default function OnboardingScreen() {
     }
   }
 
-  // After OAuth/passkey returns, Privy has a user but the backend session is
-  // still being reconciled (wallet + auth). Show a full-screen loader during
-  // that window so the sign-in UI doesn't flicker until navigation to home.
-  const isRestoringSession = !!user && !isAuthenticated && !error;
+  // As abas ficam montadas embaixo do login (ver AppGate): o voltar do
+  // Android levaria a uma home sem sessão. No login, ele fecha o app.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        BackHandler.exitApp();
+        return true;
+      });
+      return () => subscription.remove();
+    }, []),
+  );
 
-  if (isRestoringSession) {
-    return (
-      <View style={styles.loadingScreen}>
-        <StarryBackground />
-        <View style={styles.brand}>
-          <Image
-            source={require('@/assets/images/PigFi-porquinho.png')}
-            style={styles.brandIcon}
-          />
-          <Text style={styles.brandText}>PigFi</Text>
-        </View>
-        <Image
-          source={require('@/assets/images/pig1.png')}
-          style={styles.image}
-        />
-        <View style={styles.loadingRow}>
-          <ActivityIndicator size="small" color="#fff" />
-          <Text style={styles.loadingText}>Entrando...</Text>
-        </View>
-      </View>
-    );
-  }
+  // Figma 02b/03: o botão tocado mostra o progresso — "Conectando..." até o
+  // Privy devolver o usuário, "Entrando..." enquanto a sessão é montada — e a
+  // tela segue sendo o login até se dissolver na Home. O usuário do Privy que
+  // sobrou de uma saída (restauração bloqueada) não conta como entrada.
+  const restoring = !!user && !isAuthenticated && !isSessionRestoreBlocked();
+  const activeMethod: LoginMethod | null = error
+    ? loading
+    : entering ?? loading ?? (restoring ? pendingProviderRef.current : null);
+  const progressLabel = !error && (entering || restoring) ? 'Entrando...' : 'Conectando...';
+
+  const busy = (!canUsePrivy && !privyStarting) || activeMethod !== null;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior="padding"
-    >
+    <Animated.View style={[styles.screen, slideStyle]}>
       <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingBottom: 26 + insets.bottom },
-        ]}
-        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scroll}
         bounces={false}
+        showsVerticalScrollIndicator={false}
       >
-        <StarryBackground />
-        <View style={styles.content}>
-          <View style={styles.hero}>
-            <View style={styles.brand}>
-              <Image
-                source={require('@/assets/images/PigFi-porquinho.png')}
-                style={styles.brandIcon}
-              />
-              <Text style={styles.brandText}>PigFi</Text>
-            </View>
-            <Text style={styles.subtitle}>
-              Pequenos investimentos,{'\n'}
-              <Text style={styles.subtitleAccent}>um universo de possibilidades.</Text>
-            </Text>
+        {/* Figma 02: herói com brilho e estrelas, logo, mascote e slogan. */}
+        <View style={[styles.hero, { paddingTop: Math.max(insets.top + 12, LOGO_TOP) }]}>
+          <EntryBackdrop />
+          <Wordmark size={24} />
+          <View style={styles.mascotArea}>
+            <Image source={MASCOT} contentFit="contain" style={styles.mascot} />
           </View>
-
-          <Image
-            source={require('@/assets/images/pig1.png')}
-            style={styles.image}
-          />
-
-          <View style={styles.actions}>
-            {authStatusMessage ? (
-              <Text style={styles.authStatusText}>{authStatusMessage}</Text>
-            ) : null}
-
-            <Pressable
-              onPress={() => handleOAuthLogin('google')}
-              disabled={!canUsePrivy || loading !== null}
-              style={({ pressed }) => [
-                styles.googleButtonShell,
-                pressed && loading === null && styles.btnPressed,
-                (!canUsePrivy || loading !== null) && styles.btnDisabled,
-              ]}
-            >
-              <LinearGradient
-                colors={['rgba(130, 58, 143, 0.92)', 'rgba(53, 70, 126, 0.92)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.googleButton}
-              >
-                <View style={styles.googleIconBox}>
-                  <FontAwesome name="google" size={18} color="#4285F4" />
-                </View>
-                <Text style={styles.googleButtonText} numberOfLines={1}>
-                  {loading === 'google' ? 'Conectando...' : 'Continuar com Google'}
-                </Text>
-                <View style={styles.googleButtonTrailing}>
-                  {loading === 'google' ? (
-                    <ActivityIndicator size="small" color="rgba(255,255,255,0.78)" />
-                  ) : (
-                    <MaterialIcons
-                      name="arrow-forward"
-                      size={20}
-                      color="rgba(255,255,255,0.62)"
-                    />
-                  )}
-                </View>
-              </LinearGradient>
-            </Pressable>
-
-            {Platform.OS === 'ios' ? (
-              <Pressable
-                onPress={() => handleOAuthLogin('apple')}
-                disabled={!canUsePrivy || loading !== null}
-                style={({ pressed }) => [
-                  styles.appleButtonShell,
-                  pressed && loading === null && styles.btnPressed,
-                  (!canUsePrivy || loading !== null) && styles.btnDisabled,
-                ]}
-              >
-                <View style={styles.appleButton}>
-                  <View style={styles.appleIconBox}>
-                    <FontAwesome name="apple" size={20} color="#fff" />
-                  </View>
-                  <Text style={styles.appleButtonText} numberOfLines={1}>
-                    {loading === 'apple' ? 'Conectando...' : 'Continuar com Apple'}
-                  </Text>
-                  <View style={styles.appleButtonTrailing}>
-                    {loading === 'apple' ? (
-                      <ActivityIndicator size="small" color="rgba(255,255,255,0.78)" />
-                    ) : (
-                      <MaterialIcons
-                        name="arrow-forward"
-                        size={20}
-                        color="rgba(255,255,255,0.62)"
-                      />
-                    )}
-                  </View>
-                </View>
-              </Pressable>
-            ) : null}
-
-            {SHOW_PASSKEY_LOGIN ? (
-              <Pressable
-                onPress={handleConnectPrivy}
-                disabled={!canUsePrivy || loading !== null}
-                style={[
-                  styles.authButton,
-                  styles.authButtonMuted,
-                  (!canUsePrivy || loading === 'passkey') && styles.btnDisabled,
-                ]}
-              >
-                <MaterialIcons name="fingerprint" size={22} color={Colors.foreground} />
-                <Text style={styles.authButtonText}>
-                  {loading === 'passkey' ? 'Conectando...' : 'Conectar com Passkey'}
-                </Text>
-                <MaterialIcons name="arrow-forward" size={20} color="rgba(255,255,255,0.52)" />
-              </Pressable>
-            ) : null}
-
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
-            {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
-
-            <Text style={styles.termsText}>
-              Ao continuar, voce concorda com os <Text style={styles.termsLink}>Termos</Text> e a{'\n'}
-              <Text style={styles.termsLink}>Politica de Privacidade</Text> da PigFi.
+          <View style={styles.texts}>
+            {/* Duas linhas, como no Figma: em tela estreita a fonte diminui
+                um pouco em vez de quebrar em três. */}
+            <Text style={styles.slogan} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
+              {'Pequenos hábitos,\num '}
+              <Text style={{ color: BRAND_PURPLE }}>universo</Text>
+              {' de possibilidades'}
             </Text>
+            <Text style={styles.tagline}>Guarde em dólar, veja crescer.</Text>
           </View>
         </View>
+
+        <View style={styles.actions}>
+          {authStatusMessage ? (
+            <Text style={styles.statusText}>{authStatusMessage}</Text>
+          ) : null}
+
+          {/* Ordem do Figma: Google primeiro, Apple depois (só no iOS). */}
+          <Button3D
+            variant="glass"
+            label="Continuar com Google"
+            leading={<Image source={GOOGLE_LOGO} style={styles.logo} />}
+            onPress={() => handleOAuthLogin('google')}
+            disabled={busy && activeMethod !== 'google'}
+            loading={activeMethod === 'google'}
+            loadingLabel={progressLabel}
+          />
+
+          {Platform.OS === 'ios' ? (
+            <Button3D
+              variant="light"
+              label="Continuar com Apple"
+              leading={<Image source={APPLE_LOGO} style={styles.logo} />}
+              onPress={() => handleOAuthLogin('apple')}
+              disabled={busy && activeMethod !== 'apple'}
+              loading={activeMethod === 'apple'}
+              loadingLabel={progressLabel}
+            />
+          ) : null}
+
+          {SHOW_PASSKEY_LOGIN ? (
+            <Button3D
+              variant="glass"
+              icon="fingerprint"
+              label="Conectar com Passkey"
+              onPress={handleConnectPrivy}
+              disabled={busy && activeMethod !== 'passkey'}
+              loading={activeMethod === 'passkey'}
+              loadingLabel={progressLabel}
+            />
+          ) : null}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {debugInfo ? <Text style={styles.debugText}>{debugInfo}</Text> : null}
+        </View>
+
+        <Text style={[styles.terms, { paddingBottom: insets.bottom + 24 }]}>
+          {'Ao continuar, você aceita os '}
+          <Text style={styles.termsStrong}>Termos de uso</Text>
+          {' e a '}
+          <Text style={styles.termsStrong}>Política de privacidade</Text>
+          {'.'}
+        </Text>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingScreen: {
+  screen: {
     flex: 1,
-    backgroundColor: '#080113',
+    backgroundColor: V2Colors.background,
+  },
+  scroll: {
+    flexGrow: 1,
+  },
+  // Figma: o herói ocupa o espaço que sobra e termina em curva de 32.
+  hero: {
+    flex: 1,
+    minHeight: 460,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    overflow: 'hidden',
+  },
+  mascotArea: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 24,
-    paddingHorizontal: 24,
+    alignSelf: 'stretch',
   },
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  loadingText: { color: '#fff', fontSize: 16 },
-  container: {
-    flexGrow: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: Spacing[6],
-    paddingTop: 54,
+  // Figma: sombra 0 16 12 preta 45% embaixo do mascote. O `filter` só existe
+  // no Android: no iOS ele desenhava a imagem dentro de um quadrado branco. Lá
+  // a sombra é a nativa, que segue o recorte da imagem.
+  mascot: {
+    width: 204,
+    height: 204,
+    ...Platform.select({
+      android: {
+        filter: [{ dropShadow: { offsetX: 0, offsetY: 16, standardDeviation: 6, color: 'rgba(0,0,0,0.45)' } }],
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.45,
+        shadowRadius: 6,
+      },
+    }),
   },
-  content: {
-    flex: 1,
-    minHeight: 720,
-    justifyContent: 'space-between',
-  },
-  hero: {
+  texts: {
     alignItems: 'center',
-    gap: Spacing[3],
-    zIndex: 10,
+    gap: 10,
   },
-  brand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[2],
+  slogan: {
+    fontFamily: V2Font.black,
+    fontSize: 22,
+    lineHeight: 24.6,
+    letterSpacing: -0.66,
+    color: V2Colors.text,
+    textAlign: 'center',
   },
-  brandIcon: {
-    width: 34,
-    height: 34,
-    resizeMode: 'contain',
-  },
-  brandText: {
-    color: Colors.foreground,
-    fontSize: scaleFont(30),
-    fontFamily: Font.black,
-    fontWeight: '900',
-  },
-  image: {
-    width: '100%',
-    maxWidth: 360,
-    height: 365,
-    resizeMode: 'contain',
-    alignSelf: 'center',
-    marginTop: Spacing[2],
+  tagline: {
+    fontFamily: V2Font.medium,
+    fontSize: 15,
+    lineHeight: 22,
+    color: V2Colors.textSecondary,
+    textAlign: 'center',
   },
   actions: {
+    gap: 12,
+    paddingTop: 24,
+    paddingHorizontal: 18,
     width: '100%',
-    gap: Spacing[3],
-    zIndex: 10,
+    maxWidth: 480,
+    alignSelf: 'center',
   },
-  authStatusText: {
-    color: Colors.mutedForeground,
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.semiBold,
-    lineHeight: 19,
+  logo: {
+    width: 24,
+    height: 24,
+  },
+  // Figma 02e: o aviso de login indisponível fica acima dos botões.
+  statusText: {
+    fontFamily: V2Font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: V2Colors.textTertiary,
     textAlign: 'center',
   },
-  subtitle: {
-    fontSize: FontSize.body,
-    color: 'rgba(255,255,255,0.82)',
-    textAlign: 'center',
-    lineHeight: 23,
-    fontFamily: Font.extraBold,
-    fontWeight: '800',
-  },
-  subtitleAccent: {
-    color: '#F15BD0',
-  },
-  googleButtonShell: {
-    width: '100%',
-    borderRadius: 14,
-    shadowColor: '#F15BD0',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  googleButton: {
-    height: 58,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  googleIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleButtonText: {
-    flex: 1,
-    paddingHorizontal: 8,
-    color: Colors.foreground,
-    fontSize: FontSize.body,
-    fontWeight: '800',
-    fontFamily: Font.extraBold,
-    textAlign: 'center',
-  },
-  googleButtonTrailing: {
-    width: 36,
-    height: 36,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  appleButtonShell: {
-    width: '100%',
-    borderRadius: 14,
-  },
-  appleButton: {
-    height: 58,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    backgroundColor: '#000',
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  appleIconBox: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appleButtonText: {
-    flex: 1,
-    paddingHorizontal: 8,
-    color: '#fff',
-    fontSize: FontSize.body,
-    fontWeight: '800',
-    fontFamily: Font.extraBold,
-    textAlign: 'center',
-  },
-  appleButtonTrailing: {
-    width: 36,
-    height: 36,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  authButton: {
-    minHeight: 58,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.20)',
-    paddingHorizontal: Spacing[3],
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing[3],
-  },
-  authButtonMuted: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  authButtonText: {
-    flex: 1,
-    color: Colors.foreground,
-    fontSize: FontSize.body,
-    fontWeight: '800',
-    fontFamily: Font.extraBold,
-  },
-  btnPressed: {
-    transform: [{ scale: 0.985 }],
-  },
-  btnDisabled: {
-    opacity: 0.55,
-  },
+  // Figma 02d: o erro fica abaixo dos botões.
   errorText: {
-    color: '#EF4444',
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
+    fontFamily: V2Font.medium,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: V2Colors.error,
+    textAlign: 'center',
   },
   debugText: {
-    color: Colors.mutedForeground,
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.regular,
-    lineHeight: 18,
-  },
-  termsText: {
-    color: 'rgba(255,255,255,0.34)',
-    fontSize: FontSize.label,
-    lineHeight: 18,
+    fontFamily: V2Font.medium,
+    fontSize: 11,
+    lineHeight: 16,
+    color: V2Colors.textTertiary,
     textAlign: 'center',
-    fontFamily: Font.semiBold,
-    fontWeight: '600',
-    marginTop: Spacing[1],
   },
-  termsLink: {
-    color: 'rgba(255,255,255,0.64)',
-    fontFamily: Font.bold,
-    fontWeight: '800',
+  terms: {
+    paddingTop: 18,
+    paddingHorizontal: 34,
+    fontFamily: V2Font.medium,
+    fontSize: 12,
+    lineHeight: 18,
+    color: V2Colors.textTertiary,
+    textAlign: 'center',
+  },
+  termsStrong: {
+    fontFamily: V2Font.semiBold,
+    color: V2Colors.textSecondary,
   },
 });

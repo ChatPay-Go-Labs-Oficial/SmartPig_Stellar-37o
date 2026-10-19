@@ -1,0 +1,216 @@
+import type { Deposit } from '@/lib/api/deposits';
+import type { Withdrawal } from '@/lib/api/withdrawals';
+import type { GiftListItem } from '@/lib/api/gifts';
+import type { RampHistoryTransaction, RampStatus } from '@/lib/api/blindpay-ramp';
+import type { UsdcTransferRecord } from '@/lib/stellar/transfers';
+
+/**
+ * Histórico da Carteira: junta as fontes financeiras já existentes.
+ *
+ * - Porquinhos (vault): GET /deposits e GET /withdrawals do backend.
+ * - Pix: GET /ramp/transactions do backend.
+ * - Transferências: pagamentos USDC lidos do Horizon + presentes (GET /gifts).
+ *
+ * Fora por enquanto: trocas (falta listagem de conversões no backend).
+ */
+
+export type HistoryKind =
+  | 'vault-deposit'
+  | 'vault-withdrawal'
+  | 'pix-deposit'
+  | 'pix-withdrawal'
+  | 'transfer-sent'
+  | 'transfer-received'
+  | 'gift-sent'
+  | 'gift-received';
+
+export type HistoryFilter = 'all' | 'pix' | 'vaults' | 'transfers';
+
+export type HistoryStatus = 'done' | 'pending' | 'failed' | 'refunded' | 'expired';
+
+export interface HistoryItem {
+  key: string;
+  kind: HistoryKind;
+  /** Valor sempre positivo; o sinal vem do tipo. */
+  amount: number;
+  /** Código do ativo, para o modo Pro. */
+  assetCode: string;
+  status: HistoryStatus;
+  createdAt: string;
+  vaultId?: string;
+  counterparty?: string;
+  hash?: string;
+}
+
+export interface HistoryGroup {
+  /** "OUTUBRO DE 2026" */
+  title: string;
+  items: HistoryItem[];
+}
+
+const FILTER_KINDS: Record<Exclude<HistoryFilter, 'all'>, HistoryKind[]> = {
+  pix: ['pix-deposit', 'pix-withdrawal'],
+  vaults: ['vault-deposit', 'vault-withdrawal'],
+  transfers: ['transfer-sent', 'transfer-received', 'gift-sent', 'gift-received'],
+};
+
+/** Entra na carteira (+) ou sai dela (-). */
+export function isIncoming(kind: HistoryKind): boolean {
+  return (
+    kind === 'vault-withdrawal' ||
+    kind === 'pix-deposit' ||
+    kind === 'transfer-received' ||
+    kind === 'gift-received'
+  );
+}
+
+/** Sinal exibido no Histórico, de acordo com o nome da operação. */
+export function isPositiveHistoryAmount(kind: HistoryKind): boolean {
+  if (kind === 'vault-deposit') return true;
+  if (kind === 'vault-withdrawal') return false;
+  if (kind === 'pix-deposit') return true;
+  if (kind === 'pix-withdrawal') return false;
+  return isIncoming(kind);
+}
+
+function vaultStatus(status: Deposit['status']): HistoryStatus {
+  if (status === 'CONFIRMED') return 'done';
+  if (status === 'FAILED') return 'failed';
+  return 'pending';
+}
+
+function giftStatus(gift: GiftListItem): HistoryStatus {
+  switch (gift.status) {
+    case 'CLAIMED':
+      return 'done';
+    case 'REFUNDED':
+      return 'refunded';
+    case 'EXPIRED':
+      return 'expired';
+    case 'FUNDED':
+      // Para quem enviou, o dinheiro já saiu; para quem recebe, só existe
+      // depois do resgate (e aí o status é CLAIMED).
+      return 'done';
+    default:
+      return 'pending';
+  }
+}
+
+function rampStatus(status: RampStatus): HistoryStatus {
+  if (status === 'COMPLETED') return 'done';
+  if (status === 'FAILED') return 'failed';
+  if (status === 'REFUNDED') return 'refunded';
+  return 'pending';
+}
+
+function toNumber(value: number | string | null | undefined): number {
+  const n = typeof value === 'number' ? value : parseFloat(String(value ?? 0));
+  return Number.isFinite(n) ? Math.abs(n) : 0;
+}
+
+export function buildHistory(sources: {
+  deposits?: Deposit[];
+  withdrawals?: Withdrawal[];
+  transfers?: UsdcTransferRecord[];
+  gifts?: GiftListItem[];
+  rampTransactions?: RampHistoryTransaction[];
+  vaultAssetById?: ReadonlyMap<string, string>;
+}): HistoryItem[] {
+  const items: HistoryItem[] = [
+    ...(sources.deposits ?? []).map((d) => ({
+      key: `vault-deposit-${d.id}`,
+      kind: 'vault-deposit' as const,
+      amount: toNumber(d.amount),
+      assetCode: d.assetSymbol || sources.vaultAssetById?.get(d.vaultId) || 'USDC',
+      status: vaultStatus(d.status),
+      createdAt: d.createdAt,
+      vaultId: d.vaultId,
+    })),
+    // `shareAmount` são cotas do vault, não USDC: com a cota perto de 1 o número
+    // bate, mas não é o valor resgatado. Mesmo comportamento do histórico
+    // anterior — corrigir pede o valor em USDC vindo do backend.
+    ...(sources.withdrawals ?? []).map((w) => ({
+      key: `vault-withdrawal-${w.id}`,
+      kind: 'vault-withdrawal' as const,
+      amount: toNumber(w.requestedAmount ?? w.shareAmount ?? w.shares),
+      assetCode: sources.vaultAssetById?.get(w.vaultId) || 'USDC',
+      status: vaultStatus(w.status),
+      createdAt: w.createdAt,
+      vaultId: w.vaultId,
+    })),
+    ...(sources.rampTransactions ?? []).map((transaction) => ({
+      key: `pix-${transaction.direction.toLowerCase()}-${transaction.id}`,
+      kind: (transaction.direction === 'ONRAMP' ? 'pix-deposit' : 'pix-withdrawal') as HistoryKind,
+      amount: toNumber(transaction.amountUsdc),
+      assetCode: 'USDC',
+      status: rampStatus(transaction.status),
+      createdAt: transaction.completedAt ?? transaction.createdAt,
+    })),
+    ...(sources.transfers ?? []).map((t) => ({
+      key: `transfer-${t.id}`,
+      kind: (t.direction === 'sent' ? 'transfer-sent' : 'transfer-received') as HistoryKind,
+      amount: toNumber(t.amount),
+      assetCode: 'USDC',
+      status: 'done' as const,
+      createdAt: t.createdAt,
+      counterparty: t.counterparty,
+      hash: t.hash,
+    })),
+    ...(sources.gifts ?? [])
+      // Presente criado e nunca financiado não movimentou dinheiro.
+      .filter((g) => g.status !== 'CREATED')
+      .map((g) => ({
+        key: `gift-${g.id}`,
+        kind: (g.direction === 'sent' ? 'gift-sent' : 'gift-received') as HistoryKind,
+        amount: toNumber(g.amount),
+        assetCode: g.assetSymbol || 'USDC',
+        status: giftStatus(g),
+        createdAt: g.createdAt,
+        hash: g.claimTxHash ?? undefined,
+      })),
+  ];
+
+  return items.sort((a, b) => timeOf(b.createdAt) - timeOf(a.createdAt));
+}
+
+function timeOf(iso: string): number {
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+export function filterHistory(items: HistoryItem[], filter: HistoryFilter): HistoryItem[] {
+  if (filter === 'all') return items;
+  const kinds = FILTER_KINDS[filter];
+  return items.filter((item) => kinds.includes(item.kind));
+}
+
+const MONTHS = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+/** Agrupa por mês, na ordem em que os itens chegam (já ordenados). */
+export function groupByMonth(items: HistoryItem[]): HistoryGroup[] {
+  const groups: HistoryGroup[] = [];
+  for (const item of items) {
+    const date = new Date(item.createdAt);
+    const title = Number.isNaN(date.getTime())
+      ? 'SEM DATA'
+      : `${MONTHS[date.getMonth()]} de ${date.getFullYear()}`.toUpperCase();
+    const last = groups[groups.length - 1];
+    if (last?.title === title) last.items.push(item);
+    else groups.push({ title, items: [item] });
+  }
+  return groups;
+}
+
+/** "08 out., 10:30" — montado à mão: o Intl do Hermes varia entre versões. */
+export function formatHistoryDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = MONTHS[date.getMonth()].slice(0, 3);
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day} ${month}., ${hours}:${minutes}`;
+}

@@ -10,6 +10,8 @@ interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'destructive' | 'primary';
+  /** Confirmação em andamento: o botão carrega e o modal não fecha. */
+  loading?: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }
@@ -21,10 +23,12 @@ export function ConfirmModal({
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',
   variant = 'destructive',
+  loading = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
   const insets = useSafeAreaInsets();
+  const handleCancel = loading ? () => {} : onCancel;
 
   return (
     <Modal
@@ -33,10 +37,10 @@ export function ConfirmModal({
       animationType="fade"
       statusBarTranslucent
       navigationBarTranslucent
-      onRequestClose={onCancel}
+      onRequestClose={handleCancel}
     >
       {/* Backdrop — tap to dismiss */}
-      <Pressable style={styles.backdrop} onPress={onCancel}>
+      <Pressable style={styles.backdrop} onPress={handleCancel}>
         <Pressable
           style={[styles.sheet, { paddingBottom: Spacing[8] + insets.bottom }]}
           onPress={() => {}}
@@ -54,12 +58,14 @@ export function ConfirmModal({
               label={cancelLabel}
               variant="secondary"
               fullWidth
+              disabled={loading}
               onPress={onCancel}
             />
             <Button
               label={confirmLabel}
               variant={variant}
               fullWidth
+              loading={loading}
               onPress={onConfirm}
             />
           </View>

@@ -3,7 +3,12 @@ import { apiClient } from './client';
 export interface Withdrawal {
   id: string;
   vaultId: string;
-  shares: number;
+  /** Quantidade de cotas do vault, em unidades inteiras. */
+  shareAmount: string;
+  /** Valor do ativo solicitado pelo usuário; ausente em saques antigos. */
+  requestedAmount?: string | null;
+  /** Compatibilidade defensiva com respostas antigas que usavam outro nome. */
+  shares?: number | string;
   status:
     | 'CREATED'
     | 'XDR_GENERATED'
@@ -21,6 +26,7 @@ export interface CreateWithdrawalParams {
   walletAccountId: string;
   vaultId: string;
   shareAmount: string;
+  requestedAmount: string;
 }
 
 export const createWithdrawal = async (params: CreateWithdrawalParams): Promise<Withdrawal> => {
