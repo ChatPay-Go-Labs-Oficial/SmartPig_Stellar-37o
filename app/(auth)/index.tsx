@@ -182,6 +182,7 @@ export default function OnboardingScreen() {
   const setWalletAddress = useAuthStore((s) => s.setWalletAddress);
   const setWalletAccountId = useAuthStore((s) => s.setWalletAccountId);
   const setIsActivated = useAuthStore((s) => s.setIsActivated);
+  const setAccountCreatedAt = useAuthStore((s) => s.setAccountCreatedAt);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const authPromiseRef = useRef<Promise<void> | null>(null);
   const reconciledUserIdRef = useRef<string | null>(null);
@@ -231,6 +232,7 @@ export default function OnboardingScreen() {
     const { user: backendUser, wallet, needsActivation } = loginResult;
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
+    setAccountCreatedAt(backendUser.createdAt ?? null);
 
     // Ainda no "Entrando...": a Home chegava vazia, com "Cotação
     // temporariamente indisponível", até as primeiras leituras voltarem. A
@@ -303,6 +305,7 @@ export default function OnboardingScreen() {
   }, [
     createWallet,
     queryClient,
+    setAccountCreatedAt,
     setAuth,
     setIsActivated,
     setWalletAccountId,
@@ -652,11 +655,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'stretch',
   },
-  // Figma: sombra 0 16 12 preta 45% embaixo do mascote.
+  // Figma: sombra 0 16 12 preta 45% embaixo do mascote. O `filter` só existe
+  // no Android: no iOS ele desenhava a imagem dentro de um quadrado branco. Lá
+  // a sombra é a nativa, que segue o recorte da imagem.
   mascot: {
     width: 204,
     height: 204,
-    filter: [{ dropShadow: { offsetX: 0, offsetY: 16, standardDeviation: 6, color: 'rgba(0,0,0,0.45)' } }],
+    ...Platform.select({
+      android: {
+        filter: [{ dropShadow: { offsetX: 0, offsetY: 16, standardDeviation: 6, color: 'rgba(0,0,0,0.45)' } }],
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.45,
+        shadowRadius: 6,
+      },
+    }),
   },
   texts: {
     alignItems: 'center',

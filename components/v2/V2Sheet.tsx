@@ -18,7 +18,11 @@ import { V2Icon, type V2IconName } from './V2Icon';
 interface V2SheetProps {
   visible: boolean;
   onClose: () => void;
-  title: string;
+  /**
+   * Sem título não há cabeçalho: o conteúdo começa logo abaixo da alça (Figma
+   * 14, Resgate de presente, que centraliza selo e título no corpo).
+   */
+  title?: string;
   /** Linha de apoio abaixo do título (Figma 10e). */
   subtitle?: string;
   /**
@@ -26,7 +30,12 @@ interface V2SheetProps {
    * sheets de Guardar e Tirar: "Porquinho Poupador · 7,1% ao ano").
    */
   pill?: { label: string; dotColor: string };
-  icon: V2IconName;
+  /**
+   * Selo do cabeçalho. Sem ele o sheet é uma pergunta (Figma 26k, "Ativar o
+   * modo Pro?"): só o título, sem selo nem X; fecha pela ação secundária, pelo
+   * toque fora ou pelo voltar.
+   */
+  icon?: V2IconName;
   /**
    * false durante uma operação em andamento: some o X, e nem o toque fora
    * nem o voltar do Android fecham o sheet.
@@ -93,39 +102,46 @@ export function V2Sheet({
               <View style={styles.handle} />
             </View>
 
-            <View style={styles.header}>
-              <View
-                style={[
-                  styles.badge,
-                  { backgroundColor: accent.alpha(0.14), borderColor: accent.alpha(0.32) },
-                ]}
-              >
-                <V2Icon name={icon} size={20} color={accent.light} />
-              </View>
-              <View style={[styles.titles, pill && styles.titlesWithPill]}>
-                <Text style={styles.title}>{title}</Text>
-                {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-                {pill ? (
-                  <View style={styles.pill}>
-                    <View style={[styles.pillDot, { backgroundColor: pill.dotColor }]} />
-                    <Text style={styles.pillText} numberOfLines={1}>
-                      {pill.label}
-                    </Text>
+            {title ? (
+              <View style={[styles.header, !icon && styles.headerPlain]}>
+                {icon ? (
+                  <View
+                    style={[
+                      styles.badge,
+                      {
+                        backgroundColor: accent.alpha(0.14),
+                        borderColor: accent.alpha(0.32),
+                      },
+                    ]}
+                  >
+                    <V2Icon name={icon} size={20} color={accent.light} />
                   </View>
                 ) : null}
+                <View style={[styles.titles, pill && styles.titlesWithPill]}>
+                  <Text style={styles.title}>{title}</Text>
+                  {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+                  {pill ? (
+                    <View style={styles.pill}>
+                      <View style={[styles.pillDot, { backgroundColor: pill.dotColor }]} />
+                      <Text style={styles.pillText} numberOfLines={1}>
+                        {pill.label}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+                {closable && icon && (
+                  <Pressable
+                    onPress={onClose}
+                    style={styles.close}
+                    accessibilityRole="button"
+                    accessibilityLabel="Fechar"
+                    hitSlop={8}
+                  >
+                    <V2Icon name="x" size={18} color={V2Colors.text} />
+                  </Pressable>
+                )}
               </View>
-              {closable && (
-                <Pressable
-                  onPress={onClose}
-                  style={styles.close}
-                  accessibilityRole="button"
-                  accessibilityLabel="Fechar"
-                  hitSlop={8}
-                >
-                  <V2Icon name="x" size={18} color={V2Colors.text} />
-                </Pressable>
-              )}
-            </View>
+            ) : null}
 
             {children}
           </LinearGradient>
@@ -176,6 +192,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingBottom: 16,
+  },
+  // Figma 26k: 12 entre o título e o texto.
+  headerPlain: {
+    paddingBottom: 12,
   },
   badge: {
     width: 44,

@@ -13,13 +13,26 @@ interface SegmentedControlProps<T extends string> {
   options: readonly SegmentOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  /**
+   * compact: pílula do tamanho do texto (Carteira). large: largura total,
+   * opções iguais de 42 (Figma "seletor" do Modo do app).
+   */
+  size?: 'compact' | 'large';
+  disabled?: boolean;
 }
 
 /** Seletor em pílula (Figma "seletor" da Carteira): opção ativa no destaque. */
-function SegmentedControlView<T extends string>({ options, value, onChange }: SegmentedControlProps<T>) {
+function SegmentedControlView<T extends string>({
+  options,
+  value,
+  onChange,
+  size = 'compact',
+  disabled = false,
+}: SegmentedControlProps<T>) {
   const accent = useAccent();
+  const large = size === 'large';
   return (
-    <View style={styles.track} accessibilityRole="tablist">
+    <View style={[styles.track, large && styles.trackLarge]} accessibilityRole="tablist">
       {options.map((option) => {
         const selected = option.id === value;
         return (
@@ -30,12 +43,21 @@ function SegmentedControlView<T extends string>({ options, value, onChange }: Se
               Haptics.selectionAsync();
               onChange(option.id);
             }}
+            disabled={disabled}
             accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            style={[styles.option, selected && { backgroundColor: accent.base }]}
+            accessibilityState={{ selected, disabled }}
+            style={[
+              styles.option,
+              large && styles.optionLarge,
+              selected && { backgroundColor: accent.base },
+            ]}
           >
             <Text
-              style={[styles.label, { color: selected ? V2Colors.onPrimary : V2Colors.textSecondary }]}
+              style={[
+                styles.label,
+                large && styles.labelLarge,
+                { color: selected ? V2Colors.onPrimary : V2Colors.textSecondary },
+              ]}
               numberOfLines={1}
             >
               {option.label}
@@ -68,5 +90,21 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: V2Font.bold,
     fontSize: 13,
+  },
+  trackLarge: {
+    gap: 0,
+    padding: 4,
+    borderWidth: 0,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  optionLarge: {
+    flex: 1,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  labelLarge: {
+    fontFamily: V2Font.black,
+    fontSize: 14,
   },
 });

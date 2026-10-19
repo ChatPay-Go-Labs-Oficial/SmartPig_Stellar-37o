@@ -262,7 +262,7 @@ export const TERMS = {
     pro: 'Você tem um presente para recuperar',
   },
   'deletion.blocker.deposit.title': {
-    lite: 'Você tem uma aplicação em andamento',
+    lite: 'Você tem um depósito em andamento',
     pro: 'Depósito em vault em andamento',
   },
   'deletion.blocker.withdrawal.title': {
@@ -288,7 +288,7 @@ export const TERMS = {
 
   // ── Exclusão de conta · detalhes sem valor ────────────────────────────
   'deletion.blocker.deposit.detail': {
-    lite: 'Espere a aplicação terminar para poder excluir a conta.',
+    lite: 'Espere o depósito terminar para poder excluir a conta.',
     pro: 'Aguarde a confirmação do depósito para excluir a conta.',
   },
   'deletion.blocker.withdrawal.detail': {
@@ -342,7 +342,7 @@ export const PHRASES = {
 
   'deletion.blocker.vaultBalance.detail': {
     lite: (v: { amount: string; vaultName: string }) =>
-      `US$ ${v.amount} guardados em ${v.vaultName}`,
+      `$${v.amount} guardados em ${v.vaultName}`,
     pro: (v: { amount: string; vaultName: string }) =>
       `${v.amount} USDC no vault ${v.vaultName}`,
   } as PhraseFn<{ amount: string; vaultName: string }>,
@@ -355,27 +355,29 @@ export const PHRASES = {
   } as PhraseFn<{ vaultName: string }>,
 
   'deletion.blocker.walletUsdc.detail': {
-    lite: (v: { amount: string }) => `US$ ${v.amount} na sua conta`,
+    lite: (v: { amount: string }) => `$${v.amount} na sua conta`,
     pro: (v: { amount: string }) => `${v.amount} USDC na carteira`,
   } as PhraseFn<{ amount: string }>,
 
   'deletion.blocker.walletAsset.detail': {
     lite: (v: { amount: string; assetCode: string }) =>
-      `${v.amount} de ${v.assetCode} na sua conta`,
+      v.assetCode === 'EURC'
+        ? `€${v.amount} na sua conta`
+        : `${v.amount} de ${v.assetCode} na sua conta`,
     pro: (v: { amount: string; assetCode: string }) =>
       `${v.amount} ${v.assetCode} na carteira`,
   } as PhraseFn<{ amount: string; assetCode: string }>,
 
   'deletion.blocker.giftLocked.detail': {
     lite: (v: { amount: string; date: string }) =>
-      `US$ ${v.amount} presos até ${v.date}. Peça para quem recebeu resgatar, ou espere essa data para recuperar.`,
+      `$${v.amount} presos até ${v.date}. Peça para quem recebeu resgatar, ou espere essa data para recuperar.`,
     pro: (v: { amount: string; date: string }) =>
       `${v.amount} USDC em claimable balance até ${v.date}. Só é possível reaver depois dessa data.`,
   } as PhraseFn<{ amount: string; date: string }>,
 
   'deletion.blocker.giftRefundable.detail': {
     lite: (v: { amount: string }) =>
-      `US$ ${v.amount} esperando você recuperar.`,
+      `$${v.amount} esperando você recuperar.`,
     pro: (v: { amount: string }) =>
       `${v.amount} USDC em claimable balance expirada, prontos para reaver.`,
   } as PhraseFn<{ amount: string }>,

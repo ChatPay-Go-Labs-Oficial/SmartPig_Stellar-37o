@@ -34,6 +34,8 @@ const FEATHER = {
   home: 'home',
   user: 'user',
   settings: 'settings',
+  logout: 'log-out',
+  clock: 'clock',
 } as const;
 
 // Sem par no Feather: cai para o contorno do Material Community.
@@ -51,6 +53,8 @@ const COMMUNITY = {
   sparkles: 'star-four-points-outline',
   // Lucide "fingerprint" (bloqueio por biometria).
   fingerprint: 'fingerprint',
+  // Lucide "party-popper" (Figma "celebration"): presente resgatado.
+  celebration: 'party-popper',
 } as const;
 
 const MATERIAL = {

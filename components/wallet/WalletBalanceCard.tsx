@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { V2Colors, V2Font, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
-import { V2Icon } from '@/components/v2';
+import { V2Icon, V2Spinner } from '@/components/v2';
 import { formatWalletUsd, shortAddress } from '@/lib/utils/format';
 
 interface WalletBalanceCardProps {
@@ -15,12 +15,28 @@ interface WalletBalanceCardProps {
   /** O total inclui pelo menos uma moeda convertida por cotação. */
   estimated: boolean;
   address: string | null;
-  /** Presentear alguém (Figma 17a, botão no canto). Sem ele, o botão some. */
-  onGift?: () => void;
+  /** Meus presentes (Figma 17a, botão no canto). */
+  onGifts: () => void;
+  /**
+   * Estado da conta na rede. Sem ativação, a linha do código vira o aviso com
+   * "Ativar" (Figma 17i); ativando, mostra o progresso (17j).
+   */
+  activation: 'active' | 'inactive' | 'activating';
+  onActivate: () => void;
+  /** Falha da última tentativa de ativar, abaixo da linha. */
+  activationError?: string | null;
 }
 
-/** Card de saldo da Carteira (Figma 17a / 17b / 17g). */
-function WalletBalanceCardView({ amountUsd, estimated, address, onGift }: WalletBalanceCardProps) {
+/** Card de saldo da Carteira (Figma 17a / 17b / 17g / 17i / 17j). */
+function WalletBalanceCardView({
+  amountUsd,
+  estimated,
+  address,
+  onGifts,
+  activation,
+  onActivate,
+  activationError,
+}: WalletBalanceCardProps) {
   const accent = useAccent();
   const { t, isPro } = useTerms();
   const [copied, setCopied] = useState(false);
@@ -39,6 +55,7 @@ function WalletBalanceCardView({ amountUsd, estimated, address, onGift }: Wallet
     copiedTimer.current = setTimeout(() => setCopied(false), 1500);
   }
 
+  const addressLabel = isPro ? 'Endereço' : 'Código';
   const showEstimate = estimated && amountUsd !== null;
   const formatted = amountUsd === null
     ? 'Saldo indisponível'
@@ -62,17 +79,15 @@ function WalletBalanceCardView({ amountUsd, estimated, address, onGift }: Wallet
             <Text style={styles.estimateText}>estimativa</Text>
           </View>
         )}
-        {onGift && (
-          <Pressable
-            onPress={onGift}
-            hitSlop={8}
-            style={[styles.gift, { backgroundColor: accent.alpha(0.12), borderColor: accent.alpha(0.24) }]}
-            accessibilityRole="button"
-            accessibilityLabel="Presentear alguém"
-          >
-            <V2Icon name="gift" size={16} color={accent.base} />
-          </Pressable>
-        )}
+        <Pressable
+          onPress={onGifts}
+          hitSlop={8}
+          style={[styles.gift, { backgroundColor: accent.alpha(0.12), borderColor: accent.alpha(0.24) }]}
+          accessibilityRole="button"
+          accessibilityLabel="Meus presentes"
+        >
+          <V2Icon name="gift" size={16} color={accent.base} />
+        </Pressable>
       </View>
 
       <Text
@@ -92,15 +107,16 @@ function WalletBalanceCardView({ amountUsd, estimated, address, onGift }: Wallet
         <Text style={styles.hint}>Deposite para começar a guardar.</Text>
       )}
 
-      {isPro && address && (
+      {/* Figma "código": o Lite chama de código o que o Pro chama de endereço. */}
+      {address && activation === 'active' && (
         <Pressable
           onPress={copyAddress}
           style={styles.addressRow}
           accessibilityRole="button"
-          accessibilityLabel="Copiar endereço"
+          accessibilityLabel={isPro ? 'Copiar endereço' : 'Copiar código'}
           hitSlop={8}
         >
-          <Text style={styles.addressLabel} numberOfLines={1}>Endereço</Text>
+          <Text style={styles.addressLabel} numberOfLines={1}>{addressLabel}</Text>
           {/* "Copiado" ocupa o lugar do endereço: a linha não cresce e nada é
               cortado em telas estreitas. */}
           <Text style={[styles.address, copied && { color: accent.base }]} numberOfLines={1}>
@@ -109,6 +125,27 @@ function WalletBalanceCardView({ amountUsd, estimated, address, onGift }: Wallet
           <V2Icon name={copied ? 'check' : 'copy'} size={14} color={accent.base} />
         </Pressable>
       )}
+      {address && activation === 'inactive' && (
+        <View style={styles.addressRow}>
+          <Text style={styles.addressLabel} numberOfLines={1}>{addressLabel}</Text>
+          <Text style={[styles.address, { color: V2Colors.warning }]} numberOfLines={1}>
+            Conta não ativada
+          </Text>
+          <Pressable onPress={onActivate} hitSlop={10} accessibilityRole="button">
+            <Text style={[styles.activate, { color: accent.light }]}>Ativar</Text>
+          </Pressable>
+        </View>
+      )}
+      {address && activation === 'activating' && (
+        <View style={styles.addressRow}>
+          <Text style={styles.addressLabel} numberOfLines={1}>{addressLabel}</Text>
+          <Text style={styles.address} numberOfLines={1}>Ativando sua conta...</Text>
+          <V2Spinner size={14} />
+        </View>
+      )}
+      {activationError && activation === 'inactive' ? (
+        <Text style={styles.activationError}>{activationError}</Text>
+      ) : null}
 
       {/* Borda numa camada própria, por cima do brilho */}
       <View
@@ -199,9 +236,20 @@ const styles = StyleSheet.create({
     color: V2Colors.textTertiary,
   },
   address: {
+    flexShrink: 1,
     fontFamily: V2Font.extraBold,
     fontSize: 12.5,
     color: V2Colors.text,
+  },
+  activate: {
+    fontFamily: V2Font.bold,
+    fontSize: 12.5,
+  },
+  activationError: {
+    fontFamily: V2Font.medium,
+    fontSize: 12,
+    lineHeight: 17,
+    color: V2Colors.error,
   },
 });
 

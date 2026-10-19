@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import Animated, {
@@ -234,11 +234,23 @@ const styles = StyleSheet.create({
     width: SYMBOL_SIZE,
     height: SYMBOL_SIZE,
   },
-  // Figma: sombra 0 14 13 preta 50% embaixo do símbolo.
+  // Figma: sombra 0 14 13 preta 50% embaixo do símbolo. O `filter` só existe
+  // no Android: no iOS ele desenhava a imagem dentro de um quadrado branco. Lá
+  // a sombra é a nativa, que segue o recorte da imagem.
   symbol: {
     width: SYMBOL_SIZE,
     height: SYMBOL_SIZE,
-    filter: [{ dropShadow: { offsetX: 0, offsetY: 14, standardDeviation: 6.5, color: 'rgba(0,0,0,0.5)' } }],
+    ...Platform.select({
+      android: {
+        filter: [{ dropShadow: { offsetX: 0, offsetY: 14, standardDeviation: 6.5, color: 'rgba(0,0,0,0.5)' } }],
+      },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.5,
+        shadowRadius: 6.5,
+      },
+    }),
   },
   // Embaixo do símbolo, centralizado nele e mais largo que ele (o status
   // pode passar dos 188).

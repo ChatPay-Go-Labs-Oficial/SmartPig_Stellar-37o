@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -550,10 +551,11 @@ const styles = StyleSheet.create({
     width: 18,
   },
   // Nível ainda não alcançado, grande (Figma 04g: saturação −90%, exposição
-  // −25%, opacidade 50%). O cinza vale no Android; no iOS, só a transparência.
+  // −25%, opacidade 50%). O `filter` só no Android: no iOS ele desenhava a
+  // arte dentro de um retângulo; lá fica só a transparência.
   lockedArtLarge: {
     opacity: 0.5,
-    filter: [{ grayscale: 0.9 }, { brightness: 0.75 }],
+    ...Platform.select({ android: { filter: [{ grayscale: 0.9 }, { brightness: 0.75 }] } }),
   },
   sectionTitle: {
     paddingTop: 26,
@@ -592,11 +594,12 @@ const styles = StyleSheet.create({
     backgroundColor: V2Colors.surface,
     borderColor: V2Colors.surfaceBorderStrong,
   },
-  // Nível ainda não alcançado: arte apagada e sem cor (o cinza vale no
-  // Android; no iOS fica só a transparência).
+  // Nível ainda não alcançado: arte apagada e sem cor. O `filter` só no
+  // Android: no iOS ele desenhava a arte dentro de um retângulo; lá fica só a
+  // transparência.
   lockedArt: {
     opacity: 0.5,
-    filter: [{ grayscale: 1 }],
+    ...Platform.select({ android: { filter: [{ grayscale: 1 }] } }),
   },
   lock: {
     position: 'absolute',
