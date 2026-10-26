@@ -20,6 +20,33 @@ export interface Vault {
   assetDecimals?: number;
   /** null = vault sem texto de riscos publicado. */
   disclosure?: VaultDisclosureSummary | null;
+  /**
+   * O que a pessoa pode fazer neste vault (PigFi Experience, plano 5.4). Só
+   * vem de um backend com a trilha; sem ele, vale a regra antiga da flag
+   * (hooks/use-vault-access.ts).
+   */
+  access?: VaultAccess;
+}
+
+/** Projeção por pessoa: modo, trilha, operação e aceite de riscos. */
+export interface VaultAccess {
+  experienceMode: 'LITE' | 'PRO';
+  /** Lite e vault diferente de USDC: guardar pede as lições. */
+  educationRequired: boolean;
+  /** Lições cumpridas ou liberação permanente já conquistada. */
+  educationUnlocked: boolean;
+  /** ENFORCE_VAULT_EDUCATION do backend. */
+  educationEnforced: boolean;
+  currentLevel: number | null;
+  /** Nível mínimo da regra; o item de nível só aparece quando passa de 0. */
+  requiredLevel: number | null;
+  /** Lições que faltam, como 'M3'. */
+  missingModules: string[];
+  /** Depósitos ligados no vault (a pausa vale mesmo com a trilha feita). */
+  operationallyAvailable: boolean;
+  disclosureAcknowledged: boolean | null;
+  /** Operação, trilha e aceite cumpridos. */
+  canDeposit: boolean;
 }
 
 export interface VaultDisclosureSummary {

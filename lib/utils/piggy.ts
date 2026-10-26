@@ -1,6 +1,7 @@
 import type { Vault } from '@/lib/api/vaults';
 import type { PortfolioPosition, PortfolioSummary } from '@/lib/api/portfolio';
 import { portfolioPositionUsdValue } from '@/lib/utils/portfolio';
+import { lessonLockOf, type LessonLock } from '@/lib/utils/vault-access';
 
 // Modelo dos porquinhos da aba Guardar: a lista de vaults (GET /vaults) cruzada
 // com o portfólio (GET /portfolio/summary). Uma requisição de saldo para todos,
@@ -34,14 +35,17 @@ export interface Piggy {
   depositsPaused: boolean;
   /** Aceite de riscos pendente. O USDC é isento no backend. */
   risksPending: boolean;
+  /** Guardar pede lições da trilha (Lite, Figma 10b, 10c, 11a, 11c); null liberado. */
+  lessonLock: LessonLock | null;
 }
 
 /**
  * Porquinhos na ordem do backend (displayOrder).
  *
- * Aparecem os que a pessoa acessa (`canAccess`, hoje a flag Pro-only) e
- * também qualquer um em que ela tenha saldo: dinheiro guardado nunca some da
- * tela, para que tirar continue sempre possível.
+ * Aparecem os que a pessoa acessa (`canAccess`: todos com o `access` do
+ * backend; sem ele, a flag Pro-only) e também qualquer um em que ela tenha
+ * saldo: dinheiro guardado nunca some da tela, para que tirar continue
+ * sempre possível.
  */
 export function buildPiggies(
   vaults: readonly Vault[],
@@ -78,6 +82,7 @@ export function buildPiggies(
         usd: position ? portfolioPositionUsdValue(position) : 0,
         depositsPaused: vault.depositsEnabled === false,
         risksPending: asset !== 'USDC' && vault.disclosure?.acknowledgmentRequired === true,
+        lessonLock: lessonLockOf(vault),
       };
     });
 }

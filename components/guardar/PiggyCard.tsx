@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { V2Colors, V2Font, V2PiggyTint, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { useLessonLockCopy } from '@/hooks/use-lesson-lock-copy';
 import { useTerms } from '@/hooks/use-terms';
 import { AssetIcon, Button3D, RADIAL_MASK, V2Icon, type V2IconName } from '@/components/v2';
 import type { TermKey } from '@/lib/copy/terms';
@@ -22,6 +23,10 @@ const MASCOT = require('@/assets/images/v2/mascote-baby-pig.png');
 // (Figma 10b–10d). O cartão do centro ganha a borda na cor do porquinho.
 const INACTIVE_OPACITY = 0.6;
 const INACTIVE_BORDER = 'rgba(255,255,255,0.1)';
+// Bloqueado pela trilha (Figma 10b, 10c): aura bem mais fraca (13%), o
+// mascote a 38% e o cadeado por cima.
+const LOCKED_AURA = 0.13;
+const LOCKED_MASCOT = 0.38;
 
 interface PiggyCardProps {
   piggy: Piggy;
@@ -36,7 +41,14 @@ interface PiggyCardProps {
   onWithdraw: (piggy: Piggy) => void;
 }
 
-/** Cartão do porquinho no carrossel da Guardar (Figma 10a, 10d, 10f–10h). */
+/**
+ * Cartão do porquinho no carrossel da Guardar (Figma 10a, 10d, 10f–10h).
+ *
+ * Bloqueado pela trilha e sem saldo (10b, 10c, 11a), vira o cartão do
+ * cadeado: sem saldo nem botões, com o que falta para liberar. Com saldo
+ * (11c), fica o cartão normal com "Passos pendentes" e Guardar desligado:
+ * tirar nunca é bloqueado.
+ */
 export const PiggyCard = memo(function PiggyCard({
   piggy,
   index,
@@ -50,7 +62,9 @@ export const PiggyCard = memo(function PiggyCard({
 }: PiggyCardProps) {
   const accent = useAccent();
   const { t, p, mode } = useTerms();
-  const { asset, vault } = piggy;
+  const lockCopy = useLessonLockCopy();
+  const { asset, vault, lessonLock } = piggy;
+  const locked = !!lessonLock && !piggy.hasBalance;
 
   const tint = asset === 'EURC' || asset === 'XLM' ? V2PiggyTint[asset] : accent.base;
   // Borda do cartão ativo: "Primária 48%" no dólar; 53% nas outras tintas.
@@ -79,8 +93,56 @@ export const PiggyCard = memo(function PiggyCard({
     return { opacity: focus };
   });
 
+  if (locked && lessonLock) {
+    return (
+      <Pressable
+        onPress={active ? undefined : () => onFocus(index)}
+        disabled={active}
+        accessible={!active}
+        focusable={!active}
+        accessibilityRole={active ? undefined : 'button'}
+        accessibilityLabel={active ? undefined : `${name}, ${coin}`}
+        accessibilityHint={active ? undefined : 'Mostrar este porquinho'}
+        // Mesma altura dos vizinhos (Figma), com o conteúdo no meio.
+        style={styles.lockedSlot}
+      >
+        <Animated.View style={[styles.card, styles.lockedCard, { width }, cardStyle]}>
+          <Image
+            source={RADIAL_MASK}
+            tintColor={tint}
+            contentFit="fill"
+            style={[styles.aura, { opacity: LOCKED_AURA }]}
+          />
+
+          <View style={styles.pill}>
+            {asset && <AssetIcon asset={asset} size={16} round />}
+            <Text style={styles.pillName} numberOfLines={1}>{coin}</Text>
+            {coinCaption ? (
+              <Text style={styles.pillCaption} numberOfLines={1}>{coinCaption}</Text>
+            ) : null}
+          </View>
+
+          <View style={styles.mascotBox}>
+            <Image source={MASCOT} style={[styles.mascot, styles.mascotLocked]} contentFit="contain" />
+            <View style={styles.lock}>
+              <V2Icon name="lock" size={24} color={V2Colors.onPrimary} />
+            </View>
+          </View>
+
+          <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+            {name}
+          </Text>
+          <Text style={styles.lockCaption}>{lockCopy.caption(lessonLock)}</Text>
+
+          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.border, borderStyle]} />
+        </Animated.View>
+      </Pressable>
+    );
+  }
+
   let badge: { icon: V2IconName; label: string; warning: boolean } | null = null;
-  if (piggy.depositsPaused) badge = { icon: 'alert', label: t('guardar.state.paused'), warning: true };
+  if (lessonLock) badge = { icon: 'alert', label: t('guardar.state.lessons'), warning: true };
+  else if (piggy.depositsPaused) badge = { icon: 'alert', label: t('guardar.state.paused'), warning: true };
   else if (piggy.risksPending) badge = { icon: 'shield', label: t('guardar.state.risks'), warning: true };
   else if (apy) badge = { icon: 'trending', label: p('guardar.rate', { apy }), warning: false };
 
@@ -157,8 +219,14 @@ export const PiggyCard = memo(function PiggyCard({
             label="Guardar"
             icon="arrow-down"
             onPress={() => onSave(piggy)}
-            disabled={piggy.depositsPaused}
-            accessibilityHint={piggy.depositsPaused ? t('guardar.notice.paused') : `Guardar no ${name}`}
+            disabled={piggy.depositsPaused || !!lessonLock}
+            accessibilityHint={
+              lessonLock
+                ? t('guardar.notice.lessons')
+                : piggy.depositsPaused
+                  ? t('guardar.notice.paused')
+                  : `Guardar no ${name}`
+            }
             style={styles.save}
           />
           <Button3D
@@ -230,6 +298,42 @@ const styles = StyleSheet.create({
   mascot: {
     width: 132,
     height: 132,
+  },
+  // A linha do carrossel centraliza os cartões; o bloqueado estica até a
+  // altura do mais alto e centraliza o próprio conteúdo (Figma 10b).
+  lockedSlot: {
+    alignSelf: 'stretch',
+  },
+  lockedCard: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  mascotBox: {
+    width: 132,
+    height: 132,
+  },
+  mascotLocked: {
+    opacity: LOCKED_MASCOT,
+  },
+  // Figma "cadeado": disco de 50 no centro do mascote.
+  lock: {
+    position: 'absolute',
+    left: 41,
+    top: 41,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: V2Colors.surfaceDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockCaption: {
+    fontFamily: V2Font.semiBold,
+    fontSize: 13.5,
+    textAlign: 'center',
+    color: V2Colors.textSecondary,
   },
   name: {
     maxWidth: '100%',

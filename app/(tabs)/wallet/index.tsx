@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -33,6 +33,7 @@ import { BlindPayOnrampModal, BlindPayOfframpModal, TransferModal } from '@/comp
 import { GiftSendSheet } from '@/components/gifts/GiftSendSheet';
 import { useGiftEligibility } from '@/lib/queries/gifts.queries';
 import { attemptActivation } from '@/lib/api/wallets';
+import { lessonLockOf, type LessonLock } from '@/lib/utils/vault-access';
 
 type PixAction = 'deposit' | 'withdraw';
 type WalletSegment = 'coins' | 'piggies';
@@ -75,6 +76,18 @@ export default function WalletScreen() {
   const [segment, setSegment] = useState<WalletSegment>('coins');
 
   const usdcBalance = parseFloat(assets.find((a) => a.id === 'USDC')?.balance ?? '0') || 0;
+
+  // Moeda cujo porquinho pede lições da trilha (Figma 17a): o primeiro vault
+  // da moeda, na ordem do backend.
+  const vaults = vaultsQuery.data;
+  const lockByAsset = useMemo(() => {
+    const map = new Map<string, LessonLock | null>();
+    for (const vault of vaults ?? []) {
+      const symbol = vault.assetSymbol.toUpperCase();
+      if (!map.has(symbol)) map.set(symbol, lessonLockOf(vault));
+    }
+    return map;
+  }, [vaults]);
 
   const [onrampOpen, setOnrampOpen] = useState(false);
   const [offrampOpen, setOfframpOpen] = useState(false);
@@ -277,7 +290,12 @@ export default function WalletScreen() {
               {segment === 'coins' ? (
                 <ListCard>
                   {assets.map((asset) => (
-                    <WalletAssetRow key={asset.id} asset={asset} usdPrice={prices[asset.id]} />
+                    <WalletAssetRow
+                      key={asset.id}
+                      asset={asset}
+                      usdPrice={prices[asset.id]}
+                      lock={lockByAsset.get(asset.id) ?? null}
+                    />
                   ))}
                 </ListCard>
               ) : (

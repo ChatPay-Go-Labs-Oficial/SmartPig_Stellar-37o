@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Image } from 'expo-image';
 import { V2Colors, V2Font, V2PiggyTint, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { useLessonLockCopy } from '@/hooks/use-lesson-lock-copy';
 import { useTerms } from '@/hooks/use-terms';
 import { AssetIcon, ListCard, NavChip, RADIAL_MASK, V2Icon } from '@/components/v2';
 import type { TermKey } from '@/lib/copy/terms';
@@ -75,8 +76,17 @@ interface PiggyRowProps {
   onPress: (vaultId: string) => void;
 }
 
+/**
+ * Bloqueado pela trilha, o porquinho segue o padrão das linhas do 17a: o
+ * mascote apagado com o cadeado no lugar do selo da moeda e "Lição N" à
+ * direita. A frase "Libera ao concluir a lição N" não cabe ao lado da
+ * etiqueta da moeda e fica para o leitor de tela. Com saldo, o saldo continua
+ * à mostra.
+ */
 const PiggyRow = memo(function PiggyRow({ piggy, tint, onPress }: PiggyRowProps) {
   const { t, isPro, mode } = useTerms();
+  const lockCopy = useLessonLockCopy();
+  const lock = piggy.lessonLock;
   const name = piggy.asset
     ? t(`guardar.piggy.${piggy.asset}.name` as TermKey)
     : formatVaultNameForMode(piggy.vault.name, mode);
@@ -86,42 +96,58 @@ const PiggyRow = memo(function PiggyRow({ piggy, tint, onPress }: PiggyRowProps)
 
   // Lite mostra a quantidade com o símbolo da moeda ("$250.0482137",
   // "€40.0000000"); Pro, só a quantidade — o código já está na etiqueta.
+  const dimmed = !!lock && !piggy.hasBalance;
   let detail: string;
   if (!piggy.balanceKnown) detail = '—';
-  else if (!piggy.hasBalance) detail = t('home.piggy.empty');
+  else if (!piggy.hasBalance) detail = lock ? '' : t('home.piggy.empty');
   else if (isPro) {
     const { integer, fraction } = splitAmount(piggy.amount);
     detail = `${integer}${fraction}`;
   } else detail = formatPiggyAmount(piggy);
 
   const apy = formatPositiveApy(piggy.vault.apy);
+  const lockPill = lock ? lockCopy.pill(lock) : null;
+  const spoken = lock && !piggy.hasBalance ? lockCopy.caption(lock) : detail;
 
   return (
     <Pressable
       onPress={() => onPress(piggy.vault.id)}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${coin}, ${detail}${apy ? `, rende ${apy} ao ano` : ''}`}
+      accessibilityLabel={`${name}, ${coin}, ${spoken}${
+        lockPill ? `, ${lockPill}` : apy ? `, rende ${apy} ao ano` : ''
+      }`}
     >
       <View>
         <View style={[styles.aura, { borderColor: withAlpha(tint, 0.4) }]}>
           <Image source={RADIAL_MASK} tintColor={tint} contentFit="fill" style={styles.auraGlow} />
-          <Image source={MASCOT} contentFit="contain" style={styles.mascot} />
+          <Image source={MASCOT} contentFit="contain" style={[styles.mascot, dimmed && styles.mascotLocked]} />
         </View>
         {/* Selo da moeda do porquinho, como na pílula da Guardar. Fora do
             quadro, que corta o que vaza. O anel repete o fundo do cartão
-            (fundo da tela + superfície) para destacar o selo do quadro. */}
-        {piggy.asset && (
+            (fundo da tela + superfície) para destacar o selo do quadro.
+            Bloqueado, o cadeado ocupa o lugar do selo (a moeda está na
+            etiqueta). */}
+        {lock ? (
+          <View style={styles.lockBadge}>
+            <V2Icon name="lock" size={10} color={V2Colors.onPrimary} />
+          </View>
+        ) : piggy.asset ? (
           <View style={styles.coinBadge}>
             <View style={styles.coinRing}>
               <AssetIcon asset={piggy.asset} size={COIN_SIZE} round />
             </View>
           </View>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.texts}>
-        <Text style={styles.name} numberOfLines={1}>
+        <Text
+          style={[styles.name, dimmed && styles.nameLocked]}
+          numberOfLines={1}
+          adjustsFontSizeToFit={!!lock}
+          minimumFontScale={0.85}
+        >
           {name}
         </Text>
         {/* A moeda abre a linha de baixo: ao lado do nome, dividia a linha
@@ -134,18 +160,24 @@ const PiggyRow = memo(function PiggyRow({ piggy, tint, onPress }: PiggyRowProps)
               </Text>
             </View>
           ) : null}
-          <Text style={styles.detail} numberOfLines={1}>
-            {detail}
-          </Text>
+          {detail ? (
+            <Text style={styles.detail} numberOfLines={1}>
+              {detail}
+            </Text>
+          ) : null}
         </View>
       </View>
 
-      {apy && (
+      {lockPill ? (
+        <View style={styles.lockPill}>
+          <Text style={styles.lockPillText}>{lockPill}</Text>
+        </View>
+      ) : apy ? (
         <View style={styles.yield}>
           <V2Icon name="trending" size={12} color={V2Colors.success} />
           <Text style={styles.yieldText}>{apy}</Text>
         </View>
-      )}
+      ) : null}
     </Pressable>
   );
 });
@@ -218,6 +250,41 @@ const styles = StyleSheet.create({
   mascot: {
     width: 50,
     height: 50,
+  },
+  // Figma 17a: o ícone bloqueado a 40%; o nome a 60%.
+  mascotLocked: {
+    opacity: 0.4,
+  },
+  nameLocked: {
+    color: 'rgba(255,255,255,0.6)',
+  },
+  // Figma 17a "cadeado": 18, no fundo do sheet, com contorno branco a 20%.
+  lockBadge: {
+    position: 'absolute',
+    right: -5,
+    bottom: -5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: V2Colors.sheetTop,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Figma 17a "selo": "Lição 3".
+  lockPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: V2Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: V2Colors.chip,
+  },
+  lockPillText: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 12,
+    color: V2Colors.textSecondary,
   },
   coinBadge: {
     position: 'absolute',

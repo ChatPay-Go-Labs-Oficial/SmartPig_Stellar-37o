@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { TabBar, type TabBarItem } from '@/components/v2';
 import { LevelUpGate } from '@/components/v2/experience';
+import { PiggyUnlockGate } from '@/components/guardar/PiggyUnlockScene';
 import { useAutoWalletActivation } from '@/hooks/use-auto-wallet-activation';
 import { useExperienceModeSync } from '@/hooks/use-experience-mode-sync';
 
@@ -32,6 +33,8 @@ export default function TabLayout() {
       </Tabs>
       {/* Subida do Nível de Usuário (37a), por cima das abas e da lição. */}
       <LevelUpGate />
+      {/* Porquinho liberado pela trilha (11b), por cima da Guardar. */}
+      <PiggyUnlockGate />
     </>
   );
 }
