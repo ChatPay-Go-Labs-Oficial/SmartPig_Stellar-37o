@@ -1,12 +1,16 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
+import { useContactsStore } from '@/lib/stores/contacts.store';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
 import { useGiftStore } from '@/lib/stores/gift.store';
-import { useLearningStore } from '@/lib/stores/learning.store';
 import { usePixStore } from '@/lib/stores/pix.store';
 import { useAppModeStore } from '@/lib/stores/app-mode.store';
 import { useSettingsStore } from '@/lib/stores/settings.store';
 import { useVersionGateStore } from '@/lib/stores/version-gate.store';
+
+/** Chave da store de progresso da trilha v1, removida com a trilha V2. */
+export const LEGACY_LEARNING_STORAGE_KEY = 'smartpig-learning-progress';
 
 /**
  * Every persisted store in the app.
@@ -19,9 +23,9 @@ import { useVersionGateStore } from '@/lib/stores/version-gate.store';
 const PERSISTED_STORES = [
   useAuthStore,
   useBlindPayStore,
+  useContactsStore,
   useEtherfuseStore,
   useGiftStore,
-  useLearningStore,
   usePixStore,
   useAppModeStore,
   useSettingsStore,
@@ -52,18 +56,25 @@ export async function wipeLocalState(): Promise<void> {
     }
   }
 
+  // Progresso da trilha v1, que ficava só no aparelho. A trilha agora vem do
+  // backend; a chave antiga pode sobrar em quem atualizou o app.
+  try {
+    await AsyncStorage.removeItem(LEGACY_LEARNING_STORAGE_KEY);
+  } catch {
+    // Intentionally silent: see above.
+  }
+
   // In-memory state, through each store's own reset. Only the stores that hold
   // something worth clearing expose one; the rest carry preferences that the
   // storage wipe already removed for the next launch.
   try {
-    // Read before clearing auth: the learning progress is keyed by user.
-    const { contractId } = useAuthStore.getState();
-    if (contractId) useLearningStore.getState().resetProgress(contractId);
-
     useBlindPayStore.getState().resetOnboarding();
     useBlindPayStore.getState().clearKycDraft();
+    useContactsStore.getState().clear();
     usePixStore.getState().clearPixKey();
     useEtherfuseStore.getState().resetOnboarding();
+    // A data da última troca de modo é desta conta (ver app-mode.store).
+    useAppModeStore.getState().reset();
     useAuthStore.getState().clearAuth();
   } catch {
     // Intentionally silent: see above.

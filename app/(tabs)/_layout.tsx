@@ -1,6 +1,9 @@
 import { Tabs } from 'expo-router';
 import { TabBar, type TabBarItem } from '@/components/v2';
+import { LevelUpGate } from '@/components/v2/experience';
+import { PiggyUnlockGate } from '@/components/guardar/PiggyUnlockScene';
 import { useAutoWalletActivation } from '@/hooks/use-auto-wallet-activation';
+import { useExperienceModeSync } from '@/hooks/use-experience-mode-sync';
 
 const TABS: readonly TabBarItem[] = [
   { name: 'index',   title: 'Home',     icon: 'home' },
@@ -12,19 +15,26 @@ const TABS: readonly TabBarItem[] = [
 ];
 
 // Abas já migradas para o V2 (fundo V2Colors.background). Sai quando todas forem.
-const V2_ROUTES: ReadonlySet<string> = new Set(['vaults', 'wallet', 'profile']);
+const V2_ROUTES: ReadonlySet<string> = new Set(['vaults', 'learn', 'wallet', 'profile']);
 
 export default function TabLayout() {
   useAutoWalletActivation();
+  useExperienceModeSync();
 
   return (
-    <Tabs
-      tabBar={(props) => <TabBar {...props} items={TABS} v2Routes={V2_ROUTES} />}
-      screenOptions={{ headerShown: false }}
-    >
-      {TABS.map((tab) => (
-        <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
-      ))}
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props) => <TabBar {...props} items={TABS} v2Routes={V2_ROUTES} />}
+        screenOptions={{ headerShown: false }}
+      >
+        {TABS.map((tab) => (
+          <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
+        ))}
+      </Tabs>
+      {/* Subida do Nível de Usuário (37a), por cima das abas e da lição. */}
+      <LevelUpGate />
+      {/* Porquinho liberado pela trilha (11b), por cima da Guardar. */}
+      <PiggyUnlockGate />
+    </>
   );
 }

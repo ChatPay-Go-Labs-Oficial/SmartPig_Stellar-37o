@@ -19,6 +19,18 @@ const HEIGHT = 57;
 // A base aparece 4 px abaixo da face: o degrau do 3D.
 const DEPTH = 4;
 
+// Altura da face, raio e texto de cada tamanho do Figma. Regular: ações de
+// tela e de sheet. Cartão: o regular com texto de 16, nas ações dentro do
+// cartão da subida de nível (37a). Compacto: o "Pegar" da recompensa do dia.
+// Pequeno: o "+3 XP" do card de Nível na Home. A largura dos menores vem de
+// quem usa (`style`).
+const SIZES = {
+  regular: { height: HEIGHT, radius: V2Radius.key, fontSize: 17, letterSpacing: 0.17, icon: 20, gap: 10 },
+  card: { height: HEIGHT, radius: V2Radius.key, fontSize: 16, letterSpacing: 0.16, icon: 20, gap: 10 },
+  compact: { height: 40, radius: 14, fontSize: 14, letterSpacing: 0, icon: 16, gap: 6 },
+  small: { height: 32, radius: 12, fontSize: 12.5, letterSpacing: 0, icon: 14, gap: 5 },
+} as const;
+
 // Vidro no acabamento das teclas da Carteira (ActionKey3D, Figma "v2/Ação 3D"
 // Neutra): face sólida com degradê, contorno fino, brilho de 1,5 px no topo e
 // sombra de 2 px embaixo acompanhando a curva, sobre uma base opaca com
@@ -33,6 +45,8 @@ interface Button3DProps {
   onPress: () => void;
   /** Primária = ação principal; Vidro = ação secundária; Claro = Apple. */
   variant?: 'primary' | 'glass' | 'light';
+  /** Regular (padrão), Compacto ou Pequeno; ver SIZES. */
+  size?: keyof typeof SIZES;
   icon?: V2IconName;
   /** No lugar do ícone: uma marca que não é ícone de traço (logo do Google). */
   leading?: ReactNode;
@@ -59,6 +73,7 @@ export const Button3D = memo(function Button3D({
   label,
   onPress,
   variant = 'primary',
+  size = 'regular',
   icon,
   leading,
   loading = false,
@@ -72,6 +87,10 @@ export const Button3D = memo(function Button3D({
   const isLight = variant === 'light';
   const inactive = disabled || loading;
   const textColor = isLight ? V2Colors.background : V2Colors.onPrimary;
+  const metrics = SIZES[size];
+  const rounded = { borderRadius: metrics.radius };
+  const labelSize = { fontSize: metrics.fontSize, letterSpacing: metrics.letterSpacing };
+  const iconSize = size === 'regular' && !isPrimary ? 24 : metrics.icon;
 
   return (
     <Pressable
@@ -84,38 +103,43 @@ export const Button3D = memo(function Button3D({
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy: loading }}
-      style={[styles.wrapper, style, disabled && styles.disabled]}
+      // Desabilitado, a opacidade vale para o botão inteiro (Figma): sem isto o
+      // Android a aplica em cada camada, e a base aparece através da face.
+      needsOffscreenAlphaCompositing={disabled}
+      style={[styles.wrapper, { height: metrics.height + DEPTH }, style, disabled && styles.disabled]}
     >
       {isPrimary ? (
-        <View style={[styles.base, { backgroundColor: accent.dark }]} />
+        <View style={[styles.base, rounded, { backgroundColor: accent.dark }]} />
       ) : isLight ? (
-        <View style={[styles.base, { backgroundColor: LIGHT_BASE }]} />
+        <View style={[styles.base, rounded, { backgroundColor: LIGHT_BASE }]} />
       ) : (
-        <View style={[styles.base, styles.glassBase]} />
+        <View style={[styles.base, rounded, styles.glassBase]} />
       )}
 
       <View
         style={[
           styles.face,
+          rounded,
+          { height: metrics.height, gap: metrics.gap },
           isPrimary && { backgroundColor: accent.base },
           isLight && styles.lightFace,
         ]}
       >
         {isPrimary || isLight ? (
-          <View style={styles.highlight} pointerEvents="none" />
+          <View style={[styles.highlight, rounded]} pointerEvents="none" />
         ) : (
           <>
             <View style={[StyleSheet.absoluteFill, styles.glassFill]} />
             <LinearGradient colors={GLASS_FACE} style={StyleSheet.absoluteFill} />
-            <View style={styles.glassHighlight} pointerEvents="none" />
-            <View style={styles.glassShade} pointerEvents="none" />
-            <View style={styles.glassBorder} pointerEvents="none" />
+            <View style={[styles.glassHighlight, rounded]} pointerEvents="none" />
+            <View style={[styles.glassShade, rounded]} pointerEvents="none" />
+            <View style={[styles.glassBorder, rounded]} pointerEvents="none" />
           </>
         )}
         {loading && loadingLabel ? (
           <>
             <V2Spinner size={18} color={textColor} />
-            <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+            <Text style={[styles.label, labelSize, { color: textColor }]} numberOfLines={1}>
               {loadingLabel}
             </Text>
           </>
@@ -123,8 +147,8 @@ export const Button3D = memo(function Button3D({
           <ActivityIndicator size="small" color={textColor} />
         ) : (
           <>
-            {leading ?? (icon && <V2Icon name={icon} size={isPrimary ? 20 : 24} color={textColor} />)}
-            <Text style={[styles.label, { color: textColor }]} numberOfLines={1}>
+            {leading ?? (icon && <V2Icon name={icon} size={iconSize} color={textColor} />)}
+            <Text style={[styles.label, labelSize, { color: textColor }]} numberOfLines={1}>
               {label}
             </Text>
           </>

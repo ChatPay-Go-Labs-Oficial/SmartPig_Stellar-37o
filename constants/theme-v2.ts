@@ -32,6 +32,8 @@ export const V2Colors = {
   /** Pílulas, selos e botões de ícone. */
   chip: 'rgba(255,255,255,0.06)',
   chipBorder: 'rgba(255,255,255,0.12)',
+  /** Selos e marcadores apagados (Figma "superfície-escura"). */
+  surfaceDark: 'rgba(20,12,32,0.88)',
 
   success: '#3de08a',
   error: '#ff5a7f',

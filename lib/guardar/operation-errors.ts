@@ -6,6 +6,8 @@ import { SignTimeoutError } from './vault-operation';
 
 export type OperationErrorKind =
   | 'paused'
+  /** Guardar pede lições da trilha (409 VAULT_EDUCATION_LOCKED). */
+  | 'lessons'
   | 'risks'
   | 'risksMissing'
   | 'insufficient'
@@ -49,6 +51,7 @@ export function classifyOperationError(error: unknown): OperationErrorKind {
   const e = error as ApiErrorShape;
   const code = e?.response?.data?.code;
   if (code === 'VAULT_DEPOSITS_PAUSED') return 'paused';
+  if (code === 'VAULT_EDUCATION_LOCKED') return 'lessons';
   if (code === 'DISCLOSURE_NOT_ACKNOWLEDGED') return 'risks';
   // Sem texto de riscos publicado: a pessoa não tem o que aceitar.
   if (code === 'VAULT_DISCLOSURE_MISSING') return 'risksMissing';

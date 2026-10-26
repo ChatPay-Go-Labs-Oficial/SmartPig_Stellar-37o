@@ -21,7 +21,6 @@ export { OnboardingBackButton } from './OnboardingBackButton';
 export { OnboardingStepHeader } from './OnboardingStepHeader';
 export { OnboardingProgress } from './OnboardingProgress';
 export { RampStepIndicator } from './RampStepIndicator';
-export { LessonPlayer } from './LessonPlayer';
 export { Confetti } from './Confetti';
 export { TransferModal } from './TransferModal';
 export { DocPhotoTips } from './DocPhotoTips';

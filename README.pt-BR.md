@@ -307,3 +307,102 @@ As camadas de blockchain e DeFi são infraestrutura, não a história voltada ao
 ## Disclaimer
 
 O PigFi é um MVP em mainnet. Não é um produto de investimento regulamentado em produção e não deve ser usado como aconselhamento financeiro. Qualquer lançamento em produção exigirá revisões adicionais.
+
+---
+
+## HackMeridian 2026 — PigFi Experience
+
+> Trilha Scale · Lisboa, 25 e 26 de outubro de 2026. Esta seção documenta a contribuição do hackathon separadamente do produto existente descrito acima. [English version](README.md#hackmeridian-2026--pigfi-experience).
+
+### Por que desenvolvemos
+
+Facilitar o primeiro depósito é só o começo. A pessoa também precisa entender o que está usando, ganhar confiança e ter um motivo para voltar. O PigFi Experience acrescenta lições curtas, progresso visível e pagamentos práticos ao hábito familiar de guardar dinheiro.
+
+O objetivo é ajudar quem está começando a guardar a se tornar um usuário mais confiante da Stellar. O aprendizado acontece dentro do app, com uma ideia por vez, perguntas e feedback imediato. Enviar para um contato dá uma aplicação cotidiana a esse aprendizado.
+
+### O que já existia e o que entrou no hackathon
+
+| Antes do HackMeridian | Desenvolvido para o HackMeridian |
+| --- | --- |
+| App mobile conectado à Stellar mainnet e carteiras integradas | PigFi Experience: XP, Nível de Usuário, recompensa do dia e cenas de evolução |
+| Experiência Pix para dólar e integração DeFindex | Módulo introdutório com cinco lições e progresso salvo |
+| Vaults de USDC, EURC e XLM, com reconhecimento de risco | Liberação progressiva de moedas e porquinhos pelo aprendizado no Lite |
+| Troca de moedas e transferência por endereço | @ permanente e envio de USDC, EURC ou XLM para contatos PigFi |
+
+O **Nível de Usuário** representa aprendizado e participação. É separado do **Nível do Porquinho**, que reflete o valor guardado ou investido. Depósitos, saques, transferências e valores movimentados nunca dão XP.
+
+### Parte 1 — Aprender, evoluir e liberar
+
+- O usuário novo começa no Nível de Usuário 0. A jornada tem as etapas Iniciante, Consistente, Dedicado e Veterano, com progresso visível e feedback de subida de nível.
+- O XP vem da recompensa do dia, da lição concluída e do módulo concluído. Respostas individuais não dão XP.
+- O backend é a fonte de verdade de XP, nível, progresso das lições e acesso aos porquinhos. A lição retoma do ponto salvo; conteúdo e validação das respostas vêm do backend.
+- O módulo introdutório tem cinco lições: Fundamentos; Wallet/Ramp/Vault; Diversificação dólar/euro; Volatilidade de XLM; Liquidez e saída.
+
+**Regras de elegibilidade desta entrega:**
+
+| Moeda | Acesso no Lite |
+| --- | --- |
+| USDC — dólar | Livre, sem pré-requisito de aprendizado |
+| EURC — euro | Concluir Fundamentos, Wallet/Ramp/Vault e Diversificação dólar/euro |
+| XLM — criptomoeda | Concluir as cinco lições introdutórias |
+
+Nesta entrega, o nível mínimo fica temporariamente em 0: a conclusão das lições determina a liberação educacional. O escopo prevê voltar aos níveis mínimos 5 para EURC e 10 para XLM quando houver mais conteúdo, preservando o acesso já conquistado.
+
+No Lite, a troca e novos depósitos nos porquinhos seguem a elegibilidade educacional. No Pro, essas restrições educacionais não se aplicam. O aceite de riscos por vault continua obrigatório nos dois modos. O aprendizado nunca bloqueia consulta de saldo, saque ou recuperação de fundos; a disponibilidade operacional do vault é conferida separadamente.
+
+### Parte 2 — Nome de usuário e enviar para contatos
+
+Implementação: [`feat/send-to-contacts`](https://github.com/ChatPay-Go-Labs-Oficial/SmartPig_Stellar-37o/tree/feat/send-to-contacts), enviada para `feat/pigfi-meridian` pelo [PR #40](https://github.com/ChatPay-Go-Labs-Oficial/SmartPig_Stellar-37o/pull/40). Essas funcionalidades precisam do código da Parte 2 e do backend com o módulo de usernames.
+
+- Criação do @ permanente pelo Perfil, com validação do formato, consulta de disponibilidade e feedback de nome em uso ou falha de rede.
+- Enviar no Lite e Transferir no Pro, buscando outro usuário PigFi pelo @ exato. Sem @ próprio, a criação abre primeiro e retorna ao envio.
+- Nome do cadastro exibido somente quando verificado; caso contrário, “Usuário PigFi”. O envio para o próprio @ é bloqueado.
+- Seleção de USDC, EURC ou XLM entre moedas com saldo. No Lite, a restrição pela trilha aparece com cadeado. O app confere saldo insuficiente e se o destinatário aceita a moeda.
+- Revisão de destinatário, moeda e valor, biometria e assinatura. Destino e saldo são conferidos novamente na rede antes de assinar; o sucesso exige aceitação pela rede.
+- Sem resposta da rede, consulta pelo hash da transação. Tentar novamente reenvia a mesma transação assinada para evitar pagamento duplicado.
+- Contatos salvos no aparelho, por conta, contendo somente @ e nome. São apagados ao sair e na exclusão da conta.
+
+Esta entrega atende somente @ do PigFi, sem federação com outras carteiras. O envio por endereço do Pro, já existente e limitado a USDC, continua disponível.
+
+### Como usamos a Stellar
+
+O envio para contatos é um pagamento entre as carteiras Stellar dos dois usuários. O backend resolve o @ para identificar o destinatário; o app prepara a transação, conduz a assinatura pela carteira e envia pela integração Stellar. USDC e EURC são ativos emitidos; XLM é o ativo nativo da Stellar. A capacidade de receber a moeda é conferida antes do envio.
+
+O progresso educacional e o XP ficam no backend. Os pagamentos são liquidados na Stellar. A experiência existente dos porquinhos usa Stellar e DeFindex; o hackathon acrescenta regras de acesso pelo aprendizado e pagamentos por nome de usuário sobre essa infraestrutura.
+
+### Roteiro para avaliação e demonstração
+
+1. Use a branch do hackathon `feat/pigfi-meridian`. Para a Parte 2, use uma revisão que contenha o PR #40 ou avalie `feat/send-to-contacts` diretamente.
+2. Execute o backend com os módulos de Experience, Learning, elegibilidade e usernames. A dependência de desenvolvimento é `feat/pigfi-experience-learning-eligibility` no [repositório do backend](https://github.com/ChatPay-Go-Labs-Oficial/smartpig-backend).
+3. Siga a instalação acima e o [guia de desenvolvimento](docs/development.pt-BR.md). Configure app e backend para a mesma rede Stellar, emissores dos ativos e serviços implantados. O APK citado anteriormente não está identificado aqui como um build do HackMeridian.
+4. No Lite, veja o Nível de Usuário na Home, pegue a recompensa do dia e abra a trilha. Conclua lições, acompanhe o XP e a evolução, e confira a liberação de EURC/XLM.
+5. Confira que uma restrição de aprendizado mantém saldo e saques acessíveis. Compare a experiência com o Pro.
+6. Com a Parte 2 instalada, crie um @ no Perfil, encontre uma segunda conta PigFi e avance até a revisão. Confira destinatário, moeda e valor antes de confirmar um pagamento real.
+
+### Validação e pendências
+
+O relato de implementação da Parte 2 registra `npx tsc --noEmit` limpo, lint com 0 erros e validação em Android contra o backend local, em Lite e Pro, comparando com o Figma, até a revisão do envio. São os testes relatados da implementação; não representam validação de transferência real para todas as moedas.
+
+Pendente ou fora desta entrega:
+
+- Transferência real com valor mínimo em USDC, EURC e XLM entre duas contas do time; faltava uma segunda conta na validação relatada.
+- Contatos salvos no servidor; o backend ainda não tem a rota.
+- Visual v2 do envio por endereço do Pro, reservado para outro PR.
+- Chama, Metas de Economia, PigCoin e badges de conquista.
+- Ampliação do conteúdo das etapas Dedicado e Veterano.
+
+O pitch aponta retenção D7/D30, conclusão de lições, usuários que voltam e recorrência de transferências como métricas futuras. Esta documentação não declara resultados dessas métricas.
+
+### Documentação e time
+
+| Referência | Português | English |
+| --- | --- | --- |
+| Funcionalidades e fluxos | [Ler](docs/features-and-flows.pt-BR.md) | [Read](docs/features-and-flows.md) |
+| Arquitetura | [Ler](docs/architecture.pt-BR.md) | [Read](docs/architecture.md) |
+| Design system | [Ler](docs/design-system.pt-BR.md) | [Read](docs/design-system.md) |
+| Desenvolvimento | [Ler](docs/development.pt-BR.md) | [Read](docs/development.md) |
+| Segurança | [Ler](docs/security.pt-BR.md) | [Read](docs/security.md) |
+
+O deck da submissão apresenta o time: Vanessa Barros (CEO), Carol Tavares (CPO), Maycon Rodrigues (CTO) e Matheus Brasil (CAIO).
+
+Este acréscimo usa como referências o pitch *PigFi Experience — HackMeridian 2026*, o documento *PigFi — Escopo do HackMeridian 2026 v1.0.2*, a implementação no repositório e a descrição do PR da Parte 2. O README anterior foi preservado como documentação original do produto; esta seção registra o recorte do hackathon e os limites da validação.

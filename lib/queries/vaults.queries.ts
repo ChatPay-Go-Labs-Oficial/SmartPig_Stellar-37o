@@ -80,6 +80,19 @@ export function markDisclosureAcknowledged(qc: QueryClient, vaultId: string, { r
   qc.invalidateQueries({ queryKey: vaultKeys.disclosure(vaultId), exact: true });
 }
 
+/**
+ * O `access` de cada vault muda com o modo Lite/Pro e com a trilha (lição
+ * concluída, porquinho liberado). Relê a lista e os detalhes, sem refazer APY
+ * e saldos.
+ */
+export function refreshVaultAccess(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: vaultKeys.all, exact: true });
+  qc.invalidateQueries({
+    predicate: ({ queryKey }) =>
+      queryKey[0] === vaultKeys.all[0] && queryKey.length === 2 && queryKey[1] !== 'manager',
+  });
+}
+
 export const useAcknowledgeDisclosure = () => {
   const qc = useQueryClient();
   return useMutation({
