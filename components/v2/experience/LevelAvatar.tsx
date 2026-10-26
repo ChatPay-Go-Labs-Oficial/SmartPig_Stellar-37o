@@ -5,8 +5,8 @@ import { V2Colors, V2Font, withAlpha } from '@/constants/theme-v2';
 import { mascotBox, type PigLevel } from '@/constants/pig-levels';
 import { useAccent } from '@/hooks/use-accent';
 import type { ExperienceTier } from '@/lib/api/experience';
+import { CircleGlow } from '../CircleGlow';
 import { ProgressRing } from '../ProgressRing';
-import { RADIAL_MASK } from '../ScreenGlow';
 import { V2Icon } from '../V2Icon';
 import { LevelDots } from './LevelDots';
 
@@ -24,14 +24,6 @@ const BADGE = 36;
  */
 const MASCOT_HEIGHT = 150;
 const MASCOT_SQUARE = 83 / MASCOT_HEIGHT;
-
-// "brilho": radial com centro no topo do círculo, 32% → 6% (em 60%) → 0.
-// Mesma composição em duas camadas do ScreenGlow.
-const GLOW_RX = 207;
-const GLOW_RY = 184;
-const GLOW_MID = 0.6;
-const GLOW_OUTER = 0.06 / (1 - GLOW_MID);
-const GLOW_INNER = (0.32 - GLOW_OUTER) / (1 - GLOW_OUTER);
 
 /** Brilhos em volta (Figma "v2/Ícone/sparkles"), em coordenadas do quadro. */
 const SPARKLES = [
@@ -62,24 +54,7 @@ function LevelAvatarView({ level, tier, max, fraction, pig }: LevelAvatarProps) 
 
   return (
     <View style={styles.box} pointerEvents="none">
-      <View style={styles.glow}>
-        <Image
-          source={RADIAL_MASK}
-          tintColor={accent.base}
-          contentFit="fill"
-          style={[styles.glowLayer, ellipse(GLOW_RX, GLOW_RY), { opacity: GLOW_OUTER }]}
-        />
-        <Image
-          source={RADIAL_MASK}
-          tintColor={accent.base}
-          contentFit="fill"
-          style={[
-            styles.glowLayer,
-            ellipse(GLOW_RX * GLOW_MID, GLOW_RY * GLOW_MID),
-            { opacity: GLOW_INNER },
-          ]}
-        />
-      </View>
+      <CircleGlow size={GLOW} style={styles.glow} />
       <View style={styles.orbit} />
       <View style={StyleSheet.absoluteFill}>
         <LevelDots level={level} tier={tier} max={max} variant="large" />
@@ -125,27 +100,16 @@ function LevelAvatarView({ level, tier, max, fraction, pig }: LevelAvatarProps) 
 
 export const LevelAvatar = memo(LevelAvatarView);
 
-/** Elipse com centro no meio da borda de cima do círculo do brilho. */
-function ellipse(rx: number, ry: number) {
-  return { left: GLOW / 2 - rx, top: -ry, width: rx * 2, height: ry * 2 };
-}
-
 const styles = StyleSheet.create({
   box: {
     width: WIDTH,
     height: HEIGHT,
   },
+  // Figma "brilho": círculo de 230, 5 à esquerda e 17 acima do quadro.
   glow: {
     position: 'absolute',
     left: -5,
     top: -17,
-    width: GLOW,
-    height: GLOW,
-    borderRadius: GLOW / 2,
-    overflow: 'hidden',
-  },
-  glowLayer: {
-    position: 'absolute',
   },
   orbit: {
     position: 'absolute',

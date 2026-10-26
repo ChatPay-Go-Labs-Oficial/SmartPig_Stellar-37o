@@ -4,6 +4,7 @@ export { V2Icon, type V2IconName } from './V2Icon';
 export { ActionKey3D } from './ActionKey3D';
 export { Button3D } from './Button3D';
 export { ScreenGlow, RADIAL_MASK } from './ScreenGlow';
+export { CircleGlow } from './CircleGlow';
 export { AssetIcon, type AssetLogoId } from './AssetIcon';
 export { V2Sheet } from './V2Sheet';
 export { SheetLink } from './SheetLink';
