@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Button3D, ListCard, SheetLink, V2Icon, V2Sheet } from "@/components/v2";
 import { ProfileHeader, type ProfileStat } from "@/components/profile/ProfileHeader";
 import { ProfileGroupTitle, ProfileRow } from "@/components/profile/ProfileRows";
+import { UsernameSheet } from "@/components/profile/UsernameSheet";
 import { kycStatusInfo } from "@/components/profile/kyc-status";
 import { V2Colors, V2Font } from "@/constants/theme-v2";
 import { levelProgress } from "@/constants/pig-levels";
@@ -17,6 +18,8 @@ import { useAuthStore } from "@/lib/stores/auth.store";
 import { useFirstName } from "@/hooks/use-first-name";
 import { useKycStatus } from "@/lib/queries/blindpay.queries";
 import { useExperienceProfile } from "@/lib/queries/experience.queries";
+import { useCurrentUser } from "@/lib/queries/users.queries";
+import { useAccent } from "@/hooks/use-accent";
 import { formatMonthYear, formatUsdV2 } from "@/lib/utils/format";
 
 /** Valor em dólar da faixa de números; "≈" quando há moeda cotada. */
@@ -30,8 +33,8 @@ function statValue(value: number | null, estimated: boolean): string | null {
  * com o porquinho e os números, a verificação de identidade, as preferências,
  * gerenciar conta e sair.
  *
- * O Nível de Usuário (XP) entrou com o PigFi Experience (38i). A Chama e o
- * calendário de Atividade do Figma ficam de fora do Meridian.
+ * O Nível de Usuário (XP) e o nome de usuário entraram com o PigFi Experience
+ * (38i). A Chama e o calendário de Atividade do Figma ficam de fora do Meridian.
  */
 export default function ProfileScreen() {
   const screenInsets = useScreenInsets();
@@ -50,6 +53,9 @@ export default function ProfileScreen() {
   // Mesmo total e mesmo porquinho da Home e da Evolução do porquinho.
   const level = levelProgress(invested.totalUsd);
   const experience = useExperienceProfile();
+  const accent = useAccent();
+  const username = useCurrentUser().data?.username ?? null;
+  const [showUsernameSheet, setShowUsernameSheet] = useState(false);
 
   const verified = kyc?.kycStatus === "APPROVED" || kyc?.kycStatus === "APPROVED_RFI";
   const stats: ProfileStat[] = [
@@ -89,6 +95,7 @@ export default function ProfileScreen() {
         <ProfileHeader
           paddingTop={screenInsets.top + screenInsets.topGap}
           name={firstName ?? "Seu cofrinho"}
+          username={username}
           verified={verified}
           level={level}
           since={formatMonthYear(accountCreatedAt)}
@@ -100,20 +107,26 @@ export default function ProfileScreen() {
         />
 
         <View style={styles.content}>
-          {/* Sem cadastro no Pix (sem verificação), o grupo não aparece. */}
-          {kyc ? (
-            <>
-              <ProfileGroupTitle title="Conta" />
-              <ListCard style={styles.group}>
-                <ProfileRow
-                  icon="shield"
-                  title="Verificação de identidade"
-                  status={kycStatusInfo(kyc)}
-                  onPress={() => router.push("/profile/verification")}
-                />
-              </ListCard>
-            </>
-          ) : null}
+          <ProfileGroupTitle title="Conta" />
+          <ListCard style={styles.group}>
+            {/* Figma 38i: com o @ criado, ele aparece na cor do app. */}
+            <ProfileRow
+              icon="at"
+              title="Nome de usuário"
+              status={username ? { label: `@${username}`, color: accent.light } : undefined}
+              value={username ? undefined : "Criar"}
+              onPress={() => setShowUsernameSheet(true)}
+            />
+            {/* Sem cadastro no Pix (sem verificação), a linha não aparece. */}
+            {kyc ? (
+              <ProfileRow
+                icon="shield"
+                title="Verificação de identidade"
+                status={kycStatusInfo(kyc)}
+                onPress={() => router.push("/profile/verification")}
+              />
+            ) : null}
+          </ListCard>
 
           <ProfileGroupTitle title="App" />
           <ListCard style={styles.group}>
@@ -141,6 +154,12 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <UsernameSheet
+        visible={showUsernameSheet}
+        onClose={() => setShowUsernameSheet(false)}
+        current={username}
+      />
 
       {/* Figma 28a. Durante a saída nada fecha o sheet (closable). */}
       <V2Sheet

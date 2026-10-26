@@ -23,7 +23,7 @@ export function useUsernameAvailability(username: string) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return useQuery({
     queryKey: usernameKeys.availability(username),
-    queryFn: () => checkUsernameAvailability(username),
+    queryFn: ({ signal }) => checkUsernameAvailability(username, signal),
     enabled: isAuthenticated && isValidUsername(username),
     staleTime: 0,
     retry: retryUnlessClientError,

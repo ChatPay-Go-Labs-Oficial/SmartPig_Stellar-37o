@@ -18,6 +18,8 @@ const FEATHER = {
   send: 'send',
   copy: 'copy',
   info: 'info',
+  // Selo do nome de usuário (Figma 38b e 38i).
+  at: 'at-sign',
   'chevron-right': 'chevron-right',
   'chevron-left': 'chevron-left',
   'chevron-down': 'chevron-down',
