@@ -100,6 +100,9 @@ export const Button3D = memo(function Button3D({
       accessibilityLabel={label}
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy: loading }}
+      // Desabilitado, a opacidade vale para o botão inteiro (Figma): sem isto o
+      // Android a aplica em cada camada, e a base aparece através da face.
+      needsOffscreenAlphaCompositing={disabled}
       style={[styles.wrapper, { height: metrics.height + DEPTH }, style, disabled && styles.disabled]}
     >
       {isPrimary ? (
