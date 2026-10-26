@@ -8,7 +8,7 @@ As implementacoes mais recentes incorporadas ate 26 de junho de 2026 incluem:
 
 - login social com Google, e-mail OTP e passkey via Privy;
 - bloqueio local por biometria ao abrir o app e ao retornar do segundo plano;
-- persistencia do progresso educacional por usuario;
+- progresso educacional por usuario (hoje no backend);
 - transferencia direta de USDC com validacao de conta e trustline;
 - historico com transferencias Stellar e estados de deposito/saque;
 - trilha com player de licoes, feedback, XP e sons;
@@ -16,6 +16,8 @@ As implementacoes mais recentes incorporadas ate 26 de junho de 2026 incluem:
 - redesign de perfil, historico e modais financeiros;
 - polling e invalidacao de cache para operacoes pendentes;
 - normalizacao de saldos Stellar e exibicao de valores investidos.
+
+Em outubro de 2026 entrou o **PigFi Experience**: nivel de usuario e XP vindos do backend, recompensa do dia, a Trilha V2 com licoes servidas pelo backend e a liberacao dos porquinhos pela trilha no modo Lite.
 
 ## Autenticacao e carteira
 
@@ -54,13 +56,28 @@ O modal de transferencia:
 
 A tela de historico apresenta operacoes Pix, depositos e saques de vaults e transferencias USDC. Estados transitorios e finais devem ser exibidos de forma consistente, sem tratar uma submissao como confirmacao.
 
-## Trilha educacional
+## PigFi Experience: nivel, trilha e porquinhos
 
-- Conteudo definido em `constants/trilha.ts` e `constants/flashcards.ts`.
-- `LessonPlayer` controla os tipos de interacao da licao.
-- Conclusoes e XP sao armazenados por usuario em `learning.store.ts`.
-- Uma licao ja concluida nao soma XP novamente.
-- Sons e haptics respeitam a preferencia global do usuario.
+O backend e a fonte de verdade de XP, nivel, progresso das licoes e acesso aos porquinhos. O app nao guarda progresso educacional no aparelho.
+
+**Modo Lite e Pro.** O modo e da conta: `GET /users/me` em todo inicio de sessao concilia o modo do aparelho com o do backend por "quem mudou por ultimo" (`hooks/use-experience-mode-sync.ts`). A troca nas Preferencias vai ao backend em fila. Sair da conta devolve o modo ao padrao.
+
+**Nivel de Usuario.** Card na Home, tela Seu nivel (`app/(tabs)/learn/level.tsx`) e nivel no Perfil. A recompensa do dia da XP uma vez por dia; `409 DAILY_REWARD_ALREADY_CLAIMED` recarrega o perfil e mostra a recompensa como recebida, sem erro. XP so vem da recompensa do dia, da licao concluida e do modulo concluido: nenhuma acao com dinheiro da XP.
+
+**Trilha V2.** `app/(tabs)/learn/index.tsx` mostra o caminho das licoes (`GET /learning/modules` e `GET /learning/content`), os marcos de liberacao no Lite (`constants/learning-trail.ts`) e o Dicionario. A licao abre em `app/learning/[moduleKey].tsx`, por cima das abas, retoma do ponto salvo (`GET /learning/progress`) e grava cada resposta no backend. `409 LEARNING_CONTENT_VERSION_STALE` recarrega a licao e mantem o passo.
+
+**Subida de nivel.** Quando a resposta que conclui a licao, ou a recompensa do dia, traz um nivel novo, a cena Evolucao! aparece por cima das abas (`LevelUpScene`). A subida chega uma vez, na resposta que a causou; nada fica guardado.
+
+**Elegibilidade dos porquinhos.** Cada vault traz um `access` calculado pelo backend. No Lite, guardar num porquinho pode exigir licoes da trilha:
+
+- o porquinho bloqueado continua visivel na Guardar, na Home e na Carteira, com o cadeado e a licao que falta;
+- a Guardar mostra "Pra liberar" com as licoes e o atalho para a Trilha;
+- porquinho bloqueado com saldo fica com "Passos pendentes": Guardar desligado, Tirar ativo;
+- `409 VAULT_EDUCATION_LOCKED` no deposito ou na troca fecha a operacao e mostra o que falta;
+- ao concluir a licao que libera, "Ver o porquinho" abre a cena Liberado! no porquinho (`PiggyUnlockScene`);
+- aprender nunca bloqueia ver saldo, tirar do porquinho ou sacar, e liberado pela trilha nao quer dizer disponivel: a pausa operacional do vault continua valendo.
+
+Sem o `access` (backend antigo), vale a flag antiga de porquinhos so no Pro.
 
 ## Etherfuse e ramp
 
