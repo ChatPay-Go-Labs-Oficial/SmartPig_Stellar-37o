@@ -13,7 +13,9 @@ const TABS: readonly TabBarItem[] = [
 ];
 
 // Abas já migradas para o V2 (fundo V2Colors.background). Sai quando todas forem.
-const V2_ROUTES: ReadonlySet<string> = new Set(['vaults', 'wallet', 'profile']);
+// A Trilha entra com o Seu nível (V2), que abre na pilha dela; a tela da
+// Trilha em si vira V2 na E3 do PigFi Experience.
+const V2_ROUTES: ReadonlySet<string> = new Set(['vaults', 'learn', 'wallet', 'profile']);
 
 export default function TabLayout() {
   useAutoWalletActivation();

@@ -1,11 +1,14 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { blendOver, V2Colors, V2Font, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
 import { ProgressRing, RADIAL_MASK, V2Icon, type V2IconName } from '@/components/v2';
-import { groupThousands, mascotBox, type LevelProgress } from '@/constants/pig-levels';
+import { LevelDots } from '@/components/v2/experience';
+import { journeyTier, levelFraction } from '@/constants/experience-tiers';
+import { mascotBox, type LevelProgress } from '@/constants/pig-levels';
+import type { ExperienceProfile } from '@/lib/api/experience';
 
 const ORBIT_DASHED = require('@/assets/images/v2/perfil-orbita-tracejada.png');
 const ORBIT_DOTTED = require('@/assets/images/v2/perfil-orbita-pontilhada.png');
@@ -14,6 +17,8 @@ const GUTTER = 18;
 const AVATAR = 104;
 const PHOTO = 86;
 const RING_THICKNESS = 5;
+/** Figma "moldura · Iniciante": quadro de 144, 20 além do avatar de cada lado. */
+const DOTS_BOX = 144;
 /** Figma: o selo de nível sobe 13 sobre a base do anel. */
 const PILL_OVERLAP = 13;
 /**
@@ -21,19 +26,8 @@ const PILL_OVERLAP = 13;
  * aparelho ficou grosso demais (Matheus, 18/10/2026).
  */
 const PILL_BORDER = 1.5;
-/** Folga do selo (11 de cada lado + o contorno) em volta do texto. */
-const PILL_CHROME = 2 * (11 + PILL_BORDER);
-/**
- * Maior selo numa linha. Cabem o Bebê, o Esperto, o Forte e o Rei; o "Porquinho
- * Rei Dourado" (~164) quebra em duas ("Porquinho" / "Rei Dourado").
- */
-const PILL_MAX_WIDTH = 150;
-/** O selo centrado na foto pode ir até aqui da borda da tela; depois, desliza. */
-const PILL_SCREEN_EDGE = 6;
 /** Espaço entre o avatar e os textos (Figma "identidade"). */
 const IDENTITY_GAP = 16;
-/** Folga mínima entre a borda do selo e os textos ao lado. */
-const PILL_TEXT_CLEARANCE = 8;
 /** Altura do mascote na foto (Figma: o Esperto em 124, cortado pelo círculo). */
 const MASCOT_HEIGHT = 124;
 /** Figma: o conteúdo começa a 64 do topo do quadro; as estrelas contam dali. */
@@ -67,16 +61,14 @@ interface ProfileHeaderProps {
   paddingTop: number;
   name: string;
   verified: boolean;
+  /** Porquinho atual, pelo valor guardado: a foto e o subtítulo. */
   level: LevelProgress;
   /** "set. 2026"; sem data, só o porquinho. */
   since: string | null;
-  /**
-   * false quando o total guardado não pôde ser cotado: sem ele, "quanto falta"
-   * seria um número errado, e a linha não aparece.
-   */
-  levelKnown: boolean;
-  /** Toque no porquinho: abre a Evolução do porquinho. */
-  onOpenLevels: () => void;
+  /** Nível de Usuário; undefined enquanto não chega. */
+  experience: ExperienceProfile | undefined;
+  /** Toque no nível: abre o Seu nível. */
+  onOpenLevel: () => void;
   stats: readonly ProfileStat[];
 }
 
@@ -92,17 +84,23 @@ function aroundAvatar(size: number, paddingTop: number) {
   };
 }
 
+/** Linha do XP embaixo do subtítulo (Figma 38i): etapa e quanto falta. */
+function xpLine(experience: ExperienceProfile): string {
+  const tier = journeyTier(experience.tier).label;
+  if (experience.xpToNextLevel === null) return `${tier} · Nível máximo atingido`;
+  return `${tier} · ${experience.xpToNextLevel} XP para o Nível ${experience.level + 1}`;
+}
+
 /**
- * Cabeçalho do Perfil (Figma "v2/Cabeçalho do Perfil"): a foto com o mascote
- * do nível, o nome com o selo de verificado e o porquinho atual, e a faixa de
- * números. Capa com o brilho da cor do app, órbitas e estrelas, centradas na
- * foto, e um esmaecido na base que a funde com a tela.
+ * Cabeçalho do Perfil (Figma "v2/Cabeçalho do Perfil", 38i): a foto com o
+ * porquinho atual, a moldura e o anel do Nível de Usuário, o nome com o selo
+ * de verificado, o porquinho e o XP que falta, e a faixa de números. Capa com
+ * o brilho da cor do app, órbitas e estrelas, centradas na foto, e um
+ * esmaecido na base que a funde com a tela.
  *
- * O anel e o selo de nível são, no Figma, do XP. Enquanto o XP não existe,
- * mostram o porquinho atual e o progresso até o próximo (pedido do Matheus,
- * 18/10/2026: só por enquanto). A linha de XP e a Chama ficam de fora até o
- * sistema de XP existir; sem a Chama, a faixa de números segue o cartão
- * "Saldo na carteira" da Home (selo, legenda e valor), também a pedido dele.
+ * O nível e a linha do XP abrem o Seu nível. A Chama fica de fora do Meridian;
+ * sem ela, a faixa de números segue o cartão "Saldo na carteira" da Home
+ * (selo, legenda e valor).
  */
 function ProfileHeaderView({
   paddingTop,
@@ -110,35 +108,13 @@ function ProfileHeaderView({
   verified,
   level,
   since,
-  levelKnown,
-  onOpenLevels,
+  experience,
+  onOpenLevel,
   stats,
 }: ProfileHeaderProps) {
   const accent = useAccent();
   const pig = level.current;
   const art = mascotBox(pig, MASCOT_HEIGHT);
-  // O nome do porquinho, sempre inteiro: numa linha, e em duas só quando é
-  // longo demais. A largura numa linha vem de um texto invisível; até a medida
-  // chegar, o selo não aparece.
-  const [measured, setMeasured] = useState<{ label: string; width: number } | null>(null);
-  const singleWidth = measured?.label === pig.label ? measured.width : null;
-  const twoLines = singleWidth != null && singleWidth + PILL_CHROME > PILL_MAX_WIDTH;
-  const pillLabel = twoLines ? pig.label.replace(' ', '\n') : pig.label;
-  // Numa linha, a largura vai explícita: dentro da foto (104), o selo seria
-  // limitado a ela e o texto quebraria sozinho. Com largura, passa da foto e
-  // segue centrado nela.
-  const pillWidth = singleWidth != null && !twoLines ? Math.ceil(singleWidth) + PILL_CHROME : undefined;
-  // Centrado na foto; mais largo que o espaço até a borda, desliza para a
-  // direita o que passar (o Esperto, por poucos pixels).
-  const pillShift =
-    singleWidth != null && !twoLines
-      ? Math.max(0, (singleWidth + PILL_CHROME) / 2 - (GUTTER + AVATAR / 2 - PILL_SCREEN_EDGE))
-      : 0;
-  // O selo largo passa da borda do avatar e chegava a encostar na linha de
-  // baixo dos textos ("Faltam $226..."): a coluna de textos se afasta o que o
-  // selo avança, mais a folga. Em duas linhas, conta a largura máxima.
-  const pillRight = AVATAR / 2 + (pillWidth ?? PILL_MAX_WIDTH) / 2 + pillShift;
-  const textsShift = Math.max(0, pillRight + PILL_TEXT_CLEARANCE - (AVATAR + IDENTITY_GAP));
 
   return (
     <View style={styles.header}>
@@ -178,16 +154,28 @@ function ProfileHeaderView({
       <View style={[styles.content, { paddingTop }]}>
         <View style={styles.identity}>
           <Pressable
-            onPress={onOpenLevels}
+            onPress={onOpenLevel}
             style={({ pressed }) => [styles.avatar, pressed && styles.avatarPressed]}
             accessibilityRole="button"
-            accessibilityLabel={`${pig.label}. Ver a evolução do porquinho`}
+            accessibilityLabel={
+              experience ? `Nível ${experience.level}. Ver seu nível` : 'Ver seu nível'
+            }
           >
             <View style={styles.ringBox}>
+              {experience ? (
+                <View style={styles.dots}>
+                  <LevelDots
+                    level={experience.level}
+                    tier={experience.tier}
+                    max={experience.xpToNextLevel === null}
+                    variant="small"
+                  />
+                </View>
+              ) : null}
               <ProgressRing
                 size={AVATAR}
                 thickness={RING_THICKNESS}
-                progress={level.progress}
+                progress={experience ? levelFraction(experience) : 0}
                 color={accent.base}
                 trackColor="rgba(255,255,255,0.1)"
               />
@@ -214,32 +202,14 @@ function ProfileHeaderView({
                 />
               </View>
             </View>
-            <View
-              style={[
-                styles.levelPill,
-                {
-                  backgroundColor: accent.base,
-                  width: pillWidth,
-                  opacity: singleWidth == null ? 0 : 1,
-                  transform: [{ translateX: pillShift }],
-                },
-              ]}
-            >
-              <Text style={styles.levelPillText}>{pillLabel}</Text>
-            </View>
-            {/* Medida do nome numa linha, numa faixa larga (o avatar limitaria). */}
-            <View pointerEvents="none" style={styles.measureTrack}>
-              <Text
-                style={styles.levelPillText}
-                numberOfLines={1}
-                onLayout={(e) => setMeasured({ label: pig.label, width: e.nativeEvent.layout.width })}
-              >
-                {pig.label}
+            <View style={[styles.levelPill, { backgroundColor: accent.base }]}>
+              <Text style={styles.levelPillText}>
+                {experience ? `Nível ${experience.level}` : 'Nível —'}
               </Text>
             </View>
           </Pressable>
 
-          <View style={[styles.texts, { marginLeft: textsShift }]}>
+          <View style={styles.texts}>
             <View style={styles.nameRow}>
               <Text style={styles.name} numberOfLines={1}>
                 {name}
@@ -256,20 +226,10 @@ function ProfileHeaderView({
             <Text style={styles.subtitle}>
               {since ? `${pig.label} · desde ${since}` : pig.label}
             </Text>
-            {/* No lugar da linha de XP do Figma, enquanto o XP não existe: o
-                mesmo "quanto falta" da Home. */}
-            {levelKnown ? (
-              <Text style={styles.goal}>
-                {level.next ? (
-                  <>
-                    {'Faltam '}
-                    <Text style={styles.goalStrong}>${groupThousands(level.remaining)}</Text>
-                    {` pra virar ${level.next.label}`}
-                  </>
-                ) : (
-                  'Nível máximo do porquinho'
-                )}
-              </Text>
+            {experience ? (
+              <Pressable onPress={onOpenLevel} hitSlop={6} accessibilityRole="button">
+                <Text style={styles.goal}>{xpLine(experience)}</Text>
+              </Pressable>
             ) : null}
           </View>
         </View>
@@ -352,6 +312,12 @@ const styles = StyleSheet.create({
     width: AVATAR,
     height: AVATAR,
   },
+  // Figma "moldura · Iniciante": os pontos de luz em volta do anel.
+  dots: {
+    position: 'absolute',
+    left: (AVATAR - DOTS_BOX) / 2,
+    top: (AVATAR - DOTS_BOX) / 2,
+  },
   // Figma: a foto de 86 no centro do anel de 104.
   photo: {
     position: 'absolute',
@@ -371,14 +337,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: PILL_BORDER,
     borderColor: V2Colors.background,
-  },
-  measureTrack: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 400,
-    flexDirection: 'row',
-    opacity: 0,
   },
   levelPillText: {
     fontFamily: V2Font.black,
@@ -423,10 +381,6 @@ const styles = StyleSheet.create({
     fontFamily: V2Font.semiBold,
     fontSize: 12,
     color: V2Colors.textTertiary,
-  },
-  goalStrong: {
-    fontFamily: V2Font.extraBold,
-    color: V2Colors.textSecondary,
   },
   avatarPressed: {
     opacity: 0.85,

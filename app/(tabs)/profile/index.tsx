@@ -16,6 +16,7 @@ import { useWalletTotal } from "@/hooks/use-wallet-total";
 import { useAuthStore } from "@/lib/stores/auth.store";
 import { useFirstName } from "@/hooks/use-first-name";
 import { useKycStatus } from "@/lib/queries/blindpay.queries";
+import { useExperienceProfile } from "@/lib/queries/experience.queries";
 import { formatMonthYear, formatUsdV2 } from "@/lib/utils/format";
 
 /** Valor em dólar da faixa de números; "≈" quando há moeda cotada. */
@@ -29,8 +30,8 @@ function statValue(value: number | null, estimated: boolean): string | null {
  * com o porquinho e os números, a verificação de identidade, as preferências,
  * gerenciar conta e sair.
  *
- * XP, Chama e o calendário de Atividade do Figma são funcionalidades futuras
- * e ficam de fora até existirem (decisão do Matheus, 18/10/2026).
+ * O Nível de Usuário (XP) entrou com o PigFi Experience (38i). A Chama e o
+ * calendário de Atividade do Figma ficam de fora do Meridian.
  */
 export default function ProfileScreen() {
   const screenInsets = useScreenInsets();
@@ -46,8 +47,9 @@ export default function ProfileScreen() {
   const { data: kyc } = useKycStatus(contractId);
   const invested = useInvestedTotal();
   const wallet = useWalletTotal(walletAddress);
-  // Mesmo total e mesmo nível da Home e da Evolução do porquinho.
+  // Mesmo total e mesmo porquinho da Home e da Evolução do porquinho.
   const level = levelProgress(invested.totalUsd);
+  const experience = useExperienceProfile();
 
   const verified = kyc?.kycStatus === "APPROVED" || kyc?.kycStatus === "APPROVED_RFI";
   const stats: ProfileStat[] = [
@@ -90,8 +92,10 @@ export default function ProfileScreen() {
           verified={verified}
           level={level}
           since={formatMonthYear(accountCreatedAt)}
-          levelKnown={!invested.valuationUnavailable}
-          onOpenLevels={() => router.push("/pigs")}
+          experience={experience.data}
+          // O Seu nível mora na aba Trilha (Figma 36a): a aba muda e o voltar
+          // leva à Trilha, que o withAnchor põe por baixo (ver a Home).
+          onOpenLevel={() => router.navigate("/learn/level", { withAnchor: true })}
           stats={stats}
         />
 
