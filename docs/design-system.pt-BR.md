@@ -60,6 +60,7 @@ As telas novas usam `components/v2` (exportado por `components/v2/index.ts`), co
 | `components/v2/experience` | Nivel de Usuario: `LevelCard`, `LevelAvatar`, `LevelDots`, `XpBar`, `XpGainPill`, `DailyRewardCard`, `TierJourney`, `TierLevelsSheet`, `XpWaysCard` e a cena `LevelUpScene` |
 | `components/v2/trail` | Trilha V2: `TrailPath`, `TrailNode`, `TrailLevelCard`, `TrailModuleCard`, `DictionaryShortcut`, `DictionarySheet` |
 | `components/v2/lesson` | Licao: moldura, passos, perguntas, conclusoes e os visuais de cada tela |
+| `components/profile/UsernameSheet`, `components/wallet/SendSheet` | Criacao do @ e envio por @, sobre o `V2Sheet`, reaproveitando as pecas dos sheets de Guardar (campo de valor, avisos e resumo) |
 | `components/guardar` | Porquinhos: `PiggyCard` (inclusive bloqueado e com passos pendentes), `PiggySections` ("Pra liberar") e a cena `PiggyUnlockScene` |
 
 Cenas de celebracao (`LevelUpScene`, `PiggyUnlockScene`) ficam montadas no layout das abas e sao pedidas por uma store em memoria; usam `Confetti` e ocupam a tela inteira (`Dimensions.get('screen')`) para o Modal nao saltar no Android.

@@ -40,6 +40,19 @@ Legacy wallet creation and connection screens remain in the authentication group
 - Intermediate operations are polled while awaiting confirmation.
 - Underlying balances are converted from Stellar atomic units; withdrawal shares remain raw.
 
+## Username and sending by @
+
+**Username.** On Profile, the "Nome de usuário" row (Account group) opens the @ creation (`components/profile/UsernameSheet.tsx`). The @ has 3 to 20 characters, starts with a letter and only uses lowercase letters, digits, dot and underscore; an invalid format never reaches the backend. Availability is checked with a typing delay and the previous request is cancelled. The @ is permanent: once created it shows on Profile (in the row and below the name) and cannot be changed.
+
+**Send to contacts.** Wallet's Send (Lite) and Transfer (Pro) open the send by @ (`components/wallet/SendSheet.tsx`):
+
+1. without an own @, the app asks to create it first and returns to the send;
+2. search by exact @ (`GET /usernames/{username}`), no list or autocomplete; the registered name only shows when verified, otherwise "Usuário PigFi"; never to one's own @;
+3. amount and currency (dollar, euro and crypto) only among the currencies the account holds; in Lite, a currency locked by the trail shows a lock; warnings when the recipient does not accept the currency and for insufficient balance;
+4. review, biometrics and send: right before signing, the destination account and the balance are read again from the network; success only shows once the transaction is accepted.
+
+With no network response, the app checks by hash and the retry resubmits the same signed transaction, which the network never applies twice. Saved contacts stay only on the device, per account (@ and name, never the address), and are erased on sign-out and account deletion. In Pro, "Transferir para um endereço Stellar" keeps the USDC transfer flow below. Transfers grant no XP.
+
 ## USDC transfers
 
 The transfer modal:

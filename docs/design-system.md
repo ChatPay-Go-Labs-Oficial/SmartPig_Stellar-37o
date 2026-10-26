@@ -60,6 +60,7 @@ New screens use `components/v2` (exported from `components/v2/index.ts`), with t
 | `components/v2/experience` | User Level: `LevelCard`, `LevelAvatar`, `LevelDots`, `XpBar`, `XpGainPill`, `DailyRewardCard`, `TierJourney`, `TierLevelsSheet`, `XpWaysCard` and the `LevelUpScene` scene |
 | `components/v2/trail` | Trail V2: `TrailPath`, `TrailNode`, `TrailLevelCard`, `TrailModuleCard`, `DictionaryShortcut`, `DictionarySheet` |
 | `components/v2/lesson` | Lesson: frame, steps, questions, completions and each screen's visuals |
+| `components/profile/UsernameSheet`, `components/wallet/SendSheet` | @ creation and sending by @, on `V2Sheet`, reusing the Save sheet parts (amount field, notices and summary) |
 | `components/guardar` | Piggies: `PiggyCard` (including locked and pending steps), `PiggySections` ("Pra liberar") and the `PiggyUnlockScene` scene |
 
 Celebration scenes (`LevelUpScene`, `PiggyUnlockScene`) are mounted in the tabs layout and requested through an in-memory store; they use `Confetti` and take the full screen (`Dimensions.get('screen')`) so the Modal does not jump on Android.
