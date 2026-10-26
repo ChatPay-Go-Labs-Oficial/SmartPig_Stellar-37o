@@ -1,5 +1,5 @@
-import { memo } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { memo, useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { V2Colors } from '@/constants/theme-v2';
 import { journeyTier } from '@/constants/experience-tiers';
 import { useAccent } from '@/hooks/use-accent';
@@ -60,12 +60,17 @@ const ORNAMENT_STROKE = 2;
 /** Contorno preto dos losangos aceso e apagado (36e). */
 const DIAMOND_STROKE = 1;
 
+/** Na cena de subida (37a), quando o ponto novo acende, depois de a cena entrar. */
+export const NEW_DOT_DELAY = 450;
+
 interface LevelDotsProps {
   level: number;
   tier: ExperienceTier;
   /** Nível máximo: todos os pontos acesos. */
   max: boolean;
   variant: 'large' | 'small';
+  /** Cena de subida (37a): o ponto do nível novo acende com brilho ao abrir. */
+  celebrate?: boolean;
 }
 
 /**
@@ -74,7 +79,7 @@ interface LevelDotsProps {
  * só com o contorno e os demais apagados. No Iniciante são círculos; a partir
  * do Consistente, losangos, e a moldura ganha o aro e os ornamentos.
  */
-function LevelDotsView({ level, tier, max, variant }: LevelDotsProps) {
+function LevelDotsView({ level, tier, max, variant, celebrate = false }: LevelDotsProps) {
   const accent = useAccent();
   const g = GEOMETRY[variant];
   const info = journeyTier(tier);
@@ -122,21 +127,35 @@ function LevelDotsView({ level, tier, max, variant }: LevelDotsProps) {
         const state = index < lit ? 'lit' : index === lit ? 'next' : 'off';
         if (state === 'lit') {
           const core = diamond ? g.diamondLit / Math.SQRT2 + DIAMOND_STROKE : g.lit;
+          const glowStyle = [
+            at(angle, g.radius, g.glow),
+            { borderRadius: g.glow / 2, backgroundColor: accent.alpha(0.24) },
+          ];
+          const coreStyle = [
+            at(angle, g.radius, core),
+            diamond ? [styles.diamond, styles.diamondEdge] : { borderRadius: core / 2 },
+            { backgroundColor: accent.base },
+          ];
+          if (celebrate && index === lit - 1) {
+            const ring = (diamond ? g.diamondNext / Math.SQRT2 : g.next) + NEXT_STROKE;
+            return (
+              <View key={index} style={StyleSheet.absoluteFill}>
+                <View
+                  style={[
+                    at(angle, g.radius, ring),
+                    diamond ? styles.diamond : { borderRadius: ring / 2 },
+                    styles.next,
+                    { borderColor: accent.alpha(0.6) },
+                  ]}
+                />
+                <NewDot glowStyle={glowStyle} coreStyle={coreStyle} diamond={diamond} />
+              </View>
+            );
+          }
           return (
             <View key={index} style={StyleSheet.absoluteFill}>
-              <View
-                style={[
-                  at(angle, g.radius, g.glow),
-                  { borderRadius: g.glow / 2, backgroundColor: accent.alpha(0.24) },
-                ]}
-              />
-              <View
-                style={[
-                  at(angle, g.radius, core),
-                  diamond ? [styles.diamond, styles.diamondEdge] : { borderRadius: core / 2 },
-                  { backgroundColor: accent.base },
-                ]}
-              />
+              <View style={glowStyle} />
+              <View style={coreStyle} />
             </View>
           );
         }
@@ -171,6 +190,59 @@ function LevelDotsView({ level, tier, max, variant }: LevelDotsProps) {
 }
 
 export const LevelDots = memo(LevelDotsView);
+
+/**
+ * O ponto que acabou de acender (37a): sai do contorno de "próximo", cresce
+ * com mola e o brilho pulsa uma vez. Animated nativo, sem re-render por quadro.
+ */
+function NewDot({
+  glowStyle,
+  coreStyle,
+  diamond,
+}: {
+  glowStyle: StyleProp<ViewStyle>;
+  coreStyle: StyleProp<ViewStyle>;
+  /** Losango: o giro de 45° fica junto com a escala. */
+  diamond: boolean;
+}) {
+  const grow = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.sequence([
+      Animated.delay(NEW_DOT_DELAY),
+      Animated.parallel([
+        Animated.spring(grow, { toValue: 1, damping: 7, mass: 0.6, stiffness: 140, useNativeDriver: true }),
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1, duration: 260, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 0.55, duration: 520, useNativeDriver: true }),
+        ]),
+      ]),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [grow, pulse]);
+
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <Animated.View
+        style={[
+          glowStyle,
+          {
+            opacity: grow,
+            transform: [{ scale: pulse.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.4, 1, 1.9] }) }],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          coreStyle,
+          { opacity: grow, transform: diamond ? [{ rotate: '45deg' }, { scale: grow }] : [{ scale: grow }] },
+        ]}
+      />
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   rim: {

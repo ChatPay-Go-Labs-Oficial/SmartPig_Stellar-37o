@@ -41,6 +41,8 @@ interface LevelAvatarProps {
   fraction: number;
   /** O porquinho atual (pelo valor guardado) na foto. */
   pig: PigLevel;
+  /** Cena de subida (37a): o ponto do nível novo acende ao abrir. */
+  celebrate?: boolean;
 }
 
 /**
@@ -48,7 +50,7 @@ interface LevelAvatarProps {
  * luz da etapa, o anel do XP dentro do nível, a foto com o porquinho e o selo
  * do nível.
  */
-function LevelAvatarView({ level, tier, max, fraction, pig }: LevelAvatarProps) {
+function LevelAvatarView({ level, tier, max, fraction, pig, celebrate = false }: LevelAvatarProps) {
   const accent = useAccent();
   const art = mascotBox(pig, MASCOT_HEIGHT, MASCOT_SQUARE);
 
@@ -57,7 +59,7 @@ function LevelAvatarView({ level, tier, max, fraction, pig }: LevelAvatarProps) 
       <CircleGlow size={GLOW} style={styles.glow} />
       <View style={styles.orbit} />
       <View style={StyleSheet.absoluteFill}>
-        <LevelDots level={level} tier={tier} max={max} variant="large" />
+        <LevelDots level={level} tier={tier} max={max} variant="large" celebrate={celebrate} />
       </View>
       <View style={styles.ring}>
         <ProgressRing

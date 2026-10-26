@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { TabBar, type TabBarItem } from '@/components/v2';
+import { LevelUpGate } from '@/components/v2/experience';
 import { useAutoWalletActivation } from '@/hooks/use-auto-wallet-activation';
 import { useExperienceModeSync } from '@/hooks/use-experience-mode-sync';
 
@@ -20,13 +21,17 @@ export default function TabLayout() {
   useExperienceModeSync();
 
   return (
-    <Tabs
-      tabBar={(props) => <TabBar {...props} items={TABS} v2Routes={V2_ROUTES} />}
-      screenOptions={{ headerShown: false }}
-    >
-      {TABS.map((tab) => (
-        <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
-      ))}
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props) => <TabBar {...props} items={TABS} v2Routes={V2_ROUTES} />}
+        screenOptions={{ headerShown: false }}
+      >
+        {TABS.map((tab) => (
+          <Tabs.Screen key={tab.name} name={tab.name} options={{ title: tab.title }} />
+        ))}
+      </Tabs>
+      {/* Subida do Nível de Usuário (37a), por cima das abas e da lição. */}
+      <LevelUpGate />
+    </>
   );
 }

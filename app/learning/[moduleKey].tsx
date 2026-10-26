@@ -33,6 +33,7 @@ import {
   useSaveLearningStep,
 } from '@/lib/queries/learning.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
+import { useLevelUpStore } from '@/lib/stores/level-up.store';
 
 type Phase = 'welcome' | 'steps' | 'complete';
 
@@ -60,6 +61,7 @@ export default function LessonScreen() {
   const modules = useLearningModules();
   const experience = useExperienceProfile();
   const vaults = useVaults();
+  const celebrateLevel = useLevelUpStore((s) => s.celebrate);
   const { mutate: saveStep } = useSaveLearningStep();
   const { mutateAsync: sendAnswer } = useAnswerLearningQuestion();
 
@@ -193,6 +195,16 @@ export default function LessonScreen() {
 
   const openLevel = useCallback(() => router.dismissTo('/learn/level'), []);
 
+  // Quando a lição subiu o nível, "Voltar para a trilha" passa pela cena da
+  // subida (35n → 37a): ela abre por cima e a lição fecha embaixo. O X, o card
+  // do nível e o porquinho saem sem a cena, como no protótipo.
+  const backToTrail = useCallback(() => {
+    if (completion && completion.levelAfter > completion.levelBefore) {
+      celebrateLevel(completion.profile);
+    }
+    close();
+  }, [celebrateLevel, close, completion]);
+
   // Avanço: telas e perguntas; a reflexão e a conclusão enchem a barra.
   const required = steps.filter((item) => item.type !== 'reflection');
   const anchor = review?.returnTo ?? stepKey;
@@ -235,7 +247,7 @@ export default function LessonScreen() {
         moduleXp={completion?.introModuleXpAwarded ?? 0}
         level={completion?.profile ?? experience.data ?? null}
         unlocks={pro ? [] : unlocksOf(completion)}
-        onBackToTrail={close}
+        onBackToTrail={backToTrail}
         onOpenPiggy={openPiggy}
         onOpenLevel={openLevel}
       />
