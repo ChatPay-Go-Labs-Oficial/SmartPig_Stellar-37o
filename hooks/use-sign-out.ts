@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { usePrivy } from '@privy-io/expo';
+import { useAppModeStore } from '@/lib/stores/app-mode.store';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { usePixStore } from '@/lib/stores/pix.store';
@@ -42,5 +43,7 @@ export function useSignOut(): () => Promise<void> {
     // sendo a fonte de verdade no próximo login.
     useBlindPayStore.getState().resetOnboarding();
     usePixStore.getState().clearPixKey();
+    // O modo Lite/Pro é da conta e volta do backend no próximo login.
+    useAppModeStore.getState().reset();
   }, [logout]);
 }
