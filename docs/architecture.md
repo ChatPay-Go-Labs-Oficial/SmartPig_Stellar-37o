@@ -17,11 +17,11 @@ This document describes the architecture implemented in the mobile application. 
 | Layer | Main directories | Responsibility |
 | --- | --- | --- |
 | Routes | `app/` | Screens, layouts and flow composition |
-| Components | `components/ui`, `components/layout` | Reusable UI and screen structure |
+| Components | `components/ui`, `components/layout`, `components/v2` | Reusable UI and screen structure; `components/v2` is the V2 design system |
 | Queries | `lib/queries` | Cache, polling, invalidation and mutations |
 | API | `lib/api` | HTTP contracts and Axios client |
 | Stellar | `lib/stellar` | Configuration, signing, transfers and swaps |
-| Local state | `lib/stores` | Session, progress, preferences and ramp state |
+| Local state | `lib/stores` | Session, mode, preferences, ramp state and pending scenes |
 | Content | `constants` | Theme, flashcards and learning trail |
 
 ## Providers and initialization
@@ -57,6 +57,8 @@ The Privy token provider is registered in `lib/api/token.ts` and used by the HTT
 | `etherfuse.store.ts` | Flow-specific | Onboarding and ramp navigation state |
 | `pix.store.ts`, `ui.store.ts` | Interface state | Temporary presentation and flow data |
 
+XP, level and lesson progress are not stored on the device: they come from the backend (`lib/api/experience.ts`, `lib/api/learning.ts`). The v1 trail local progress was removed; its old key is erased on sign-out and on account deletion.
+
 AsyncStorage is not a secure vault. Tokens, documents, private keys and secrets must not be added to these stores.
 
 ## Remote data
@@ -68,6 +70,8 @@ Screen -> hook in lib/queries -> function in lib/api -> backend
 ```
 
 Queries define cache keys by domain. Deposits and withdrawals in intermediate states are polled every five seconds until `CONFIRMED` or `FAILED`. Mutations invalidate related lists after success.
+
+API errors are read by `code` in `lib/api/errors.ts` (`readApiError`, `hasApiErrorCode`, `apiErrorDetails`). PigFi Experience queries are per account (`contractId`) and live in `lib/queries/experience.queries.ts` and `learning.queries.ts`; `refreshVaultAccess` refetches vault access after a lesson or a 409.
 
 ## Stellar operations
 

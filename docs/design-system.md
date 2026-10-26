@@ -47,6 +47,25 @@ Use `Font.regular`, `semiBold`, `bold`, `extraBold` and `black`. Do not referenc
 
 Use the exported component before creating a screen-local alternative. Add a new variant only when it represents a repeated semantic role.
 
+## Design system V2
+
+New screens use `components/v2` (exported from `components/v2/index.ts`), with the V2 Figma file as the source of truth.
+
+| Component | Contract |
+| --- | --- |
+| `Button3D` | 3D key with no press-down animation; sizes include `card` (16 text) for buttons inside cards and scenes |
+| `V2Sheet` | Default bottom sheet for V2 screens |
+| `V2Icon` | V2 icons (Lucide in Figma) |
+| `ScreenGlow`, `CardGlow`, `CircleGlow` | Screen, card and round background glows |
+| `components/v2/experience` | User Level: `LevelCard`, `LevelAvatar`, `LevelDots`, `XpBar`, `XpGainPill`, `DailyRewardCard`, `TierJourney`, `TierLevelsSheet`, `XpWaysCard` and the `LevelUpScene` scene |
+| `components/v2/trail` | Trail V2: `TrailPath`, `TrailNode`, `TrailLevelCard`, `TrailModuleCard`, `DictionaryShortcut`, `DictionarySheet` |
+| `components/v2/lesson` | Lesson: frame, steps, questions, completions and each screen's visuals |
+| `components/guardar` | Piggies: `PiggyCard` (including locked and pending steps), `PiggySections` ("Pra liberar") and the `PiggyUnlockScene` scene |
+
+Celebration scenes (`LevelUpScene`, `PiggyUnlockScene`) are mounted in the tabs layout and requested through an in-memory store; they use `Confetti` and take the full screen (`Dimensions.get('screen')`) so the Modal does not jump on Android.
+
+Copy that differs between Lite and Pro comes from `lib/copy/terms.ts`; Lite uses no crypto terms.
+
 ## Interaction and feedback
 
 - `PressableScale` provides press animation and sound.
