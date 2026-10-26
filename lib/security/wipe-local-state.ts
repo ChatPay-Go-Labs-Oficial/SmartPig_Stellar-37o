@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
+import { useContactsStore } from '@/lib/stores/contacts.store';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
 import { useGiftStore } from '@/lib/stores/gift.store';
 import { usePixStore } from '@/lib/stores/pix.store';
@@ -22,6 +23,7 @@ export const LEGACY_LEARNING_STORAGE_KEY = 'smartpig-learning-progress';
 const PERSISTED_STORES = [
   useAuthStore,
   useBlindPayStore,
+  useContactsStore,
   useEtherfuseStore,
   useGiftStore,
   usePixStore,
@@ -68,6 +70,7 @@ export async function wipeLocalState(): Promise<void> {
   try {
     useBlindPayStore.getState().resetOnboarding();
     useBlindPayStore.getState().clearKycDraft();
+    useContactsStore.getState().clear();
     usePixStore.getState().clearPixKey();
     useEtherfuseStore.getState().resetOnboarding();
     // A data da última troca de modo é desta conta (ver app-mode.store).

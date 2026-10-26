@@ -11,6 +11,8 @@ import {
 } from '@stellar/stellar-sdk';
 import { signHashViaPrivy } from './signer';
 import { getUsdcConfig, STELLAR_CONFIG } from './config';
+import { getWalletAssetDefs, toSdkAsset, type WalletAssetDef, type WalletAssetId } from './assets';
+import { loadWalletAssets } from './balances';
 
 export interface TransferRequest {
   fromAddress: string;
@@ -305,4 +307,153 @@ export function mapTransferError(error: unknown, fallback?: TransferErrorCode): 
       ? `A rede Stellar recusou a transação (${resultCode}).`
       : detail || candidate.message || 'Não foi possível processar a transferência.',
   );
+}
+
+// ─── Envio por @ (USDC, EURC e XLM) ──────────────────────────────────────────
+
+/** Pagamento assinado e ainda não confirmado: o mesmo envelope é reenviado. */
+export interface SignedPayment {
+  hash: string;
+  envelope: string;
+}
+
+export interface AssetTransferRequest {
+  fromAddress: string;
+  toAddress: string;
+  asset: WalletAssetId;
+  amount: string;
+}
+
+function assetDef(id: WalletAssetId): WalletAssetDef {
+  const def = getWalletAssetDefs().find((d) => d.id === id);
+  if (!def) throw new TransferError('UNKNOWN', 'Moeda indisponível nesta rede.');
+  return def;
+}
+
+function isAssetBalance(
+  balance: Horizon.HorizonApi.BalanceLine,
+  def: WalletAssetDef,
+): boolean {
+  if (!def.issuer) return balance.asset_type === 'native';
+  return (
+    balance.asset_type !== 'native' &&
+    'asset_code' in balance &&
+    balance.asset_code === def.code &&
+    balance.asset_issuer === def.issuer
+  );
+}
+
+/**
+ * Confere na rede, logo antes de assinar, que a conta de destino existe e
+ * recebe a moeda (trustline autorizada e com limite). O `receives` do backend
+ * e um contato salvo podem estar velhos.
+ */
+async function validateAssetDestination(address: string, def: WalletAssetDef, amount: string) {
+  let account;
+  try {
+    account = await server.loadAccount(address);
+  } catch (error) {
+    const status = (error as { response?: { status?: number } }).response?.status;
+    if (status === 404) {
+      throw new TransferError('ACCOUNT_NOT_FOUND', 'Conta de destino não encontrada na rede Stellar.');
+    }
+    throw mapTransferError(error);
+  }
+  if (!def.issuer) return;
+
+  const line = account.balances.find((balance) => isAssetBalance(balance, def));
+  if (!line || !('is_authorized' in line) || !line.is_authorized) {
+    throw new TransferError('NO_TRUSTLINE', 'A conta de destino não recebe esta moeda.');
+  }
+  const available =
+    'limit' in line
+      ? Number(line.limit) -
+        Number(line.balance) -
+        Number('buying_liabilities' in line ? line.buying_liabilities : 0)
+      : 0;
+  if (available < Number(amount)) {
+    throw new TransferError('TRUSTLINE_LIMIT', 'A conta de destino não tem limite para este valor.');
+  }
+}
+
+/**
+ * Monta, confere e assina o pagamento, sem enviar. A conta de destino e o
+ * saldo de quem envia são lidos de novo na rede neste momento.
+ */
+export async function buildSignedPayment(request: AssetTransferRequest): Promise<SignedPayment> {
+  const def = assetDef(request.asset);
+  const amount = normalizeUsdcAmount(request.amount);
+  const fromAddress = request.fromAddress.trim();
+  const toAddress = request.toAddress.trim();
+  try {
+    Keypair.fromPublicKey(toAddress);
+  } catch {
+    throw new TransferError('INVALID_ADDRESS', 'Endereço de destino inválido.');
+  }
+  if (fromAddress === toAddress) {
+    throw new TransferError('SAME_ADDRESS', 'A conta de destino é a sua.');
+  }
+
+  await validateAssetDestination(toAddress, def, amount);
+
+  try {
+    const source = (await loadWalletAssets(fromAddress)).assets.find((a) => a.id === def.id);
+    if (!source || Number(source.spendable) < Number(amount)) {
+      throw new TransferError('INSUFFICIENT_BALANCE', 'Saldo insuficiente.');
+    }
+
+    const account = await server.loadAccount(fromAddress);
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+    })
+      .addOperation(Operation.payment({ destination: toAddress, asset: toSdkAsset(def), amount }))
+      .setTimeout(600)
+      .build();
+
+    const txHash = Buffer.from(tx.hash());
+    const signature = await signHashViaPrivy(fromAddress, `0x${txHash.toString('hex')}`);
+    const decorated = new xdr.DecoratedSignature({
+      hint: Keypair.fromPublicKey(fromAddress).signatureHint(),
+      signature: Buffer.from(signature.replace('0x', ''), 'hex'),
+    });
+    if (!Keypair.fromPublicKey(fromAddress).verify(txHash, decorated.signature())) {
+      throw new TransferError('BAD_AUTH', 'A assinatura retornada não corresponde à carteira de origem.');
+    }
+    tx.signatures.push(decorated);
+    return { hash: txHash.toString('hex'), envelope: tx.toEnvelope().toXDR('base64') };
+  } catch (error) {
+    throw mapTransferError(error);
+  }
+}
+
+/** A rede já aplicou esta transação? Falha de consulta conta como "não sei". */
+async function findTransaction(hash: string): Promise<{ successful: boolean } | null> {
+  try {
+    const record = await server.transactions().transaction(hash).call();
+    return { successful: record.successful };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Envia um pagamento assinado. Sem resposta da rede, confere pelo hash antes
+ * de dar erro: o envio pode ter chegado. O tentar de novo reenvia o mesmo
+ * envelope (mesma sequência), que a rede nunca aplica duas vezes.
+ */
+export async function submitSignedPayment(payment: SignedPayment): Promise<TransferResult> {
+  const known = await findTransaction(payment.hash);
+  if (known?.successful) return { hash: payment.hash, createdAt: new Date().toISOString() };
+  try {
+    const result = await submitTransactionEnvelope(payment.envelope);
+    return { hash: result.hash, createdAt: new Date().toISOString() };
+  } catch (error) {
+    const mapped = mapTransferError(error);
+    if (mapped.code === 'NETWORK_ERROR' || mapped.code === 'BAD_SEQUENCE' || mapped.code === 'UNKNOWN') {
+      const applied = await findTransaction(payment.hash);
+      if (applied?.successful) return { hash: payment.hash, createdAt: new Date().toISOString() };
+    }
+    throw mapped;
+  }
 }

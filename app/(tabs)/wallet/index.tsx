@@ -30,6 +30,9 @@ import { SwapSheet } from '@/components/wallet/SwapSheet';
 import { SwapSoonSheet } from '@/components/wallet/SwapSoonSheet';
 import { MyGiftsSheet } from '@/components/wallet/MyGiftsSheet';
 import { BlindPayOnrampModal, BlindPayOfframpModal, TransferModal } from '@/components/ui';
+import { SendSheet } from '@/components/wallet/SendSheet';
+import { UsernameSheet } from '@/components/profile/UsernameSheet';
+import { useCurrentUser } from '@/lib/queries/users.queries';
 import { GiftSendSheet } from '@/components/gifts/GiftSendSheet';
 import { useGiftEligibility } from '@/lib/queries/gifts.queries';
 import { attemptActivation } from '@/lib/api/wallets';
@@ -92,6 +95,9 @@ export default function WalletScreen() {
   const [onrampOpen, setOnrampOpen] = useState(false);
   const [offrampOpen, setOfframpOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [usernameOpen, setUsernameOpen] = useState(false);
+  const myUsername = useCurrentUser().data?.username ?? null;
   const [swapSheetOpen, setSwapSheetOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
   const [giftsOpen, setGiftsOpen] = useState(false);
@@ -151,7 +157,9 @@ export default function WalletScreen() {
   const handleDeposit = useCallback(() => openPixRef.current('deposit'), []);
   const handleWithdraw = useCallback(() => openPixRef.current('withdraw'), []);
   const handleSwap = useCallback(() => setSwapSheetOpen(true), []);
-  const handleSend = useCallback(() => setTransferOpen(true), []);
+  // Enviar por @ (Figma 19a; Pro 19q). O envio por endereço (Pro) segue no
+  // TransferModal, aberto de dentro do sheet.
+  const handleSend = useCallback(() => setSendOpen(true), []);
   const handleHistory = useCallback(() => router.push('/(tabs)/wallet/history'), []);
   const handleGift = useCallback(() => setGiftOpen(true), []);
   const handleGifts = useCallback(() => setGiftsOpen(true), []);
@@ -321,6 +329,29 @@ export default function WalletScreen() {
         onClose={() => setOfframpOpen(false)}
       />
       <TransferModal visible={transferOpen} onClose={() => setTransferOpen(false)} />
+      <SendSheet
+        visible={sendOpen}
+        onClose={() => setSendOpen(false)}
+        assets={assets}
+        lockByAsset={lockByAsset}
+        onNeedUsername={() => {
+          setSendOpen(false);
+          setUsernameOpen(true);
+        }}
+        onAddress={() => {
+          setSendOpen(false);
+          setTransferOpen(true);
+        }}
+      />
+      {/* 19m: a criação do @ volta para o envio quando o @ foi criado. */}
+      <UsernameSheet
+        visible={usernameOpen}
+        onClose={() => {
+          setUsernameOpen(false);
+          if (myUsername) setSendOpen(true);
+        }}
+        current={null}
+      />
       <MyGiftsSheet
         visible={giftsOpen}
         onClose={() => setGiftsOpen(false)}
