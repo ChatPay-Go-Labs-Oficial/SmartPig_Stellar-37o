@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { TabBar, type TabBarItem } from '@/components/v2';
 import { useAutoWalletActivation } from '@/hooks/use-auto-wallet-activation';
+import { useExperienceModeSync } from '@/hooks/use-experience-mode-sync';
 
 const TABS: readonly TabBarItem[] = [
   { name: 'index',   title: 'Home',     icon: 'home' },
@@ -16,6 +17,7 @@ const V2_ROUTES: ReadonlySet<string> = new Set(['vaults', 'wallet', 'profile']);
 
 export default function TabLayout() {
   useAutoWalletActivation();
+  useExperienceModeSync();
 
   return (
     <Tabs

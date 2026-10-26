@@ -1,11 +1,13 @@
+import { useCallback } from 'react';
+import { usePushExperienceMode } from '@/lib/queries/users.queries';
 import { useAppModeStore, type AppMode } from '@/lib/stores/app-mode.store';
 
 export type { AppMode };
 
 /**
  * Fronteira de acesso ao modo Lite/Pro. Telas importam daqui e nunca do store
- * direto — é isso que permite plugar a sincronização com o backend depois sem
- * tocar em nenhuma tela.
+ * direto — é isso que permite a sincronização com o backend sem tocar em
+ * nenhuma tela: a troca feita por aqui também vai ao backend.
  *
  * Os seletores são separados de propósito: quem só precisa escrever (o toggle)
  * não re-renderiza quando o valor muda, e quem só lê não re-renderiza quando
@@ -28,9 +30,21 @@ export function useAppModeReady(): boolean {
 }
 
 export function useAppModeActions() {
-  const setMode = useAppModeStore((s) => s.setMode);
+  const setLocalMode = useAppModeStore((s) => s.setMode);
   const markProExplainerSeen = useAppModeStore((s) => s.markProExplainerSeen);
   const hasSeenProExplainer = useAppModeStore((s) => s.hasSeenProExplainer);
+  const { mutate: pushMode } = usePushExperienceMode();
+
+  // Vale na hora no aparelho; o backend recebe em seguida. Se o envio falhar,
+  // o aparelho fica com a troca mais nova e a conciliação do próximo início de
+  // sessão reenvia (useExperienceModeSync).
+  const setMode = useCallback(
+    (mode: AppMode) => {
+      setLocalMode(mode);
+      pushMode();
+    },
+    [pushMode, setLocalMode],
+  );
 
   return { setMode, markProExplainerSeen, hasSeenProExplainer };
 }

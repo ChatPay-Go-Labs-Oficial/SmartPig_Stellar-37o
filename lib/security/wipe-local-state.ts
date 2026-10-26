@@ -64,6 +64,8 @@ export async function wipeLocalState(): Promise<void> {
     useBlindPayStore.getState().clearKycDraft();
     usePixStore.getState().clearPixKey();
     useEtherfuseStore.getState().resetOnboarding();
+    // A data da última troca de modo é desta conta (ver app-mode.store).
+    useAppModeStore.getState().reset();
     useAuthStore.getState().clearAuth();
   } catch {
     // Intentionally silent: see above.
