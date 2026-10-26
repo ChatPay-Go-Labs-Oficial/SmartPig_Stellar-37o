@@ -3,6 +3,7 @@ import { HomePiggyList } from "@/components/home/HomePiggyList";
 import { WalletSummaryCard } from "@/components/home/WalletSummaryCard";
 import { WithdrawAllFlow } from "@/components/home/WithdrawAllFlow";
 import { LevelChangeModal } from "@/components/home/LevelChangeModal";
+import { LevelCard } from "@/components/v2/experience";
 import { PIG_LEVELS, levelProgress, type PigLevel } from "@/constants/pig-levels";
 import { V2Colors, V2Layout } from "@/constants/theme-v2";
 import { useAccent } from "@/hooks/use-accent";
@@ -15,6 +16,7 @@ import { useInvestedTotal } from "@/hooks/use-invested-total";
 import { buildPiggies } from "@/lib/utils/piggy";
 import { useAppLockStore } from "@/lib/stores/app-lock.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useClaimDailyReward, useExperienceProfile } from "@/lib/queries/experience.queries";
 import { useSound } from "@/hooks/use-sound";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -82,6 +84,11 @@ export default function HomeScreen() {
 
   const wallet = useWalletTotal(walletAddress);
   const walletUsdc = parseFloat(wallet.assets.find((a) => a.id === "USDC")?.balance ?? "0") || 0;
+
+  // Nível de Usuário (Figma 30i/30j, sem a Chama): o card pega a recompensa
+  // do dia ali mesmo e abre o Seu nível.
+  const experience = useExperienceProfile();
+  const claimDailyReward = useClaimDailyReward();
 
   const piggies = useMemo(
     () =>
@@ -202,12 +209,18 @@ export default function HomeScreen() {
   const refetchVaults = vaultsQuery.refetch;
   const refetchPortfolio = portfolioQuery.refetch;
   const refetchWallet = wallet.refetch;
+  const refetchExperience = experience.refetch;
   const handleRefresh = useCallback(async () => {
     if (!walletAddress) return;
     setRefreshing(true);
-    await Promise.allSettled([refetchVaults(), refetchWallet(), refetchPortfolio()]);
+    await Promise.allSettled([
+      refetchVaults(),
+      refetchWallet(),
+      refetchPortfolio(),
+      refetchExperience(),
+    ]);
     setRefreshing(false);
-  }, [refetchPortfolio, refetchVaults, refetchWallet, walletAddress]);
+  }, [refetchExperience, refetchPortfolio, refetchVaults, refetchWallet, walletAddress]);
 
   const retryPiggies = useCallback(() => {
     refetchVaults();
@@ -223,6 +236,12 @@ export default function HomeScreen() {
   // sobe para a pilha raiz e abre uma segunda cópia (toque duplo = duas telas).
   const openWallet = useCallback(() => router.navigate("/(tabs)/wallet"), []);
   const openGuardar = useCallback(() => router.navigate("/(tabs)/vaults"), []);
+  // O Seu nível mora na aba Trilha (Figma 36a): a aba muda e o voltar leva à
+  // Trilha. O withAnchor põe a Trilha por baixo quando a aba ainda não abriu;
+  // sem ele o Seu nível ficava sozinho na pilha e tomava o lugar da Trilha.
+  const openLevel = useCallback(() => router.navigate("/learn/level", { withAnchor: true }), []);
+  const claimReward = claimDailyReward.mutate;
+  const handleClaimReward = useCallback(() => claimReward(), [claimReward]);
   const closeLevelChange = useCallback(() => setLevelUpModalVisible(false), []);
   const openPiggy = useCallback(
     (vaultId: string) => router.navigate({ pathname: "/(tabs)/vaults", params: { vault: vaultId } }),
@@ -277,11 +296,22 @@ export default function HomeScreen() {
         />
 
         <View style={styles.content}>
-          <WalletSummaryCard
-            amountUsd={wallet.totalUsd}
-            estimated={wallet.estimated}
-            onPress={openWallet}
-          />
+          <View style={styles.summary}>
+            <WalletSummaryCard
+              amountUsd={wallet.totalUsd}
+              estimated={wallet.estimated}
+              onPress={openWallet}
+            />
+            <LevelCard
+              profile={experience.data}
+              loading={experience.isPending}
+              error={experience.isError}
+              onRetry={refetchExperience}
+              onPress={openLevel}
+              claiming={claimDailyReward.isPending}
+              onClaim={handleClaimReward}
+            />
+          </View>
           <HomePiggyList
             piggies={piggies}
             isError={vaultsQuery.isError || portfolioQuery.isError}
@@ -325,5 +355,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 18,
     gap: 24,
+  },
+  // Figma 30i: 14 entre a carteira e o card de Nível.
+  summary: {
+    gap: 14,
   },
 });

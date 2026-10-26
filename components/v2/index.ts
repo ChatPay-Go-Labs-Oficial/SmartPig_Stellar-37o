@@ -16,3 +16,4 @@ export { NavChip } from './NavChip';
 export { Wordmark, BRAND_PURPLE } from './Wordmark';
 export { SegmentedControl, type SegmentOption } from './SegmentedControl';
 export { TabBar, type TabBarItem } from './TabBar';
+export { SubScreenHeader } from './SubScreenHeader';

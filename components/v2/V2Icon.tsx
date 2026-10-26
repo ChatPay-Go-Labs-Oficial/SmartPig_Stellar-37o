@@ -36,6 +36,10 @@ const FEATHER = {
   settings: 'settings',
   logout: 'log-out',
   clock: 'clock',
+  // Etapas da jornada do Nível de Usuário (Consistente, Dedicado) e "Lição concluída".
+  star: 'star',
+  zap: 'zap',
+  book: 'book',
 } as const;
 
 // Sem par no Feather: cai para o contorno do Material Community.
@@ -55,6 +59,8 @@ const COMMUNITY = {
   fingerprint: 'fingerprint',
   // Lucide "party-popper" (Figma "celebration"): presente resgatado.
   celebration: 'party-popper',
+  // Lucide "trophy": etapa Veterano, título e "Módulo concluído". O Feather não tem.
+  trophy: 'trophy-outline',
 } as const;
 
 const MATERIAL = {
