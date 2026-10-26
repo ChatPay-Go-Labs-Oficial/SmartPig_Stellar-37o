@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { V2Colors, V2Font, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { mascotBox, type PigLevel } from '@/constants/pig-levels';
@@ -94,7 +94,10 @@ function LevelChangeModalView({ visible, from, to, direction, onClose, onDeposit
       navigationBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.screen}>
+      {/* Altura da tela desde o início: no Android o Modal abre com uma
+          altura provisória e a cena, centralizada, descia no meio da entrada
+          (mesma correção do LevelUpScene). */}
+      <View style={[styles.screen, { minHeight: Dimensions.get('screen').height }]}>
         <ScreenGlow peak={0.4} height={596} />
         {!down && <Confetti play={celebrate} />}
 
@@ -166,6 +169,7 @@ function LevelChangeModalView({ visible, from, to, direction, onClose, onDeposit
                 <Button3D
                   label="Depositar agora"
                   icon="plus"
+                  size="card"
                   onPress={() => {
                     onClose();
                     onDeposit();
@@ -176,7 +180,7 @@ function LevelChangeModalView({ visible, from, to, direction, onClose, onDeposit
                 </Pressable>
               </>
             ) : (
-              <Button3D label="Que legal!" icon="sparkles" onPress={onClose} />
+              <Button3D label="Que legal!" icon="sparkles" size="card" onPress={onClose} />
             )}
           </Animated.View>
         </View>

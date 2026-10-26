@@ -37,7 +37,7 @@ const STATE_HEIGHT = 520;
 /** Dica abaixo da régua (36a, 36d, 36h). */
 function nextLevelHint(profile: ExperienceProfile): string {
   if (profile.nextLevelXp === null) return 'Você completou todas as etapas da jornada.';
-  if (profile.level === 0) return 'Conclua sua primeira lição para chegar ao Nível 1.';
+  if (profile.level === 0) return 'Conclua lições da Trilha para chegar ao Nível 1.';
   return `No Nível ${profile.level + 1}, sua moldura ganha mais um ponto de luz.`;
 }
 
