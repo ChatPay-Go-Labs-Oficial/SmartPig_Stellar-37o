@@ -430,6 +430,16 @@ function AppGate() {
     wasAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated]);
 
+  // Fora da guarda de `hydrated` de propósito. O AppGate é irmão do `<Stack>`,
+  // então as telas montam junto com ele e a de login dispara assim que a Privy
+  // fica pronta. Se este registro esperasse a hidratação do store, a primeira
+  // chamada da API poderia sair sem `Authorization` — e `/auth/wallet` depende
+  // do token para resolver a conta pelas carteiras verificadas. Registrar a
+  // função não depende de hidratação; só o resto do efeito abaixo depende.
+  useEffect(() => {
+    setTokenProvider(getAccessToken);
+  }, [getAccessToken]);
+
   useEffect(() => {
     if (!hydrated) return;
 
@@ -439,10 +449,9 @@ function AppGate() {
       setBiometricLocked(isAuthenticated);
     }
 
-    setTokenProvider(getAccessToken);
     setSignRawHashProvider(signRawHash);
     setGateOpen(true);
-  }, [getAccessToken, hydrated, isAuthenticated, signRawHash]);
+  }, [hydrated, isAuthenticated, signRawHash]);
 
   useEffect(() => {
     if (!isReady || !hydrated) return;

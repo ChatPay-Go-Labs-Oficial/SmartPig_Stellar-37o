@@ -8,7 +8,13 @@ export const apiClient = axios.create({
   timeout: 15_000,
 });
 
-const PUBLIC_ENDPOINTS = ['/auth/wallet', '/app-config/version'];
+// `/auth/wallet` saiu daqui de propósito. Ela aceita chamada sem token para
+// registrar uma conta nova, mas quando o token existe ele tem que ir junto: é
+// assim que o backend resolve a conta pelas carteiras Stellar que a Privy
+// verificou, em vez de apenas pela que `selectPrimaryStellarAddress` escolheu.
+// Com mais de uma carteira vinculada, só o caminho autenticado recupera a conta
+// original. O `if (token)` abaixo mantém o bootstrap de conta nova funcionando.
+const PUBLIC_ENDPOINTS = ['/app-config/version'];
 
 apiClient.interceptors.request.use(async (config) => {
   const isPublic = PUBLIC_ENDPOINTS.some(e => (config.url ?? '').includes(e));
