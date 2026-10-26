@@ -49,8 +49,7 @@ const FIGMA_WIDTH = 393;
  * "Introdução ao PigFi" com as cinco lições e o Dicionário. Lições, títulos,
  * XP e progresso vêm do backend; o app só desenha o caminho.
  *
- * A lição em si (e as boas-vindas do módulo, 35o, que abrem nela) é a E4 do
- * PigFi Experience: até lá, os nós não abrem nada.
+ * Os nós e o balão "Começar" abrem a lição (app/learning/[moduleKey].tsx).
  */
 export default function TrailScreen() {
   const accent = useAccent();
@@ -170,6 +169,9 @@ export default function TrailScreen() {
               moduleTitle={welcome?.title ?? null}
               moduleXp={content.data?.introModuleCompletionXp ?? null}
               pig={pig}
+              onOpenLesson={(moduleKey) =>
+                router.push({ pathname: '/learning/[moduleKey]', params: { moduleKey } })
+              }
             />
           </>
         ) : failed ? (

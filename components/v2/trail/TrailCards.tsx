@@ -8,7 +8,7 @@ import { useAccent } from '@/hooks/use-accent';
 import type { ExperienceProfile } from '@/lib/api/experience';
 import { XpBar } from '../experience/XpBar';
 import { ProgressRing } from '../ProgressRing';
-import { RADIAL_MASK } from '../ScreenGlow';
+import { CardGlow } from '../CardGlow';
 import { V2Icon } from '../V2Icon';
 
 // Card de nível (Figma 34j "nível"): anel de 64 com a foto de 52 e o selo.
@@ -18,23 +18,6 @@ const PHOTO_BORDER = 1;
 /** Mascote na foto: o Esperto em 75,4 de altura, cortado; o Bebê na mesma largura. */
 const MASCOT_HEIGHT = 75.4;
 const MASCOT_SQUARE = 41.5 / MASCOT_HEIGHT;
-
-/**
- * Brilho dos cards da Trilha (módulo e Dicionário): radial do destaque a 24%,
- * centrado no alto do card, mais largo que ele.
- */
-function CardGlow() {
-  const accent = useAccent();
-  return (
-    <Image
-      source={RADIAL_MASK}
-      tintColor={accent.base}
-      contentFit="fill"
-      pointerEvents="none"
-      style={styles.cardGlow}
-    />
-  );
-}
 
 interface TrailLevelCardProps {
   profile: ExperienceProfile;
@@ -200,14 +183,6 @@ const styles = StyleSheet.create({
   },
   // Figma: radial em (50%, 28,6%) com raios de 111% da meia largura e 35,7%
   // da altura; a máscara (1 − r) a 24% faz a parada 24% → 0.
-  cardGlow: {
-    position: 'absolute',
-    left: '-5.55%',
-    width: '111.1%',
-    top: '-7.14%',
-    height: '71.43%',
-    opacity: 0.24,
-  },
   levelCard: {
     flexDirection: 'row',
     alignItems: 'center',

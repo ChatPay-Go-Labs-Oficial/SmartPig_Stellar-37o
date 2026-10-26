@@ -5,6 +5,7 @@ export { ActionKey3D } from './ActionKey3D';
 export { Button3D } from './Button3D';
 export { ScreenGlow, RADIAL_MASK } from './ScreenGlow';
 export { CircleGlow } from './CircleGlow';
+export { CardGlow } from './CardGlow';
 export { AssetIcon, type AssetLogoId } from './AssetIcon';
 export { V2Sheet } from './V2Sheet';
 export { SheetLink } from './SheetLink';
