@@ -42,7 +42,7 @@ interface LessonCompleteProps {
   lessonXp: number;
   /** XP do módulo quando a lição fecha as cinco (35j); 0 nas outras. */
   moduleXp: number;
-  /** Nível depois da lição, para o card (35g e 35p). */
+  /** Nível depois da lição, para o card (35g, 35n e 35p). */
   level: ExperienceLevel | null;
   /** Porquinhos liberados agora (só no Lite). */
   unlocks: readonly LessonUnlock[];
@@ -57,7 +57,8 @@ interface LessonCompleteProps {
  * Conclusão da lição, sem mascote (Figma 35p, 35g e 35j): o selo da lição com
  * o check e o XP, o nível, a liberação de porquinho e os botões, que só
  * navegam. Quando a lição fecha o módulo, a medalha do fim da Trilha, o XP do
- * módulo e a mensagem do conteúdo.
+ * módulo e a mensagem do conteúdo. Com subida de nível (35n), o card já mostra
+ * o nível novo; a cena da subida é da rota.
  */
 function LessonCompleteView({
   icon,

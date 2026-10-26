@@ -20,10 +20,13 @@ const HEIGHT = 57;
 const DEPTH = 4;
 
 // Altura da face, raio e texto de cada tamanho do Figma. Regular: ações de
-// tela e de sheet. Compacto: o "Pegar" da recompensa do dia. Pequeno: o "+3 XP"
-// do card de Nível na Home. A largura dos menores vem de quem usa (`style`).
+// tela e de sheet. Cartão: o regular com texto de 16, nas ações dentro do
+// cartão da subida de nível (37a). Compacto: o "Pegar" da recompensa do dia.
+// Pequeno: o "+3 XP" do card de Nível na Home. A largura dos menores vem de
+// quem usa (`style`).
 const SIZES = {
   regular: { height: HEIGHT, radius: V2Radius.key, fontSize: 17, letterSpacing: 0.17, icon: 20, gap: 10 },
+  card: { height: HEIGHT, radius: V2Radius.key, fontSize: 16, letterSpacing: 0.16, icon: 20, gap: 10 },
   compact: { height: 40, radius: 14, fontSize: 14, letterSpacing: 0, icon: 16, gap: 6 },
   small: { height: 32, radius: 12, fontSize: 12.5, letterSpacing: 0, icon: 14, gap: 5 },
 } as const;
