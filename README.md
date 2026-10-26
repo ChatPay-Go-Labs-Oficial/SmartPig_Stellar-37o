@@ -1,5 +1,14 @@
 # PigFi 🐷💸
 
+## Hack Meridian Demo
+
+- **Android APK:** [Download the demo](https://expo.dev/artifacts/eas/zdnX1LjCONIFWpnJdrNGzyLdgllwc4hSIG4CddHH7RA.apk)
+- **iPhone TestFlight:** [Join the demo](https://testflight.apple.com/join/S22dz9JV)
+- **Demo support:** If you have trouble accessing the demo, contact an administrator or team participant via [WhatsApp](https://wa.me/+5521979119988).
+- **Production App:** [use.pigfi.app](https://use.pigfi.app)
+
+---
+
 **Small values, a universe of possibilities.**
 
 Website: https://use.pigfi.app
