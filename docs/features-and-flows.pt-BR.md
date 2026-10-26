@@ -40,6 +40,19 @@ As telas antigas de criacao/conexao de carteira continuam no grupo de autenticac
 - Operacoes intermediarias recebem polling enquanto aguardam confirmacao.
 - Saldos subjacentes sao convertidos de unidades atomicas Stellar; shares de saque permanecem brutas.
 
+## Nome de usuario e envio por @
+
+**Nome de usuario.** No Perfil, a linha "Nome de usuario" (grupo Conta) abre a criacao do @ (`components/profile/UsernameSheet.tsx`). O @ tem de 3 a 20 caracteres, comeca com letra e so usa minusculas, numeros, ponto e sublinhado; formato invalido nunca vai ao backend. A disponibilidade e consultada com espera de digitacao e a consulta anterior cancelada. O @ e permanente: depois de criado aparece no Perfil (na linha e embaixo do nome) e nao pode ser trocado.
+
+**Enviar para contatos.** O Enviar (Lite) e o Transferir (Pro) da Carteira abrem o envio por @ (`components/wallet/SendSheet.tsx`):
+
+1. sem @ proprio, o app pede a criacao antes e volta ao envio;
+2. busca pelo @ exato (`GET /usernames/{username}`), sem lista nem autocompletar; o nome do cadastro so aparece quando verificado, senao "Usuario PigFi"; nunca para o proprio @;
+3. valor e moeda (dolar, euro e cripto) so entre as moedas que a conta tem com saldo; no Lite, a moeda bloqueada pela trilha aparece com cadeado; aviso quando quem recebe nao aceita a moeda e de saldo insuficiente;
+4. revisao, biometria e envio: logo antes de assinar, a conta de destino e o saldo sao lidos de novo na rede; o sucesso so aparece com a transacao aceita.
+
+Sem resposta da rede, o app confere pelo hash e o tentar de novo reenvia a mesma transacao assinada, que a rede nunca aplica duas vezes. Contatos salvos ficam so no aparelho, por conta (@ e nome, nunca o endereco), e sao apagados ao sair e na exclusao de conta. No Pro, "Transferir para um endereco Stellar" segue no fluxo de transferencia USDC abaixo. Transferencia nao da XP.
+
 ## Transferencias USDC
 
 O modal de transferencia:

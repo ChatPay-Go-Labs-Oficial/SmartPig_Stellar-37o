@@ -32,10 +32,14 @@ export interface ResolvedUsername {
   receives: { USDC: boolean; EURC: boolean; XLM: boolean };
 }
 
+/** `signal` cancela a consulta de um nome que a pessoa já trocou. */
 export const checkUsernameAvailability = async (
   username: string,
+  signal?: AbortSignal,
 ): Promise<UsernameAvailability> => {
-  const { data } = await apiClient.get(`/usernames/${encodeURIComponent(username)}/availability`);
+  const { data } = await apiClient.get(`/usernames/${encodeURIComponent(username)}/availability`, {
+    signal,
+  });
   return data;
 };
 

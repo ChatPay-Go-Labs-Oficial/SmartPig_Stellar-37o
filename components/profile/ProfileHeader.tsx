@@ -60,6 +60,8 @@ interface ProfileHeaderProps {
   /** Distância do topo da tela até a linha da foto (safe area + respiro). */
   paddingTop: number;
   name: string;
+  /** Nome de usuário, embaixo do nome; null sem @ criado. */
+  username: string | null;
   verified: boolean;
   /** Porquinho atual, pelo valor guardado: a foto e o subtítulo. */
   level: LevelProgress;
@@ -105,6 +107,7 @@ function xpLine(experience: ExperienceProfile): string {
 function ProfileHeaderView({
   paddingTop,
   name,
+  username,
   verified,
   level,
   since,
@@ -223,6 +226,11 @@ function ProfileHeaderView({
                 </View>
               ) : null}
             </View>
+            {username ? (
+              <Text style={[styles.username, { color: accent.light }]} numberOfLines={1}>
+                @{username}
+              </Text>
+            ) : null}
             <Text style={styles.subtitle}>
               {since ? `${pig.label} · desde ${since}` : pig.label}
             </Text>
@@ -369,6 +377,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  username: {
+    fontFamily: V2Font.bold,
+    fontSize: 13,
   },
   subtitle: {
     fontFamily: V2Font.medium,

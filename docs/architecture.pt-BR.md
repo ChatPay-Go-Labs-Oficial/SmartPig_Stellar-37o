@@ -54,6 +54,7 @@ O token Privy e registrado em `lib/api/token.ts` e anexado pelo cliente HTTP. A 
 | --- | --- | --- |
 | `auth.store.ts` | AsyncStorage | IDs publicos da sessao, carteira, ativacao e nivel visual visto |
 | `app-mode.store.ts` | AsyncStorage | Modo Lite/Pro e data da ultima troca, conciliados com o backend |
+| `contacts.store.ts` | AsyncStorage | Contatos salvos do envio por @ (so @ e nome), por conta; apagados ao sair |
 | `level-up.store.ts`, `piggy-unlock.store.ts` | Memoria | Cena de subida de nivel e de porquinho liberado pedida e ainda nao vista |
 | `settings.store.ts` | AsyncStorage | Preferencias como audio silenciado |
 | `etherfuse.store.ts` | Conforme implementacao do fluxo | Estado de navegacao do onboarding/ramp |
@@ -79,6 +80,7 @@ Erros da API sao lidos pelo `code` em `lib/api/errors.ts` (`readApiError`, `hasA
 
 - **Ativacao:** o backend prepara a operacao; o app assina e envia a resposta.
 - **Deposito/saque de vault:** o backend gera XDR sem assinatura; o usuario assina pelo fluxo de carteira; o backend submete ou reconcilia.
+- **Envio por @ (USDC, EURC e XLM):** o backend so resolve o @ para o endereco; o app confere destino e saldo na rede, assina com o Privy (`buildSignedPayment`) e envia ao Horizon (`submitSignedPayment`), conferindo pelo hash antes de dar erro de rede.
 - **Transferencia USDC:** o app valida conta, trustline, saldo e memo, monta a transacao, solicita assinatura Privy e envia ao Horizon.
 - **Historico Stellar:** pagamentos USDC sao consultados no Horizon e combinados com operacoes do backend na interface.
 - **Swap:** `lib/stellar/swap.ts` oferece descoberta de caminho e troca XLM/USDC para fluxos que necessitem do ativo.
