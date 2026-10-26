@@ -1,447 +1,252 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Accent, Colors, Font, FontSize, Glow, Gradients, Radius, Spacing } from '@/constants/theme';
-import { TRILHA_LESSONS } from '@/constants/trilha';
-import { LessonPlayer } from '@/components/ui/LessonPlayer';
-import type { TrilhaLesson } from '@/constants/trilha';
-import { getLearningProgress, useLearningStore } from '@/lib/stores/learning.store';
-import { useAuthStore } from '@/lib/stores/auth.store';
+import { useMemo, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { router } from 'expo-router';
+import { ScreenGlow, V2Spinner } from '@/components/v2';
+import {
+  DictionarySheet,
+  DictionaryShortcut,
+  TrailLevelCard,
+  TrailModuleCard,
+  TrailPath,
+  type TrailLesson,
+  type TrailMilestoneState,
+} from '@/components/v2/trail';
+import { TRAIL_MILESTONES } from '@/constants/learning-trail';
+import { levelProgress } from '@/constants/pig-levels';
+import { V2Colors, V2Font, V2Layout } from '@/constants/theme-v2';
+import { useAccent } from '@/hooks/use-accent';
+import { useInvestedTotal } from '@/hooks/use-invested-total';
+import { useScreenInsets } from '@/hooks/use-screen-insets';
+import type { LearningGlossaryItem, LearningWelcomeItem } from '@/lib/api/learning';
+import { useExperienceProfile } from '@/lib/queries/experience.queries';
+import { useLearningContent, useLearningModules } from '@/lib/queries/learning.queries';
 
-export default function TrilhaScreen() {
-  const insets = useSafeAreaInsets();
-  const [openLesson, setOpenLesson] = useState<TrilhaLesson | null>(null);
-  const contractId = useAuthStore((state) => state.contractId);
-  const walletAddress = useAuthStore((state) => state.walletAddress);
-  const learningUserId = contractId ?? walletAddress;
-  const progress = useLearningStore((state) =>
-    getLearningProgress(state.progressByUser, learningUserId),
+/** Figma: 18 de margem e 18 entre os blocos (34a). */
+const GUTTER = 18;
+/** Constelação do topo (Figma 34j), em coordenadas da tela de 393. */
+const SKY = [
+  { x: 196, y: 30, size: 3 },
+  { x: 240, y: 50, size: 2 },
+  { x: 292, y: 34, size: 2 },
+  { x: 352, y: 46, size: 3 },
+  { x: 226, y: 122, size: 2 },
+  { x: 304, y: 124, size: 2 },
+  { x: 372, y: 118, size: 2 },
+  { x: 160, y: 20, size: 2 },
+] as const;
+const FIGMA_WIDTH = 393;
+
+/**
+ * Trilha (Figma "Trilha · Tela", 34a a 34j, sem a Chama): o nível, o módulo
+ * "Introdução ao PigFi" com as cinco lições e o Dicionário. Lições, títulos,
+ * XP e progresso vêm do backend; o app só desenha o caminho.
+ *
+ * A lição em si (e as boas-vindas do módulo, 35o, que abrem nela) é a E4 do
+ * PigFi Experience: até lá, os nós não abrem nada.
+ */
+export default function TrailScreen() {
+  const accent = useAccent();
+  const screenInsets = useScreenInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const modules = useLearningModules();
+  const content = useLearningContent();
+  const experience = useExperienceProfile();
+  const invested = useInvestedTotal();
+  const [dictionaryOpen, setDictionaryOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const columnWidth = Math.min(windowWidth, V2Layout.maxWidth) - GUTTER * 2;
+  const pig = levelProgress(invested.totalUsd).current;
+
+  // A lição atual é a primeira não concluída; as seguintes ficam bloqueadas.
+  const lessons = useMemo<TrailLesson[]>(() => {
+    const ordered = [...(modules.data ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
+    const firstOpen = ordered.findIndex((lesson) => !lesson.completedAt);
+    return ordered.map((lesson, index) => ({
+      key: lesson.key,
+      title: lesson.title,
+      number: index + 1,
+      xp: lesson.completionXp,
+      status: lesson.completedAt ? 'done' : index === firstOpen ? 'current' : 'locked',
+    }));
+  }, [modules.data]);
+
+  const lite = content.data?.presentationMode === 'LITE';
+  const milestones = useMemo<TrailMilestoneState[]>(
+    () =>
+      lite
+        ? TRAIL_MILESTONES.flatMap((milestone) => {
+            const lesson = lessons.find((item) => item.key === milestone.afterLesson);
+            return lesson ? [{ ...milestone, unlocked: lesson.status === 'done' }] : [];
+          })
+        : [],
+    [lite, lessons],
   );
-  const completeLesson = useLearningStore((state) => state.completeLesson);
-  const completedIds = progress.completedLessonIds;
-  const totalXp = progress.totalXp;
 
-  const trailDone = completedIds.length === TRILHA_LESSONS.length;
-  const currentId = trailDone
-    ? null
-    : TRILHA_LESSONS.find((l) => !completedIds.includes(l.id))?.id ?? null;
+  const items = content.data?.items ?? [];
+  const welcome = items.find((item): item is LearningWelcomeItem => item.type === 'INTRODUCTION');
+  const glossary = items.find((item): item is LearningGlossaryItem => item.type === 'GLOSSARY');
+  const glossaryEntries = glossary
+    ? [...glossary.content.lite, ...(lite ? [] : glossary.content.proAdditional)]
+    : [];
+  const done = lessons.filter((lesson) => lesson.status === 'done').length;
 
-  const getLessonState = (id: number): 'completed' | 'current' | 'locked' => {
-    if (completedIds.includes(id)) return 'completed';
-    if (id === currentId) return 'current';
-    return 'locked';
-  };
+  const queries = [modules, content, experience];
+  const ready = !!modules.data && !!content.data && !!experience.data;
+  const failed = queries.some((query) => !query.data && query.isError);
 
-  const handleComplete = (xp: number) => {
-    if (!openLesson || !learningUserId) return;
-    completeLesson(learningUserId, openLesson.id, xp);
-    setOpenLesson(null);
-  };
-
-  const progressPct = completedIds.length / TRILHA_LESSONS.length;
+  async function handleRefresh() {
+    setRefreshing(true);
+    await Promise.allSettled(queries.map((query) => query.refetch()));
+    setRefreshing(false);
+  }
 
   return (
     <View style={styles.screen}>
-      {/* ── Header ── */}
-      <LinearGradient
-        colors={Gradients.primary as any}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0.8 }}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
-      >
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.headerEyebrow}>Primeiros Passos</Text>
-            <Text style={styles.headerTitle}>Trilha de Aprendizado</Text>
-          </View>
-          <View style={styles.xpPill}>
-            <MaterialIcons name="star" size={14} color={Accent.gold} />
-            <Text style={styles.xpPillText}>{totalXp} XP</Text>
-          </View>
-        </View>
-
-        <View style={styles.headerProgress}>
-          <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>
-              {trailDone ? 'Trilha concluída!' : `${completedIds.length} de ${TRILHA_LESSONS.length} lições`}
-            </Text>
-            <Text style={styles.progressPct}>{Math.round(progressPct * 100)}%</Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progressPct * 100}%` }]} />
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* ── Trail nodes ── */}
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {trailDone && (
-          <View style={styles.trailCompleteBanner}>
-            <MaterialIcons name="workspace-premium" size={24} color={Accent.gold} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.bannerTitle}>Trilha concluída!</Text>
-              <Text style={styles.bannerSub}>Badge &quot;Porquinho Iniciante&quot; desbloqueado</Text>
-            </View>
-          </View>
-        )}
-
-        {TRILHA_LESSONS.map((lesson, index) => {
-          const state = getLessonState(lesson.id);
-          const isLast = index === TRILHA_LESSONS.length - 1;
-          return (
-            <TrailNode
-              key={lesson.id}
-              lesson={lesson}
-              state={state}
-              isLast={isLast}
-              onPress={() => {
-                if (state !== 'locked') setOpenLesson(lesson);
-              }}
-            />
-          );
-        })}
-      </ScrollView>
-
-      {/* ── Lesson player modal ── */}
-      {openLesson && (
-        <LessonPlayer
-          lesson={openLesson}
-          onComplete={handleComplete}
-          onClose={() => setOpenLesson(null)}
-        />
-      )}
-    </View>
-  );
-}
-
-// ─── Trail node ───────────────────────────────────────────────────────────────
-function TrailNode({
-  lesson,
-  state,
-  isLast,
-  onPress,
-}: {
-  lesson: TrilhaLesson;
-  state: 'completed' | 'current' | 'locked';
-  isLast: boolean;
-  onPress: () => void;
-}) {
-  const isCompleted = state === 'completed';
-  const isCurrent = state === 'current';
-  const isLocked = state === 'locked';
-
-  return (
-    <View style={nodeStyles.wrapper}>
-      {/* COMEÇAR chip */}
-      {isCurrent && (
-        <Pressable onPress={onPress} style={nodeStyles.startChipWrap}>
-          <LinearGradient
-            colors={Gradients.primary as any}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={nodeStyles.startChip}
-          >
-            <MaterialIcons name="play-arrow" size={14} color="#fff" />
-            <Text style={nodeStyles.startChipText}>COMEÇAR</Text>
-          </LinearGradient>
-        </Pressable>
-      )}
-      {isCompleted && (
-        <View style={nodeStyles.doneChipWrap}>
-          <View style={nodeStyles.doneChip}>
-            <MaterialIcons name="check-circle" size={14} color={Accent.success} />
-            <Text style={nodeStyles.doneChipText}>CONCLUÍDA</Text>
-          </View>
-        </View>
-      )}
-
-      {/* Node circle */}
-      <Pressable onPress={isLocked ? undefined : onPress} style={nodeStyles.circleWrap}>
-        {isCompleted || isCurrent ? (
-          <LinearGradient
-            colors={Gradients.primary as any}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[nodeStyles.circle, isCurrent && Glow.pink]}
-          >
-            <MaterialIcons
-              name={isCompleted ? 'check' : (lesson.icon as any)}
-              size={40}
-              color="#fff"
-            />
-          </LinearGradient>
-        ) : (
-          <View style={nodeStyles.circleLocked}>
-            <MaterialIcons name={lesson.icon as any} size={36} color={Colors.mutedForeground} style={{ opacity: 0.4 }} />
-            <View style={nodeStyles.lockBadge}>
-              <MaterialIcons name="lock" size={12} color={Colors.mutedForeground} />
-            </View>
-          </View>
-        )}
-      </Pressable>
-
-      {/* Info */}
-      <Text style={[nodeStyles.title, isLocked && nodeStyles.titleLocked]}>
-        {lesson.title}
-      </Text>
-
-      <View style={nodeStyles.metaRow}>
-        <View style={nodeStyles.metaChip}>
-          <MaterialIcons name="star" size={12} color={isLocked ? Colors.mutedForeground : Accent.gold} />
-          <Text style={[nodeStyles.metaText, isLocked && nodeStyles.metaTextLocked]}>
-            {lesson.xp} XP
-          </Text>
-        </View>
-        <View style={nodeStyles.metaChip}>
-          <MaterialIcons name="schedule" size={12} color={Colors.mutedForeground} />
-          <Text style={[nodeStyles.metaText, nodeStyles.metaTextLocked]}>
-            {lesson.duration}
-          </Text>
-        </View>
+      <ScreenGlow />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {SKY.map((star) => (
+          <View
+            key={`${star.x}-${star.y}`}
+            style={[
+              styles.star,
+              {
+                left: (star.x / FIGMA_WIDTH) * windowWidth,
+                top: screenInsets.top + star.y,
+                width: star.size,
+                height: star.size,
+                borderRadius: star.size / 2,
+              },
+            ]}
+          />
+        ))}
       </View>
 
-      {/* Connector */}
-      {!isLast && (
-        <View style={nodeStyles.connector}>
-          {isCompleted ? (
-            <LinearGradient
-              colors={Gradients.primary as any}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={nodeStyles.connectorLine}
-            />
-          ) : (
-            <View style={[nodeStyles.connectorLine, nodeStyles.connectorLineLocked]} />
-          )}
+      <ScrollView
+        style={{ marginTop: screenInsets.top }}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: screenInsets.topGap, paddingBottom: screenInsets.bottom },
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={accent.base}
+            colors={[accent.base]}
+            progressBackgroundColor={V2Colors.sheetTop}
+          />
+        }
+      >
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>Sua trilha</Text>
         </View>
-      )}
+
+        {ready && experience.data ? (
+          <>
+            <TrailLevelCard
+              profile={experience.data}
+              pig={pig}
+              onPress={() => router.push('/learn/level')}
+            />
+            <TrailModuleCard title={welcome?.title ?? null} done={done} total={lessons.length} />
+            {/* Consulta opcional: só depois da primeira lição (34j e 34k). */}
+            {glossary?.title && done > 0 ? (
+              <DictionaryShortcut title={glossary.title} onPress={() => setDictionaryOpen(true)} />
+            ) : null}
+            <TrailPath
+              width={columnWidth}
+              lessons={lessons}
+              milestones={milestones}
+              moduleTitle={welcome?.title ?? null}
+              moduleXp={content.data?.introModuleCompletionXp ?? null}
+              pig={pig}
+            />
+          </>
+        ) : failed ? (
+          <View style={[styles.state, styles.errorState]}>
+            <Text style={styles.errorText}>Não foi possível carregar a trilha.</Text>
+            <Pressable
+              onPress={() => queries.forEach((query) => !query.data && query.refetch())}
+              hitSlop={8}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.retry, { color: accent.base }]}>Tentar novamente</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.state}>
+            <V2Spinner size={32} />
+          </View>
+        )}
+      </ScrollView>
+
+      {glossary?.title ? (
+        <DictionarySheet
+          visible={dictionaryOpen}
+          onClose={() => setDictionaryOpen(false)}
+          title={glossary.title}
+          entries={glossaryEntries}
+        />
+      ) : null}
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: V2Colors.background,
   },
-  header: {
-    paddingHorizontal: Spacing[6],
-    paddingBottom: Spacing[6],
-    gap: Spacing[4],
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  headerEyebrow: {
-    fontSize: FontSize.label,
-    fontFamily: Font.bold,
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 2,
-  },
-  headerTitle: {
-    fontSize: FontSize.subheading,
-    fontFamily: Font.black,
-    color: '#fff',
-  },
-  xpPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    borderRadius: Radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  xpPillText: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.black,
-    color: '#fff',
-  },
-  headerProgress: {
-    gap: 8,
-  },
-  progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressLabel: {
-    fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  progressPct: {
-    fontSize: FontSize.label,
-    fontFamily: Font.black,
-    color: '#fff',
-  },
-  progressTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-    backgroundColor: '#fff',
-  },
-  scrollContent: {
-    paddingTop: Spacing[8],
-    alignItems: 'center',
-  },
-  trailCompleteBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: 'rgba(255,196,0,0.12)',
-    borderRadius: Radius.lg,
-    padding: Spacing[4],
-    marginHorizontal: Spacing[6],
-    marginBottom: Spacing[6],
-    borderWidth: 1,
-    borderColor: 'rgba(255,196,0,0.3)',
-    alignSelf: 'stretch',
-  },
-  bannerTitle: {
-    fontSize: FontSize.bodySmall,
-    fontFamily: Font.black,
-    color: Accent.gold,
-  },
-  bannerSub: {
-    fontSize: FontSize.label,
-    fontFamily: Font.semiBold,
-    color: Colors.mutedForeground,
-    marginTop: 2,
-  },
-});
-
-const nodeStyles = StyleSheet.create({
-  wrapper: {
-    alignItems: 'center',
-    width: '100%',
-  },
-
-  // Chips
-  startChipWrap: { marginBottom: 12 },
-  startChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: Radius.full,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  startChipText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.black,
-    color: '#fff',
-    letterSpacing: 0.5,
-  },
-  doneChipWrap: { marginBottom: 12 },
-  doneChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: Radius.full,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(72,207,120,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(72,207,120,0.3)',
-  },
-  doneChipText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.black,
-    color: Accent.success,
-    letterSpacing: 0.5,
-  },
-
-  // Circle
-  circleWrap: {},
-  circle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circleLocked: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.muted,
-    borderWidth: 2,
-    borderColor: Colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  lockBadge: {
+  star: {
     position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  content: {
+    flexGrow: 1,
+    width: '100%',
+    maxWidth: V2Layout.maxWidth,
+    alignSelf: 'center',
+    paddingHorizontal: GUTTER,
+    gap: V2Layout.sectionGap,
+  },
+  titleRow: {
+    minHeight: V2Layout.headerHeight,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-
-  // Info
   title: {
-    marginTop: 12,
-    fontSize: FontSize.body,
-    fontFamily: Font.black,
-    color: Colors.foreground,
-    textAlign: 'center',
+    fontFamily: V2Font.black,
+    fontSize: 28,
+    letterSpacing: -0.84,
+    color: V2Colors.text,
   },
-  titleLocked: {
-    color: Colors.mutedForeground,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 6,
-    marginBottom: 0,
-  },
-  metaChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: FontSize.label,
-    fontFamily: Font.bold,
-    color: Colors.foreground,
-  },
-  metaTextLocked: {
-    color: Colors.mutedForeground,
-  },
-
-  // Connector
-  connector: {
-    height: 52,
-    width: 44,
-    alignItems: 'center',
-    paddingVertical: 4,
-    marginTop: 12,
-  },
-  connectorLine: {
+  // Figma 34e e 34f: o estado ocupa o resto da tela, centrado.
+  state: {
     flex: 1,
-    width: 3,
-    borderRadius: 2,
+    minHeight: 480,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  connectorLineLocked: {
-    backgroundColor: Colors.border,
+  errorState: {
+    gap: 14,
+  },
+  errorText: {
+    fontFamily: V2Font.semiBold,
+    fontSize: 15,
+    textAlign: 'center',
+    color: V2Colors.textSecondary,
+  },
+  retry: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 15,
   },
 });

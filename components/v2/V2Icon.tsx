@@ -39,7 +39,8 @@ const FEATHER = {
   // Etapas da jornada do Nível de Usuário (Consistente, Dedicado) e "Lição concluída".
   star: 'star',
   zap: 'zap',
-  book: 'book',
+  // Figma "v2/Ícone/book" é o livro aberto (Lucide "book-open"): lição 1 e Dicionário.
+  book: 'book-open',
 } as const;
 
 // Sem par no Feather: cai para o contorno do Material Community.
