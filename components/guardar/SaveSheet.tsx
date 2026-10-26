@@ -11,6 +11,7 @@ import { useWalletAssets, walletKeys } from '@/lib/queries/wallets.queries';
 import { vaultKeys } from '@/lib/queries/vaults.queries';
 import { portfolioKeys } from '@/lib/queries/portfolio.queries';
 import { getDeposit } from '@/lib/api/deposits';
+import { apiErrorDetails, type ApiErrorDetails } from '@/lib/api/errors';
 import { authenticateWithDeviceBiometrics } from '@/lib/security/biometrics';
 import { BiometricsDeclinedError, classifyOperationError } from '@/lib/guardar/operation-errors';
 import { signWithTimeout, signedTxHash, submitAndConfirm } from '@/lib/guardar/vault-operation';
@@ -65,6 +66,11 @@ interface SaveSheetProps {
   onSwap: () => void;
   /** "Ler os riscos" quando o backend pede o aceite antes do depósito. */
   onRisks: () => void;
+  /**
+   * O backend recusou pela trilha (409 VAULT_EDUCATION_LOCKED): a tela de
+   * trás mostra o porquinho bloqueado com o que falta (Figma 11a).
+   */
+  onLessonLock: (details: ApiErrorDetails['VAULT_EDUCATION_LOCKED'] | null) => void;
 }
 
 /**
@@ -72,7 +78,15 @@ interface SaveSheetProps {
  * do próprio porquinho (dólar, euro ou criptomoeda), com o saldo dessa moeda
  * na carteira.
  */
-export function SaveSheet({ visible, piggy, onClose, onConfirmed, onSwap, onRisks }: SaveSheetProps) {
+export function SaveSheet({
+  visible,
+  piggy,
+  onClose,
+  onConfirmed,
+  onSwap,
+  onRisks,
+  onLessonLock,
+}: SaveSheetProps) {
   const accent = useAccent();
   const terms = useTerms();
   const { t, isPro } = terms;
@@ -244,6 +258,12 @@ export function SaveSheet({ visible, piggy, onClose, onConfirmed, onSwap, onRisk
       // Cancelou a biometria: volta ao valor, sem erro (nada foi feito).
       if (kind === 'cancelled') {
         setStep('input');
+        return;
+      }
+      // Recusado antes de gerar a transação: nada foi assinado nem enviado.
+      if (kind === 'lessons') {
+        setStep('input');
+        onLessonLock(apiErrorDetails(e, 'VAULT_EDUCATION_LOCKED'));
         return;
       }
       setRisksBlocked(kind === 'risks');

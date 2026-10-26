@@ -166,6 +166,21 @@ export const TERMS = {
     pro: 'Antes do primeiro depósito, leia e aceite os riscos deste vault.',
   },
   'guardar.notice.risks.cta': { lite: 'Ler os riscos', pro: 'Ler os riscos' },
+  // Bloqueio pela trilha (E6). O Pro não tem bloqueio de lições (bypass do
+  // backend); o texto dele segue a anotação do 11b ("requisitos").
+  'guardar.state.lessons': { lite: 'Passos pendentes', pro: 'Requisitos pendentes' },
+  'guardar.notice.lessons': {
+    lite: 'Para guardar de novo neste porquinho, conclua os passos abaixo. Tirar continua disponível.',
+    pro: 'Para depositar de novo neste vault, conclua os requisitos abaixo. O resgate continua disponível.',
+  },
+  'guardar.lock.one': { lite: 'Falta 1 lição', pro: 'Falta 1 lição' },
+  'guardar.unlock.title': { lite: 'Pra liberar', pro: 'Pra liberar' },
+  'guardar.unlock.cta': { lite: 'Ir pra Trilha', pro: 'Ir pra Trilha' },
+  // Porquinho liberado (Figma 11b).
+  'guardar.unlocked.seal': { lite: 'Novo porquinho', pro: 'Novo porquinho' },
+  'guardar.unlocked.title': { lite: 'Liberado!', pro: 'Liberado!' },
+  'guardar.unlocked.later': { lite: 'Agora não', pro: 'Agora não' },
+  'guardar.unlocked.continue': { lite: 'Continuar', pro: 'Continuar' },
   'guardar.how.title': { lite: 'Como ele funciona', pro: 'Como funciona' },
   'guardar.how.rate.caption': {
     lite: 'Taxa variável, atualizada todo dia',
@@ -387,6 +402,54 @@ export const PHRASES = {
     lite: (v: { apy: string }) => `${v.apy} ao ano`,
     pro: (v: { apy: string }) => `APY ${v.apy}`,
   } as PhraseFn<{ apy: string }>,
+
+  /** Porquinho bloqueado pela trilha (Figma 10b, 10c, 17a). */
+  'guardar.lock.until': {
+    lite: (v: { lesson: number }) => `Libera ao concluir a lição ${v.lesson}`,
+    pro: (v: { lesson: number }) => `Libera ao concluir a lição ${v.lesson}`,
+  } as PhraseFn<{ lesson: number }>,
+
+  /** Só o nível falta (regra com nível mínimo; no Meridian o mínimo é 0). */
+  'guardar.lock.level': {
+    lite: (v: { level: number }) => `Libera no Nível ${v.level}`,
+    pro: (v: { level: number }) => `Libera no Nível ${v.level}`,
+  } as PhraseFn<{ level: number }>,
+
+  /** Selo à direita da linha bloqueada na Carteira (17a): "Lição 3". */
+  'guardar.lock.pill': {
+    lite: (v: { lesson: number }) => `Lição ${v.lesson}`,
+    pro: (v: { lesson: number }) => `Lição ${v.lesson}`,
+  } as PhraseFn<{ lesson: number }>,
+
+  'guardar.lock.levelPill': {
+    lite: (v: { level: number }) => `Nível ${v.level}`,
+    pro: (v: { level: number }) => `Nível ${v.level}`,
+  } as PhraseFn<{ level: number }>,
+
+  /** Passo do "Pra liberar": Lição “Fundamentos”. */
+  'guardar.unlock.lesson': {
+    lite: (v: { title: string }) => `Lição “${v.title}”`,
+    pro: (v: { title: string }) => `Lição “${v.title}”`,
+  } as PhraseFn<{ title: string }>,
+
+  'guardar.unlock.level': {
+    lite: (v: { level: number }) => `Chegar ao Nível ${v.level}`,
+    pro: (v: { level: number }) => `Chegar ao Nível ${v.level}`,
+  } as PhraseFn<{ level: number }>,
+
+  /** Mensagem do 11b, com o aceite de riscos ainda pela frente. */
+  'guardar.unlocked.message': {
+    lite: (v: { name: string }) =>
+      `Você cumpriu todos os passos para liberar o ${v.name}. Antes de guardar pela primeira vez, leia os riscos.`,
+    pro: (v: { name: string }) =>
+      `Você cumpriu todos os requisitos para liberar o ${v.name}. Antes do primeiro depósito, leia os riscos.`,
+  } as PhraseFn<{ name: string }>,
+
+  /** 11b sem aceite pendente (riscos já aceitos ou sem texto publicado). */
+  'guardar.unlocked.messageNoRisks': {
+    lite: (v: { name: string }) => `Você cumpriu todos os passos para liberar o ${v.name}.`,
+    pro: (v: { name: string }) => `Você cumpriu todos os requisitos para liberar o ${v.name}.`,
+  } as PhraseFn<{ name: string }>,
 
   /** Legenda do total estimado: "Dólar e euro · cotação das 14:32". */
   'guardar.total.quote': {

@@ -17,8 +17,10 @@ import { useTerms } from '@/hooks/use-terms';
 import { useScreenInsets } from '@/hooks/use-screen-insets';
 import { useVaultAccess } from '@/hooks/use-vault-access';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useVaults, vaultKeys } from '@/lib/queries/vaults.queries';
+import { refreshVaultAccess, useVaults, vaultKeys } from '@/lib/queries/vaults.queries';
 import { usePortfolioSummary } from '@/lib/queries/portfolio.queries';
+import type { ApiErrorDetails } from '@/lib/api/errors';
+import type { Vault } from '@/lib/api/vaults';
 import type { TermKey } from '@/lib/copy/terms';
 import { formatPositiveApy } from '@/lib/utils/format';
 import {
@@ -35,7 +37,12 @@ import {
 import { ScreenGlow } from '@/components/v2';
 import { GuardarHeader } from '@/components/guardar/GuardarHeader';
 import { PiggyCarousel } from '@/components/guardar/PiggyCarousel';
-import { PiggyHowItWorks, PiggyNotice } from '@/components/guardar/PiggySections';
+import {
+  PiggyDetailsLink,
+  PiggyHowItWorks,
+  PiggyNotice,
+  PiggyUnlockSteps,
+} from '@/components/guardar/PiggySections';
 import { TotalEstimateSheet } from '@/components/guardar/TotalEstimateSheet';
 import { SaveSheet } from '@/components/guardar/SaveSheet';
 import { WithdrawSheet } from '@/components/guardar/WithdrawSheet';
@@ -314,6 +321,35 @@ export default function GuardarScreen() {
     queryClient.invalidateQueries({ queryKey: vaultKeys.all, exact: true });
     if (id) setTimeout(() => router.push({ pathname: '/vault/[id]/risks', params: { id } }), 350);
   }, [operation, queryClient]);
+  // O backend recusou o depósito pela trilha (409 VAULT_EDUCATION_LOCKED, uma
+  // corrida entre telas): o sheet fecha e o porquinho já mostra o bloqueio com
+  // o que falta, sem esperar a releitura da lista, que vem em seguida.
+  const showLessonLock = useCallback(
+    (details: ApiErrorDetails['VAULT_EDUCATION_LOCKED'] | null) => {
+      setOperationOpen(false);
+      if (details) {
+        queryClient.setQueryData<Vault[]>(vaultKeys.all, (list) =>
+          list?.map((vault) =>
+            vault.id === details.vaultId && vault.access
+              ? {
+                  ...vault,
+                  access: {
+                    ...vault.access,
+                    educationRequired: true,
+                    educationEnforced: true,
+                    educationUnlocked: false,
+                    missingModules: details.missingModules,
+                    canDeposit: false,
+                  },
+                }
+              : vault,
+          ),
+        );
+      }
+      refreshVaultAccess(queryClient);
+    },
+    [queryClient],
+  );
   const openBreakdown = useCallback(() => setBreakdownOpen(true), []);
 
   useEffect(() => {
@@ -380,7 +416,14 @@ export default function GuardarScreen() {
               onWithdraw={handleWithdraw}
             />
             <PiggyNotice piggy={selected} />
-            <PiggyHowItWorks piggy={selected} />
+            {selected.lessonLock ? (
+              <>
+                <PiggyUnlockSteps lock={selected.lessonLock} />
+                <PiggyDetailsLink vaultId={selected.vault.id} />
+              </>
+            ) : (
+              <PiggyHowItWorks piggy={selected} />
+            )}
           </>
         ) : (
           <View style={styles.state}>
@@ -406,6 +449,7 @@ export default function GuardarScreen() {
         onClose={closeOperation}
         onSwap={openSwapFromSave}
         onRisks={openRisksFromSave}
+        onLessonLock={showLessonLock}
         onConfirmed={(vaultId, amount) => projectConfirmedBalance('save', vaultId, amount)}
       />
       <WithdrawSheet

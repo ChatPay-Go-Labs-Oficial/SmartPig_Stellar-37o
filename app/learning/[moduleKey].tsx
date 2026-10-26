@@ -34,6 +34,7 @@ import {
 } from '@/lib/queries/learning.queries';
 import { useVaults } from '@/lib/queries/vaults.queries';
 import { useLevelUpStore } from '@/lib/stores/level-up.store';
+import { usePiggyUnlockStore } from '@/lib/stores/piggy-unlock.store';
 
 type Phase = 'welcome' | 'steps' | 'complete';
 
@@ -62,6 +63,7 @@ export default function LessonScreen() {
   const experience = useExperienceProfile();
   const vaults = useVaults();
   const celebrateLevel = useLevelUpStore((s) => s.celebrate);
+  const celebrateUnlock = usePiggyUnlockStore((s) => s.celebrate);
   const { mutate: saveStep } = useSaveLearningStep();
   const { mutateAsync: sendAnswer } = useAnswerLearningQuestion();
 
@@ -182,15 +184,17 @@ export default function LessonScreen() {
   }, [phase, review]);
 
   // Da lição (por cima das abas) para uma aba: dismissTo volta às abas que já
-  // estão embaixo e troca de aba, sem abrir outra cópia delas.
+  // estão embaixo e troca de aba, sem abrir outra cópia delas. O porquinho
+  // acabou de ser liberado: a aba Guardar abre nele, com a cena 11b por cima.
   const openPiggy = useCallback(
     (asset: AssetLogoId) => {
       const vault = vaults.data?.find((item) => item.assetSymbol.toUpperCase() === asset);
       router.dismissTo(
         vault ? { pathname: '/(tabs)/vaults', params: { vault: vault.id } } : '/(tabs)/vaults',
       );
+      if (vault) celebrateUnlock(vault.id);
     },
-    [vaults.data],
+    [celebrateUnlock, vaults.data],
   );
 
   const openLevel = useCallback(() => router.dismissTo('/learn/level'), []);
