@@ -421,7 +421,12 @@ export async function buildSignedPayment(request: AssetTransferRequest): Promise
       throw new TransferError('BAD_AUTH', 'A assinatura retornada não corresponde à carteira de origem.');
     }
     tx.signatures.push(decorated);
-    return { hash: txHash.toString('hex'), envelope: tx.toEnvelope().toXDR('base64') };
+    // No Hermes, toXDR('base64') do SDK devolve os bytes separados por vírgula
+    // (subarray sem Symbol.species vira Uint8Array): o base64 sai do Buffer do app.
+    return {
+      hash: txHash.toString('hex'),
+      envelope: Buffer.from(tx.toEnvelope().toXDR()).toString('base64'),
+    };
   } catch (error) {
     throw mapTransferError(error);
   }
