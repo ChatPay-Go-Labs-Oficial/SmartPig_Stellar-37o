@@ -58,6 +58,11 @@ function errorMessage(error: unknown): string {
     : payload?.message ?? (error as Error)?.message ?? 'Não foi possível realizar a troca.';
   const normalized = raw.toLowerCase();
   if (payload?.code === 'NO_CONVERSION_ROUTE') return 'Não há uma rota disponível para essa troca agora.';
+  // O Pro não tem bloqueio de lições (bypass do backend); se o 409 vier mesmo
+  // assim, a troca diz o motivo em vez de mostrar a frase crua.
+  if (payload?.code === 'VAULT_EDUCATION_LOCKED') {
+    return 'Este ativo ainda não está liberado na sua conta: faltam requisitos da trilha.';
+  }
   if (payload?.code === 'SLIPPAGE_EXCEEDED' || normalized.includes('under_destmin')) {
     return 'A cotação mudou além do limite. Revise uma nova cotação.';
   }

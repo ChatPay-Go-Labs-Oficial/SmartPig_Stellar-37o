@@ -284,6 +284,18 @@ export default function RootLayout() {
                     animation: "slide_from_right",
                   }}
                 />
+                {/* Lição da Trilha (35a a 35p): sheet por cima das abas, que
+                    seguem montadas embaixo e aparecem escurecidas. Sem gesto
+                    de fechar: sair no meio pede confirmação (35i). */}
+                <Stack.Screen
+                  name="learning/[moduleKey]"
+                  options={{
+                    presentation: "transparentModal",
+                    animation: "slide_from_bottom",
+                    gestureEnabled: false,
+                    contentStyle: { backgroundColor: "transparent" },
+                  }}
+                />
                 <Stack.Screen name="(etherfuse-onboarding)" />
                 <Stack.Screen name="(blindpay-onboarding)" />
                 <Stack.Screen name="education" />

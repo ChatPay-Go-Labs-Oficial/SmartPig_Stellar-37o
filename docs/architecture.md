@@ -17,12 +17,12 @@ This document describes the architecture implemented in the mobile application. 
 | Layer | Main directories | Responsibility |
 | --- | --- | --- |
 | Routes | `app/` | Screens, layouts and flow composition |
-| Components | `components/ui`, `components/layout` | Reusable UI and screen structure |
+| Components | `components/ui`, `components/layout`, `components/v2` | Reusable UI and screen structure; `components/v2` is the V2 design system |
 | Queries | `lib/queries` | Cache, polling, invalidation and mutations |
 | API | `lib/api` | HTTP contracts and Axios client |
 | Stellar | `lib/stellar` | Configuration, signing, transfers and swaps |
-| Local state | `lib/stores` | Session, progress, preferences and ramp state |
-| Content | `constants` | Theme, flashcards and learning trail |
+| Local state | `lib/stores` | Session, mode, preferences, ramp state and pending scenes |
+| Content | `constants`, `lib/copy` | Theme, flashcards, trail milestones and Lite/Pro terms |
 
 ## Providers and initialization
 
@@ -42,7 +42,8 @@ The Privy token provider is registered in `lib/api/token.ts` and used by the HTT
 | Group | Routes | Purpose |
 | --- | --- | --- |
 | Authentication | `app/(auth)` and `app/oauth/callback.tsx` | Social, email and passkey login plus wallet-flow compatibility |
-| Main | `app/(tabs)` | Home, Invest, Learning Trail, History and Profile |
+| Main | `app/(tabs)` | Home, Save, Wallet, Trail (with Your level) and Profile |
+| Lesson | `app/learning/[moduleKey].tsx` | Trail V2 lesson, over the tabs |
 | Vault | `app/vault/[id]` | Details, deposits and withdrawals |
 | Etherfuse | `app/(etherfuse-onboarding)` | Registration, KYC, documents, agreements and bank account |
 | Content | `app/education.tsx`, `app/pigs.tsx` | Education and mascot evolution |
@@ -52,10 +53,14 @@ The Privy token provider is registered in `lib/api/token.ts` and used by the HTT
 | Store | Persistence | Content |
 | --- | --- | --- |
 | `auth.store.ts` | AsyncStorage | Public session IDs, wallet, activation and last displayed level |
-| `learning.store.ts` | AsyncStorage | Completed lessons and XP per user |
+| `app-mode.store.ts` | AsyncStorage | Lite/Pro mode and last change date, reconciled with the backend |
+| `contacts.store.ts` | AsyncStorage | Saved contacts for sending by @ (only @ and name), per account; erased on sign-out |
+| `level-up.store.ts`, `piggy-unlock.store.ts` | Memory | Level-up and unlocked-piggy scene requested and not yet shown |
 | `settings.store.ts` | AsyncStorage | Preferences such as muted audio |
 | `etherfuse.store.ts` | Flow-specific | Onboarding and ramp navigation state |
 | `pix.store.ts`, `ui.store.ts` | Interface state | Temporary presentation and flow data |
+
+XP, level and lesson progress are not stored on the device: they come from the backend (`lib/api/experience.ts`, `lib/api/learning.ts`). The v1 trail local progress was removed; its old key is erased on sign-out and on account deletion.
 
 AsyncStorage is not a secure vault. Tokens, documents, private keys and secrets must not be added to these stores.
 
@@ -69,10 +74,13 @@ Screen -> hook in lib/queries -> function in lib/api -> backend
 
 Queries define cache keys by domain. Deposits and withdrawals in intermediate states are polled every five seconds until `CONFIRMED` or `FAILED`. Mutations invalidate related lists after success.
 
+API errors are read by `code` in `lib/api/errors.ts` (`readApiError`, `hasApiErrorCode`, `apiErrorDetails`). PigFi Experience queries are per account (`contractId`) and live in `lib/queries/experience.queries.ts` and `learning.queries.ts`; `refreshVaultAccess` refetches vault access after a lesson or a 409.
+
 ## Stellar operations
 
 - **Activation:** the backend prepares the operation; the app signs and submits the response.
 - **Vault deposit/withdrawal:** the backend generates an unsigned XDR; the user signs through the wallet flow; the backend submits or reconciles it.
+- **Send by @ (USDC, EURC and XLM):** the backend only resolves the @ to the address; the app checks destination and balance on the network, signs with Privy (`buildSignedPayment`) and submits to Horizon (`submitSignedPayment`), checking by hash before reporting a network error.
 - **USDC transfer:** the app validates the account, trustline, balance and memo, builds the transaction, requests a Privy signature and submits it to Horizon.
 - **Stellar history:** USDC payments are read from Horizon and combined with backend operations in the UI.
 - **Swap:** `lib/stellar/swap.ts` provides path discovery and XLM/USDC swaps for flows that require the asset.

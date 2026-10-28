@@ -18,6 +18,8 @@ const FEATHER = {
   send: 'send',
   copy: 'copy',
   info: 'info',
+  // Selo do nome de usuário (Figma 38b e 38i).
+  at: 'at-sign',
   'chevron-right': 'chevron-right',
   'chevron-left': 'chevron-left',
   'chevron-down': 'chevron-down',
@@ -36,6 +38,16 @@ const FEATHER = {
   settings: 'settings',
   logout: 'log-out',
   clock: 'clock',
+  // Etapas da jornada do Nível de Usuário (Consistente, Dedicado) e "Lição concluída".
+  star: 'star',
+  zap: 'zap',
+  // Figma "v2/Ícone/book" é o livro aberto (Lucide "book-open"): lição 1 e Dicionário.
+  book: 'book-open',
+  // Erro ao abrir a lição (35l).
+  'cloud-off': 'cloud-off',
+  // Visuais das lições (D1): cópias do registro (L1-T02) e guarda-volumes (L1-T04).
+  monitor: 'monitor',
+  package: 'package',
 } as const;
 
 // Sem par no Feather: cai para o contorno do Material Community.
@@ -55,6 +67,13 @@ const COMMUNITY = {
   fingerprint: 'fingerprint',
   // Lucide "party-popper" (Figma "celebration"): presente resgatado.
   celebration: 'party-popper',
+  // Lucide "trophy": etapa Veterano, título e "Módulo concluído". O Feather não tem.
+  trophy: 'trophy-outline',
+  // Visuais das lições (D1), sem par no Feather: comprovante (L1-T04), máquina
+  // de bebidas (L1-T06) e a conta no banco (L5-T01).
+  receipt: 'receipt-text-outline',
+  'cup-soda': 'cup-outline',
+  landmark: 'bank-outline',
 } as const;
 
 const MATERIAL = {

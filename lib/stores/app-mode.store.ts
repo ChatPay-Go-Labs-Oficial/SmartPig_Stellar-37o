@@ -9,9 +9,9 @@ interface AppModeState {
   /** O explicador do Pro já foi visto — evita reabrir a cada ativação. */
   hasSeenProExplainer: boolean;
   /**
-   * Momento da última mudança local. Não tem consumidor hoje: existe para que
-   * a sincronização com o backend possa resolver conflito por last-write-wins
-   * sem exigir migração do formato já persistido nos aparelhos.
+   * Momento da última mudança local (0 = nunca trocou). A conciliação com o
+   * backend usa este valor: vence quem mudou por último
+   * (hooks/use-experience-mode-sync.ts).
    */
   modeUpdatedAt: number;
   _hydrated: boolean;
@@ -23,6 +23,12 @@ interface AppModeState {
    * usam setMode. Ignora o remoto quando o local é mais recente.
    */
   applyRemoteMode: (mode: AppMode, updatedAt: number) => void;
+  /**
+   * Volta ao padrão ao sair da conta. O modo é de cada pessoa e fica no
+   * backend: sem isto, a data da troca de uma conta venceria a conciliação da
+   * próxima conta que entrasse no aparelho.
+   */
+  reset: () => void;
 }
 
 /**
@@ -48,6 +54,7 @@ export const useAppModeStore = create<AppModeState>()(
         if (updatedAt <= get().modeUpdatedAt) return;
         set({ mode, modeUpdatedAt: updatedAt });
       },
+      reset: () => set({ mode: 'lite', hasSeenProExplainer: false, modeUpdatedAt: 0 }),
     }),
     {
       name: 'smartpig-app-mode',

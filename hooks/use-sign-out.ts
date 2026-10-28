@@ -1,8 +1,14 @@
 import { useCallback } from 'react';
 import { usePrivy } from '@privy-io/expo';
+import { useAppModeStore } from '@/lib/stores/app-mode.store';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { usePixStore } from '@/lib/stores/pix.store';
+import { useContactsStore } from '@/lib/stores/contacts.store';
+import { useLevelUpStore } from '@/lib/stores/level-up.store';
+import { usePiggyUnlockStore } from '@/lib/stores/piggy-unlock.store';
+import { LEGACY_LEARNING_STORAGE_KEY } from '@/lib/security/wipe-local-state';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { blockSessionRestore } from '@/lib/security/session-restore-guard';
 
 /** Quanto a saída espera o Privy antes de seguir sem ele. */
@@ -42,5 +48,14 @@ export function useSignOut(): () => Promise<void> {
     // sendo a fonte de verdade no próximo login.
     useBlindPayStore.getState().resetOnboarding();
     usePixStore.getState().clearPixKey();
+    // O modo Lite/Pro é da conta e volta do backend no próximo login.
+    useAppModeStore.getState().reset();
+    // Cenas do PigFi Experience pedidas e ainda não vistas são da conta que saiu.
+    useLevelUpStore.getState().dismiss();
+    usePiggyUnlockStore.getState().dismiss();
+    // Contatos salvos para o envio por @ são da conta que saiu.
+    useContactsStore.getState().clear();
+    // Progresso da trilha v1, de antes da trilha vir do backend.
+    AsyncStorage.removeItem(LEGACY_LEARNING_STORAGE_KEY).catch(() => {});
   }, [logout]);
 }

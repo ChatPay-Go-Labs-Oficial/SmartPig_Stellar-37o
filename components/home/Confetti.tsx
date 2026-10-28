@@ -2,10 +2,23 @@ import { memo, useEffect, useMemo } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useAccent } from '@/hooks/use-accent';
 
+/**
+ * Um papel do confete, no quadro de 393 × 852 do Figma: posição, tamanho
+ * (grande 8 × 12,8 ou pequeno 5 × 8), giro e cor (0 destaque, 1 destaque
+ * claro, 2 branco 70%).
+ */
+export interface ConfettiPiece {
+  x: number;
+  y: number;
+  big: boolean;
+  rotate: number;
+  tone: 0 | 1 | 2;
+}
+
 // Figma 04c "confete (animação)": 22 papéis em volta da cena, em três cores
 // (destaque, destaque claro e branco 70%), dois tamanhos e giros variados.
 // Posições do quadro de 393 × 852; aqui elas viram fração da tela.
-const PIECES: readonly { x: number; y: number; big: boolean; rotate: number; tone: 0 | 1 | 2 }[] = [
+const PIECES: readonly ConfettiPiece[] = [
   { x: 302, y: 330, big: true, rotate: 0, tone: 0 },
   { x: 305, y: 394, big: false, rotate: -37, tone: 1 },
   { x: 326, y: 402, big: false, rotate: -74, tone: 2 },
@@ -38,11 +51,18 @@ const DRIFT_MS = 2600;
  * cascata, e seguem descendo devagar até sumir. Só Animated nativo (sem
  * re-render por quadro).
  */
-function ConfettiView({ play }: { play: boolean }) {
+function ConfettiView({
+  play,
+  pieces = PIECES,
+}: {
+  play: boolean;
+  /** Papéis de outra cena no mesmo padrão (37a, subida do Nível de Usuário). */
+  pieces?: readonly ConfettiPiece[];
+}) {
   const accent = useAccent();
   const { width, height } = useWindowDimensions();
   const tones = [accent.base, accent.light, 'rgba(255,255,255,0.7)'];
-  const progress = useMemo(() => PIECES.map(() => new Animated.Value(0)), []);
+  const progress = useMemo(() => pieces.map(() => new Animated.Value(0)), [pieces]);
 
   useEffect(() => {
     if (!play) {
@@ -73,7 +93,7 @@ function ConfettiView({ play }: { play: boolean }) {
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {PIECES.map((piece, index) => {
+      {pieces.map((piece, index) => {
         const value = progress[index];
         return (
           <Animated.View

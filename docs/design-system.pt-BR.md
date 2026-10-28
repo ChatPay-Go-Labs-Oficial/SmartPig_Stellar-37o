@@ -47,6 +47,26 @@ Use `Font.regular`, `semiBold`, `bold`, `extraBold` e `black`. Nao referencie ar
 
 Use o componente exportado antes de criar uma alternativa local na tela. Adicione variantes somente quando representarem um papel semantico repetido.
 
+## Design system V2
+
+As telas novas usam `components/v2` (exportado por `components/v2/index.ts`), com o Figma V2 como fonte de verdade.
+
+| Componente | Contrato |
+| --- | --- |
+| `Button3D` | Tecla 3D sem animacao de afundar; tamanhos inclusive `card` (texto 16) para botoes dentro de cards e cenas |
+| `V2Sheet` | Folha inferior padrao das telas V2 |
+| `V2Icon` | Icones do V2 (Lucide no Figma) |
+| `ScreenGlow`, `CardGlow`, `CircleGlow` | Brilhos de fundo de tela, de card e redondo |
+| `components/v2/experience` | Nivel de Usuario: `LevelCard`, `LevelAvatar`, `LevelDots`, `XpBar`, `XpGainPill`, `DailyRewardCard`, `TierJourney`, `TierLevelsSheet`, `XpWaysCard` e a cena `LevelUpScene` |
+| `components/v2/trail` | Trilha V2: `TrailPath`, `TrailNode`, `TrailLevelCard`, `TrailModuleCard`, `DictionaryShortcut`, `DictionarySheet` |
+| `components/v2/lesson` | Licao: moldura, passos, perguntas, conclusoes e os visuais de cada tela |
+| `components/profile/UsernameSheet`, `components/wallet/SendSheet` | Criacao do @ e envio por @, sobre o `V2Sheet`, reaproveitando as pecas dos sheets de Guardar (campo de valor, avisos e resumo) |
+| `components/guardar` | Porquinhos: `PiggyCard` (inclusive bloqueado e com passos pendentes), `PiggySections` ("Pra liberar") e a cena `PiggyUnlockScene` |
+
+Cenas de celebracao (`LevelUpScene`, `PiggyUnlockScene`) ficam montadas no layout das abas e sao pedidas por uma store em memoria; usam `Confetti` e ocupam a tela inteira (`Dimensions.get('screen')`) para o Modal nao saltar no Android.
+
+Texto que muda entre Lite e Pro sai de `lib/copy/terms.ts`; o Lite nao usa termo cripto.
+
 ## Interacao e feedback
 
 - `PressableScale` fornece animacao de toque e som.

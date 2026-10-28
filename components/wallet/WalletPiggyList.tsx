@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { V2Colors, V2Font, V2PiggyTint, withAlpha } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { useLessonLockCopy } from '@/hooks/use-lesson-lock-copy';
 import { useTerms } from '@/hooks/use-terms';
 import { useVaultAccess } from '@/hooks/use-vault-access';
 import { AssetIcon, ListCard, V2Icon, type AssetLogoId } from '@/components/v2';
@@ -13,6 +14,7 @@ import type { PortfolioPosition, PortfolioSummary } from '@/lib/api/portfolio';
 import type { TermKey } from '@/lib/copy/terms';
 import { formatPositiveApy, formatUsdV2, formatVaultNameForMode, truncateDecimalString } from '@/lib/utils/format';
 import { portfolioPositionUsdValue, positionUsesMarketPrice } from '@/lib/utils/portfolio';
+import { lessonLockOf } from '@/lib/utils/vault-access';
 
 const MASCOT = require('@/assets/images/v2/mascote-baby-pig.png');
 const KNOWN_ASSETS: readonly AssetLogoId[] = ['USDC', 'EURC', 'XLM'];
@@ -115,9 +117,17 @@ interface PiggyRowProps {
   name: string;
 }
 
+/**
+ * Bloqueado pela trilha (Figma 17a): o mascote apagado com o cadeado no lugar
+ * do selo da moeda, o que falta para liberar e "Lição N" à direita. Com
+ * saldo, o valor continua à mostra: ver e tirar nunca são bloqueados.
+ */
 const PiggyRow = memo(function PiggyRow({ vault, asset, tint, assetName, position, isPro, name }: PiggyRowProps) {
+  const lockCopy = useLessonLockCopy();
+  const lock = lessonLockOf(vault);
   const amount = position?.amountAsset ?? '0';
   const hasBalance = parseFloat(amount) > 0 && !!position;
+  const dimmed = !!lock && !hasBalance;
   // Valor à direita: Pro mostra a quantidade exata do ativo; Lite, em dólar.
   let value = isPro ? '0.0000000' : '$0.00';
   if (hasBalance && position) {
@@ -135,13 +145,19 @@ const PiggyRow = memo(function PiggyRow({ vault, asset, tint, assetName, positio
   const positiveApy = formatPositiveApy(vault.apy);
   const yieldText = positiveApy ? `${positiveApy} ao ano` : null;
 
+  const lockCaption = lock ? lockCopy.caption(lock) : null;
+  const lockPill = dimmed && lock ? lockCopy.pill(lock) : null;
+  const spoken = lockCaption
+    ? `${lockCaption}${hasBalance ? `, ${value}` : ''}`
+    : `${value}${yieldText ? `, rende ${yieldText}` : ''}`;
+
   return (
     <Pressable
       // navigate, não push: troca de aba sem criar outra cópia (ver Home).
       onPress={() => router.navigate({ pathname: '/(tabs)/vaults', params: { vault: vault.id } })}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
       accessibilityRole="button"
-      accessibilityLabel={`${name}, ${assetName}, ${value}${yieldText ? `, rende ${yieldText}` : ''}`}
+      accessibilityLabel={`${name}, ${assetName}, ${spoken}`}
     >
       <View style={[styles.aura, { borderColor: withAlpha(tint, 0.4) }]}>
         <LinearGradient
@@ -149,31 +165,45 @@ const PiggyRow = memo(function PiggyRow({ vault, asset, tint, assetName, positio
           locations={[0, 0.5, 1]}
           style={[StyleSheet.absoluteFill, styles.auraFill]}
         />
-        <Image source={MASCOT} style={[styles.mascot, !hasBalance && styles.mascotIdle]} contentFit="contain" />
-        {asset && (
+        <Image
+          source={MASCOT}
+          style={[styles.mascot, dimmed ? styles.mascotLocked : !hasBalance && styles.mascotIdle]}
+          contentFit="contain"
+        />
+        {lock ? (
+          <View style={styles.lock}>
+            <V2Icon name="lock" size={10} color={V2Colors.onPrimary} />
+          </View>
+        ) : asset ? (
           <View style={styles.coin}>
             <AssetIcon asset={asset} size={18} />
           </View>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.texts}>
-        <Text style={styles.name} numberOfLines={1}>{name}</Text>
+        <Text style={[styles.name, dimmed && styles.nameLocked]} numberOfLines={1}>{name}</Text>
         <View style={styles.detailRow}>
           <Text style={styles.caption} numberOfLines={2}>
-            {assetName}
-            {yieldText ? (
+            {lockCaption ?? assetName}
+            {!lockCaption && yieldText ? (
               <Text style={hasBalance ? styles.yieldActive : undefined}>{`  ·  ${yieldText}`}</Text>
             ) : null}
           </Text>
-          <Text
-            style={[styles.value, !hasBalance && styles.valueEmpty]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-          >
-            {value}
-          </Text>
+          {lockPill ? (
+            <View style={styles.lockPill}>
+              <Text style={styles.lockPillText}>{lockPill}</Text>
+            </View>
+          ) : (
+            <Text
+              style={[styles.value, !hasBalance && styles.valueEmpty]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+            >
+              {value}
+            </Text>
+          )}
         </View>
       </View>
     </Pressable>
@@ -241,6 +271,41 @@ const styles = StyleSheet.create({
   },
   mascotIdle: {
     opacity: 0.55,
+  },
+  // Figma 17a: o ícone bloqueado a 40%; o nome a 60%.
+  mascotLocked: {
+    opacity: 0.4,
+  },
+  nameLocked: {
+    color: 'rgba(255,255,255,0.6)',
+  },
+  // Figma 17a "cadeado": 18, no fundo do sheet, com contorno branco a 20%.
+  lock: {
+    position: 'absolute',
+    right: -5,
+    bottom: -5,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: V2Colors.sheetTop,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Figma 17a "selo": "Lição 3".
+  lockPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: V2Colors.chip,
+  },
+  lockPillText: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 12,
+    color: V2Colors.textSecondary,
   },
   coin: {
     position: 'absolute',

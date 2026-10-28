@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { V2Colors, V2Font, V2Radius, withAlpha } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { useLessonLockCopy } from '@/hooks/use-lesson-lock-copy';
 import { useTerms } from '@/hooks/use-terms';
 import { Button3D, ListCard, V2Icon, type V2IconName } from '@/components/v2';
 import type { TermKey } from '@/lib/copy/terms';
 import { formatPositiveApy } from '@/lib/utils/format';
 import type { Piggy } from '@/lib/utils/piggy';
+import type { LessonLock } from '@/lib/utils/vault-access';
 
 /** Margem das seções abaixo do carrossel (Figma: 18; o título entra mais 4). */
 export const SECTION_GUTTER = 18;
@@ -22,12 +24,17 @@ interface PiggyNoticeProps {
 }
 
 /**
- * Aviso do porquinho selecionado (Figma 10g e 10h): depósitos pausados ou
- * aceite de riscos pendente. Sem aviso, não renderiza nada.
+ * Aviso do porquinho selecionado (Figma 10g, 10h e 11c): depósitos pausados,
+ * aceite de riscos pendente ou, com saldo num porquinho bloqueado pela
+ * trilha, que tirar continua livre. Sem aviso, não renderiza nada.
  */
 export const PiggyNotice = memo(function PiggyNotice({ piggy }: PiggyNoticeProps) {
   const { t } = useTerms();
 
+  // Bloqueado sem saldo (10b), o cartão já diz o que falta.
+  if (piggy.lessonLock) {
+    return piggy.hasBalance ? <Notice icon="alert" text={t('guardar.notice.lessons')} /> : null;
+  }
   if (piggy.depositsPaused) {
     return <Notice icon="alert" text={t('guardar.notice.paused')} />;
   }
@@ -103,6 +110,73 @@ export const PiggyHowItWorks = memo(function PiggyHowItWorks({ piggy }: PiggyHow
   );
 });
 
+/**
+ * "Pra liberar" do porquinho bloqueado pela trilha (Figma 10b, 11a e 11c): as
+ * lições da regra, feitas ou não, e o atalho para a Trilha. As que faltam
+ * vêm do `access` do vault; os títulos, de GET /learning/modules.
+ */
+export const PiggyUnlockSteps = memo(function PiggyUnlockSteps({ lock }: { lock: LessonLock }) {
+  const { t } = useTerms();
+  const lockCopy = useLessonLockCopy();
+  const steps = lockCopy.steps(lock);
+  const done = steps.filter((step) => step.done).length;
+
+  return (
+    <View style={styles.section}>
+      {steps.length > 0 && (
+        <>
+          <View style={[styles.sectionTitleRow, styles.sectionTitleSplit]}>
+            <Text style={styles.sectionTitle} accessibilityRole="header">
+              {t('guardar.unlock.title')}
+            </Text>
+            <Text style={styles.sectionCount} accessibilityLabel={`${done} de ${steps.length}`}>
+              {done}/{steps.length}
+            </Text>
+          </View>
+          <ListCard style={styles.list} dividerColor={LIST_DIVIDER}>
+            {steps.map((step) => (
+              <View
+                key={step.key}
+                style={styles.stepRow}
+                accessible
+                accessibilityLabel={`${step.label}, ${step.done ? 'feita' : 'falta'}`}
+              >
+                {step.done ? (
+                  <View style={[styles.stepMark, styles.stepMarkDone]}>
+                    <V2Icon name="check" size={12} color={V2Colors.background} />
+                  </View>
+                ) : (
+                  <View style={[styles.stepMark, styles.stepMarkPending]} />
+                )}
+                <Text style={[styles.stepText, !step.done && styles.stepTextPending]}>{step.label}</Text>
+              </View>
+            ))}
+          </ListCard>
+        </>
+      )}
+      <View style={styles.unlockCta}>
+        <Button3D
+          label={t('guardar.unlock.cta')}
+          icon="graduation"
+          onPress={() => router.navigate('/(tabs)/learn')}
+        />
+      </View>
+    </View>
+  );
+});
+
+/**
+ * "Ver detalhes do porquinho" fora da lista (Figma 10b e 11c): no porquinho
+ * bloqueado, o "Como ele funciona" dá lugar ao "Pra liberar".
+ */
+export const PiggyDetailsLink = memo(function PiggyDetailsLink({ vaultId }: { vaultId: string }) {
+  return (
+    <View style={styles.detailsAlone}>
+      <DetailsLink vaultId={vaultId} />
+    </View>
+  );
+});
+
 /** Última linha da lista: abre a tela Detalhes (Figma 12a–12f). */
 function DetailsLink({ vaultId }: { vaultId: string }) {
   const accent = useAccent();
@@ -148,6 +222,55 @@ const styles = StyleSheet.create({
     fontSize: 17,
     letterSpacing: -0.34,
     color: V2Colors.onPrimary,
+  },
+  sectionTitleSplit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionCount: {
+    fontFamily: V2Font.extraBold,
+    fontSize: 13,
+    color: V2Colors.textSecondary,
+  },
+  // Figma "requisito": marca de 22 e o título da lição.
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  stepMark: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepMarkDone: {
+    backgroundColor: V2Colors.success,
+  },
+  stepMarkPending: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  stepText: {
+    flex: 1,
+    fontFamily: V2Font.semiBold,
+    fontSize: 14,
+    color: V2Colors.onPrimary,
+  },
+  stepTextPending: {
+    color: V2Colors.textSecondary,
+  },
+  unlockCta: {
+    paddingTop: 14,
+  },
+  // Figma "ver detalhes": texto 14 abaixo do "Pra liberar"; o link já tem 13
+  // de respiro em cima.
+  detailsAlone: {
+    paddingTop: 1,
   },
   list: {
     borderRadius: LIST_RADIUS,
