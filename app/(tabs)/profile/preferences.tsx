@@ -4,6 +4,7 @@ import { SegmentedControl, type SegmentOption } from "@/components/v2";
 import { ProfileCard } from "@/components/profile/ProfileCard";
 import { ProfileSubScreen } from "@/components/profile/ProfileSubScreen";
 import { ProModeSheet } from "@/components/profile/ProModeSheet";
+import { NotificationsCard } from "@/components/profile/NotificationsCard";
 import {
   useAppMode,
   useAppModeActions,
@@ -18,8 +19,8 @@ const MODE_OPTIONS: readonly SegmentOption<AppMode>[] = [
 ];
 
 /**
- * Preferências (Figma 26i/26j): o modo do app. A Cor do app, que o Figma
- * também mostra aqui, entra na PR seguinte.
+ * Preferências (Figma 26i/26j): o modo do app e as notificações. A Cor do
+ * app, que o Figma também mostra aqui, entra na PR seguinte.
  */
 export default function PreferencesScreen() {
   const mode = useAppMode();
@@ -69,6 +70,8 @@ export default function PreferencesScreen() {
           />
         </View>
       </ProfileCard>
+
+      <NotificationsCard />
 
       <ProModeSheet
         visible={showProSheet}

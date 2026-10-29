@@ -4,6 +4,8 @@ import { useBlindPayStore } from '@/lib/stores/blindpay.store';
 import { useContactsStore } from '@/lib/stores/contacts.store';
 import { useEtherfuseStore } from '@/lib/stores/etherfuse.store';
 import { useGiftStore } from '@/lib/stores/gift.store';
+import { useNotificationsStore } from '@/lib/stores/notifications.store';
+import { clearPushRegistration } from '@/lib/notifications/push-token';
 import { usePixStore } from '@/lib/stores/pix.store';
 import { useAppModeStore } from '@/lib/stores/app-mode.store';
 import { useSettingsStore } from '@/lib/stores/settings.store';
@@ -26,6 +28,7 @@ const PERSISTED_STORES = [
   useContactsStore,
   useEtherfuseStore,
   useGiftStore,
+  useNotificationsStore,
   usePixStore,
   useAppModeStore,
   useSettingsStore,
@@ -64,6 +67,11 @@ export async function wipeLocalState(): Promise<void> {
     // Intentionally silent: see above.
   }
 
+  // Registro do push no SecureStore. O backend apaga os aparelhos com a conta;
+  // aqui sobra só a cópia local, que faria o próximo login achar que já está
+  // registrado.
+  await clearPushRegistration();
+
   // In-memory state, through each store's own reset. Only the stores that hold
   // something worth clearing expose one; the rest carry preferences that the
   // storage wipe already removed for the next launch.
@@ -75,6 +83,7 @@ export async function wipeLocalState(): Promise<void> {
     useEtherfuseStore.getState().resetOnboarding();
     // A data da última troca de modo é desta conta (ver app-mode.store).
     useAppModeStore.getState().reset();
+    useNotificationsStore.getState().resetSession();
     useAuthStore.getState().clearAuth();
   } catch {
     // Intentionally silent: see above.

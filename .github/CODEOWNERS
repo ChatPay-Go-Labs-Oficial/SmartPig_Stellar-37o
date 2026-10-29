@@ -1,0 +1,21 @@
+# Code Owners Configuration
+# This file defines who must approve changes before they can be merged
+
+# Require approval from Maycon-Rodrigues for all changes
+* @Maycon-Rodrigues
+
+# Uncomment below to require approval only for specific files/directories
+# # Require approval for sensitive files
+# .env @Maycon-Rodrigues
+# app.json @Maycon-Rodrigues
+# eas.json @Maycon-Rodrigues
+# 
+# # Require approval for core application code
+# app/ @Maycon-Rodrigues
+# components/ @Maycon-Rodrigues
+# hooks/ @Maycon-Rodrigues
+# 
+# # Require approval for configuration files
+# package.json @Maycon-Rodrigues
+# tsconfig.json @Maycon-Rodrigues
+# babel.config.js @Maycon-Rodrigues

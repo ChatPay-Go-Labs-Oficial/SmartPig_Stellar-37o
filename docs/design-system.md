@@ -55,6 +55,7 @@ New screens use `components/v2` (exported from `components/v2/index.ts`), with t
 | --- | --- |
 | `Button3D` | 3D key with no press-down animation; sizes include `card` (16 text) for buttons inside cards and scenes |
 | `V2Sheet` | Default bottom sheet for V2 screens |
+| `V2Switch` | On/off row (label, optional caption, switch on the right); not the native Switch, so it looks the same on iOS and Android |
 | `V2Icon` | V2 icons (Lucide in Figma) |
 | `ScreenGlow`, `CardGlow`, `CircleGlow` | Screen, card and round background glows |
 | `components/v2/experience` | User Level: `LevelCard`, `LevelAvatar`, `LevelDots`, `XpBar`, `XpGainPill`, `DailyRewardCard`, `TierJourney`, `TierLevelsSheet`, `XpWaysCard` and the `LevelUpScene` scene |

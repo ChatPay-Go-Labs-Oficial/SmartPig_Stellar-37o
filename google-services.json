@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "116346224942",
+    "project_id": "pigfi-notification",
+    "storage_bucket": "pigfi-notification.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116346224942:android:e43e360901eadd5fdffabf",
+        "android_client_info": {
+          "package_name": "com.pigfi.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCDkHyskysdJAIMGztF-KWaVpNndM_8HA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

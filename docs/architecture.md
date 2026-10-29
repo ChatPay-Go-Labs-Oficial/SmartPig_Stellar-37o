@@ -33,7 +33,8 @@ This document describes the architecture implemented in the mobile application. 
 - Nunito fonts;
 - `PrivyProvider` for authentication and the embedded wallet;
 - `QueryClientProvider` for remote state;
-- `AppGate`, which waits for Privy and Zustand hydration before redirecting.
+- `AppGate`, which waits for Privy and Zustand hydration before redirecting;
+- `NotificationsGate` (push): device registration after sign-in, notification taps (navigates only once the `AppGate` stops covering the app) and the permission pre-prompt. Handler and Android channels are configured at module load (`lib/notifications/setup.ts`). Not mounted on web.
 
 The Privy token provider is registered in `lib/api/token.ts` and used by the HTTP client. The hash-signing provider is registered in `lib/stellar/signer.ts` for Stellar operations.
 
@@ -57,6 +58,7 @@ The Privy token provider is registered in `lib/api/token.ts` and used by the HTT
 | `contacts.store.ts` | AsyncStorage | Saved contacts for sending by @ (only @ and name), per account; erased on sign-out |
 | `level-up.store.ts`, `piggy-unlock.store.ts` | Memory | Level-up and unlocked-piggy scene requested and not yet shown |
 | `settings.store.ts` | AsyncStorage | Preferences such as muted audio |
+| `notifications.store.ts` | AsyncStorage (only whether the pre-prompt was answered) | Push permission, pending route from a tapped notification; the last device registration lives in SecureStore and is removed on sign-out and account deletion |
 | `etherfuse.store.ts` | Flow-specific | Onboarding and ramp navigation state |
 | `pix.store.ts`, `ui.store.ts` | Interface state | Temporary presentation and flow data |
 

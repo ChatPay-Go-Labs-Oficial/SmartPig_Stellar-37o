@@ -2,7 +2,7 @@
   "expo": {
     "name": "PigFi",
     "slug": "pigfi",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pigfi",
@@ -23,7 +23,8 @@
     },
     "android": {
       "package": "com.pigfi.app",
-      "versionCode": 12,
+      "versionCode": 13,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -81,6 +82,13 @@
         }
       ],
       "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#f434b4"
+        }
+      ],
       [
         "expo-image-picker",
         {
