@@ -12,6 +12,7 @@ export { SheetLink } from './SheetLink';
 export { V2Spinner } from './V2Spinner';
 export { ProgressRing } from './ProgressRing';
 export { V2Checkbox } from './V2Checkbox';
+export { V2Switch } from './V2Switch';
 export { ListCard } from './ListCard';
 export { FilterChip } from './FilterChip';
 export { NavChip } from './NavChip';
