@@ -10,6 +10,8 @@ import { usePiggyUnlockStore } from '@/lib/stores/piggy-unlock.store';
 import { LEGACY_LEARNING_STORAGE_KEY } from '@/lib/security/wipe-local-state';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { blockSessionRestore } from '@/lib/security/session-restore-guard';
+import { unregisterPushDevice } from '@/lib/notifications/push-token';
+import { useNotificationsStore } from '@/lib/stores/notifications.store';
 
 /** Quanto a saída espera o Privy antes de seguir sem ele. */
 const PRIVY_LOGOUT_TIMEOUT_MS = 3_000;
@@ -23,8 +25,10 @@ const PRIVY_LOGOUT_TIMEOUT_MS = 3_000;
  * quando o Privy enfim saía. Agora:
  *
  * 1. bloqueia a restauração automática (cobre o Privy que não saiu a tempo);
- * 2. sai do Privy, com tempo-limite;
- * 3. só então limpa a sessão local e os dados sensíveis do aparelho.
+ * 2. tira o aparelho do push da conta, com tempo-limite: o DELETE vai com o
+ *    token do Privy, então tem que sair antes do logout;
+ * 3. sai do Privy, com tempo-limite;
+ * 4. só então limpa a sessão local e os dados sensíveis do aparelho.
  *
  * Não navega: sem sessão, o AppGate leva ao login, uma vez só, e limpa o
  * cache das consultas.
@@ -34,6 +38,9 @@ export function useSignOut(): () => Promise<void> {
 
   return useCallback(async () => {
     blockSessionRestore();
+
+    // Melhor esforço: falhando, o próximo login reatribui o token no backend.
+    await unregisterPushDevice().catch(() => {});
 
     await Promise.race([
       logout().catch(() => {}),
@@ -55,6 +62,8 @@ export function useSignOut(): () => Promise<void> {
     usePiggyUnlockStore.getState().dismiss();
     // Contatos salvos para o envio por @ são da conta que saiu.
     useContactsStore.getState().clear();
+    // Rota de um push tocado e a pré-tela na fila são da conta que saiu.
+    useNotificationsStore.getState().resetSession();
     // Progresso da trilha v1, de antes da trilha vir do backend.
     AsyncStorage.removeItem(LEGACY_LEARNING_STORAGE_KEY).catch(() => {});
   }, [logout]);

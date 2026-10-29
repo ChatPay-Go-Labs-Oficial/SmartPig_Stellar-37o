@@ -33,7 +33,8 @@ Este documento descreve a arquitetura observada no codigo da aplicacao mobile. O
 - fontes Nunito;
 - `PrivyProvider` para autenticacao e carteira embarcada;
 - `QueryClientProvider` para estado remoto;
-- `AppGate`, que aguarda a hidratacao do Privy e do Zustand antes de redirecionar.
+- `AppGate`, que aguarda a hidratacao do Privy e do Zustand antes de redirecionar;
+- `NotificationsGate` (push): registro do aparelho depois do login, toque nas notificacoes (so navega quando o `AppGate` deixa de cobrir o app) e a pre-tela de permissao. Handler e canais do Android sao configurados no carregamento do modulo (`lib/notifications/setup.ts`). Nao monta na web.
 
 O token Privy e registrado em `lib/api/token.ts` e anexado pelo cliente HTTP. A funcao de assinatura de hash e registrada em `lib/stellar/signer.ts` para operacoes Stellar.
 
@@ -57,6 +58,7 @@ O token Privy e registrado em `lib/api/token.ts` e anexado pelo cliente HTTP. A 
 | `contacts.store.ts` | AsyncStorage | Contatos salvos do envio por @ (so @ e nome), por conta; apagados ao sair |
 | `level-up.store.ts`, `piggy-unlock.store.ts` | Memoria | Cena de subida de nivel e de porquinho liberado pedida e ainda nao vista |
 | `settings.store.ts` | AsyncStorage | Preferencias como audio silenciado |
+| `notifications.store.ts` | AsyncStorage (so se a pre-tela ja teve resposta) | Permissao de push e rota pendente de uma notificacao tocada; o ultimo registro do aparelho fica no SecureStore e e apagado na saida e na exclusao da conta |
 | `etherfuse.store.ts` | Conforme implementacao do fluxo | Estado de navegacao do onboarding/ramp |
 | `pix.store.ts`, `ui.store.ts` | Estado de interface | Dados temporarios de apresentacao e fluxo |
 

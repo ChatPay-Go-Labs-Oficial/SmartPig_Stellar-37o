@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAccent } from '@/hooks/use-accent';
@@ -6,6 +6,7 @@ import { useTerms } from '@/hooks/use-terms';
 import { useSound } from '@/hooks/use-sound';
 import { AssetIcon, Button3D, V2Sheet } from '@/components/v2';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useNotificationsStore } from '@/lib/stores/notifications.store';
 import { useCreateDeposit, useSubmitDeposit } from '@/lib/queries/deposits.queries';
 import { useWalletAssets, walletKeys } from '@/lib/queries/wallets.queries';
 import { vaultKeys } from '@/lib/queries/vaults.queries';
@@ -108,6 +109,16 @@ export function SaveSheet({
   const running = useRef(false);
   const confirmedNotified = useRef(false);
   const { slow, watch, begin, isCurrent, slowFor, keepWatching } = useOperationWatch(visible);
+  // O guardar chegou a "guardado" ou "confirmando": o gatilho da pré-tela de
+  // notificações. É o momento em que o aviso faz sentido ("seu dinheiro
+  // entrou"), e ela só aparece com este sheet já fechado (o iOS não abre um
+  // segundo Modal por cima). Ver NotificationsGate.
+  const reachedValue = useRef(false);
+  useEffect(() => {
+    if (visible || !reachedValue.current) return;
+    reachedValue.current = false;
+    useNotificationsStore.getState().queuePrompt();
+  }, [visible]);
 
   // Cada abertura começa do zero, antes de pintar (sem piscar o estado anterior).
   useLayoutEffect(() => {
@@ -191,6 +202,7 @@ export function SaveSheet({
       onConfirmed(vaultId, confirmedAmount);
     }
     setStep('success');
+    reachedValue.current = true;
     playInvestirConfirmacao();
     setTimeout(playInvestirCoin, 350);
     setTimeout(playInvestirCoin, 800);
@@ -240,6 +252,7 @@ export function SaveSheet({
       } else if (outcome === 'pending') {
         // Sem resposta no prazo: a tela avisa e segue verificando sozinha.
         setStep('pending');
+        reachedValue.current = true;
         keepWatching(token, sources, (settled) => {
           refreshBalances();
           if (!isCurrent(token)) return;

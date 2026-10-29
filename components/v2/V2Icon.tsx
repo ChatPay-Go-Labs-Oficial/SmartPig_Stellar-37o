@@ -26,6 +26,7 @@ const FEATHER = {
   download: 'download',
   lock: 'lock',
   x: 'x',
+  bell: 'bell',
   gift: 'gift',
   check: 'check',
   alert: 'alert-circle',
