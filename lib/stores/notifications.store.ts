@@ -14,7 +14,10 @@ interface NotificationsState {
   promptAnswered: boolean;
   /** Permissão do sistema, relida ao abrir e ao voltar ao app. */
   permission: PushPermission | null;
-  /** Uma ação de valor terminou (primeiro guardar): a pré-tela pode aparecer. */
+  /**
+   * Uma ação de valor terminou (primeiro guardar ou primeiro depósito via
+   * Pix): a pré-tela pode aparecer.
+   */
   promptQueued: boolean;
   /**
    * Rota que um toque em notificação pediu e que ainda espera a sessão ficar

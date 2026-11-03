@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { SegmentedControl, type SegmentOption } from "@/components/v2";
+import { router } from "expo-router";
+import { ListCard, SegmentedControl, type SegmentOption } from "@/components/v2";
 import { ProfileCard } from "@/components/profile/ProfileCard";
+import { ProfileRow } from "@/components/profile/ProfileRows";
 import { ProfileSubScreen } from "@/components/profile/ProfileSubScreen";
 import { ProModeSheet } from "@/components/profile/ProModeSheet";
-import { NotificationsCard } from "@/components/profile/NotificationsCard";
 import {
   useAppMode,
   useAppModeActions,
@@ -12,6 +13,9 @@ import {
   type AppMode,
 } from "@/hooks/use-app-mode";
 import { useSound } from "@/hooks/use-sound";
+import { isPushSupported } from "@/lib/notifications/config";
+import { refreshPushPermission } from "@/lib/notifications/push-token";
+import { useNotificationsStore } from "@/lib/stores/notifications.store";
 
 const MODE_OPTIONS: readonly SegmentOption<AppMode>[] = [
   { id: "lite", label: "Lite" },
@@ -19,8 +23,9 @@ const MODE_OPTIONS: readonly SegmentOption<AppMode>[] = [
 ];
 
 /**
- * Preferências (Figma 26i/26j): o modo do app e as notificações. A Cor do
- * app, que o Figma também mostra aqui, entra na PR seguinte.
+ * Preferências (Figma 26i/26j): o modo do app e a entrada das notificações
+ * (39a), que abre a tela Notificações. A Cor do app, que o Figma também
+ * mostra aqui, entra na PR seguinte.
  */
 export default function PreferencesScreen() {
   const mode = useAppMode();
@@ -28,6 +33,16 @@ export default function PreferencesScreen() {
   const { setMode, markProExplainerSeen, hasSeenProExplainer } = useAppModeActions();
   const { playInvestirConfirmacao } = useSound();
   const [showProSheet, setShowProSheet] = useState(false);
+  const pushPermission = useNotificationsStore((s) => s.permission);
+
+  useEffect(() => {
+    refreshPushPermission();
+  }, []);
+
+  // "Desligadas" quando este aparelho não tem a permissão (negada ou nunca
+  // pedida); nada enquanto o app ainda não leu.
+  const notificationsValue =
+    pushPermission === "granted" ? "Ligadas" : pushPermission ? "Desligadas" : undefined;
 
   /**
    * A pergunta vem *antes* da troca, não como aviso depois: quem toca em "Pro"
@@ -71,7 +86,17 @@ export default function PreferencesScreen() {
         </View>
       </ProfileCard>
 
-      <NotificationsCard />
+      {/* Na web não há push. */}
+      {isPushSupported ? (
+        <ListCard>
+          <ProfileRow
+            icon="bell"
+            title="Notificações"
+            value={notificationsValue}
+            onPress={() => router.push("/profile/notifications")}
+          />
+        </ListCard>
+      ) : null}
 
       <ProModeSheet
         visible={showProSheet}

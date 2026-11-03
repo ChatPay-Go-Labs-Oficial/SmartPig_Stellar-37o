@@ -1,7 +1,15 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import type { QueryClient } from '@tanstack/react-query';
-import { ANDROID_CHANNELS, isPushSupported, isTransactionPush, readPushData, type PushData } from './config';
+import {
+  ANDROID_CHANNELS,
+  NOTIFICATION_CATEGORIES,
+  PUSH_OPEN_ACTION,
+  isPushSupported,
+  isTransactionPush,
+  readPushData,
+  type PushData,
+} from './config';
 
 let configured = false;
 let channelsReady: Promise<void> = Promise.resolve();
@@ -39,8 +47,9 @@ export function invalidateForPush(queryClient: QueryClient, data: PushData): voi
  * Canais do Android, criados no boot. Precisam existir antes de duas coisas:
  * do pedido de permissão (no Android 13+ o diálogo de POST_NOTIFICATIONS só
  * aparece com ao menos um canal criado) e do primeiro push (um push com
- * `channelId` que não existe não aparece). Recriar com os mesmos dados é
- * inofensivo; a importância que a pessoa mudou nos ajustes é preservada.
+ * `channelId` que não existe cai no canal genérico do Expo, "Miscellaneous").
+ * Recriar com os mesmos dados é inofensivo; a importância que a pessoa mudou
+ * nos ajustes é preservada.
  */
 export function ensureAndroidChannels(): Promise<void> {
   return channelsReady;
@@ -78,6 +87,7 @@ export function configureNotifications(queryClient: QueryClient): void {
       ANDROID_CHANNELS.map((channel) =>
         Notifications.setNotificationChannelAsync(channel.id, {
           name: channel.name,
+          description: channel.description,
           importance: Notifications.AndroidImportance[channel.importance],
         }),
       ),
@@ -86,5 +96,19 @@ export function configureNotifications(queryClient: QueryClient): void {
       .catch((error) => {
         console.error('[notifications] canais do Android', error?.message);
       });
+  }
+
+  // Botões das notificações: a categoria precisa existir no aparelho antes do
+  // push que a usa. Recriar a cada abertura é inofensivo.
+  for (const category of NOTIFICATION_CATEGORIES) {
+    Notifications.setNotificationCategoryAsync(category.id, [
+      {
+        identifier: PUSH_OPEN_ACTION,
+        buttonTitle: category.buttonTitle,
+        options: { opensAppToForeground: true },
+      },
+    ]).catch((error) => {
+      console.error('[notifications] categoria', category.id, error?.message);
+    });
   }
 }

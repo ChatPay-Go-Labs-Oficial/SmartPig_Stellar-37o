@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, InteractionManager } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { router, type Href } from 'expo-router';
+import { router, useSegments, type Href } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { isPushSupported } from '@/lib/notifications/config';
 import {
@@ -53,6 +53,12 @@ function NativeNotificationsGate() {
   const promptAnswered = useNotificationsStore((s) => s.promptAnswered);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const [promptVisible, setPromptVisible] = useState(false);
+  // Onde a pessoa está quando a rota do push sai: dentro das abas ou numa
+  // tela por cima delas (lição, onboarding, porquinhos). Ref porque é lida
+  // num timer.
+  const segments = useSegments();
+  const insideTabs = useRef(true);
+  insideTabs.current = segments[0] === '(tabs)';
 
   // Sessão pronta: logada, com o Privy de pé e nada do AppGate cobrindo o app
   // (abertura, erro de sessão, cadeado). O `locked` só cai depois de tudo isso.
@@ -105,7 +111,12 @@ function NativeNotificationsGate() {
         const { pendingUrl: url, setPendingUrl } = useNotificationsStore.getState();
         if (!url) return;
         setPendingUrl(null);
-        router.push(url as Href);
+        // As rotas do push são das abas (Carteira, Histórico, Perfil...). Com
+        // push, a aba virava uma cópia por cima da pilha. Dentro das abas,
+        // navigate com o anchor (a pilha da aba nasce com a tela inicial por
+        // baixo); por cima delas, dismissTo volta às abas que já existem.
+        if (insideTabs.current) router.navigate(url as Href, { withAnchor: true });
+        else router.dismissTo(url as Href);
       }, NAVIGATE_DELAY_MS);
     });
 
@@ -116,8 +127,9 @@ function NativeNotificationsGate() {
   }, [appActive, pendingUrl, sessionReady]);
 
   // Pré-tela de permissão, uma vez por aparelho, depois do primeiro guardar
-  // (ver SaveSheet). Só com a pergunta ainda em aberto no sistema: com
-  // "denied" não insiste; o caminho é Perfil > Preferências.
+  // (SaveSheet) ou do primeiro depósito via Pix (BlindPayOnrampModal), o que
+  // vier antes. Só com a pergunta ainda em aberto no sistema: com "denied" não
+  // insiste; o caminho é Perfil > Preferências > Notificações.
   const promptEligible =
     sessionReady && appActive && promptQueued && !promptAnswered && permission === 'undetermined';
 

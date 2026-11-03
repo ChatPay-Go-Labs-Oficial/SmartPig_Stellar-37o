@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { V2Colors, V2Font, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { V2Icon, type V2IconName } from './V2Icon';
 
 const TRACK_WIDTH = 46;
 const TRACK_HEIGHT = 28;
@@ -17,16 +18,27 @@ interface V2SwitchProps {
   label: string;
   /** Linha de apoio abaixo do rótulo. */
   description?: string;
+  /** Selo com ícone à esquerda, como nas linhas do Perfil. */
+  icon?: V2IconName;
   disabled?: boolean;
 }
 
 /**
- * Interruptor V2: linha com rótulo à esquerda e a chave à direita. Não usa o
- * Switch nativo, que tem desenho e cores diferentes em cada sistema: o app não
- * usa Switch em lugar nenhum (ver components/ui/ModeSwitch.tsx). A linha
- * inteira é o alvo do toque. Ligado no destaque do tema; desligado em vidro.
+ * Interruptor V2 (Figma "v2/Interruptor"): linha no padrão das listas do
+ * Perfil (selo, rótulo e descrição curta) com a chave à direita, para usar
+ * dentro de um ListCard. Não usa o Switch nativo, que tem desenho e cores
+ * diferentes em cada sistema: o app não usa Switch em lugar nenhum (ver
+ * components/ui/ModeSwitch.tsx). A linha inteira é o alvo do toque. Ligado no
+ * destaque do tema; desligado em vidro.
  */
-export function V2Switch({ value, onChange, label, description, disabled = false }: V2SwitchProps) {
+export function V2Switch({
+  value,
+  onChange,
+  label,
+  description,
+  icon,
+  disabled = false,
+}: V2SwitchProps) {
   const accent = useAccent();
   const progress = useSharedValue(value ? 1 : 0);
 
@@ -51,6 +63,11 @@ export function V2Switch({ value, onChange, label, description, disabled = false
       accessibilityHint={description}
       accessibilityState={{ checked: value, disabled }}
     >
+      {icon ? (
+        <View style={styles.seal}>
+          <V2Icon name={icon} size={19} color={V2Colors.text} />
+        </View>
+      ) : null}
       <View style={styles.texts}>
         <Text style={styles.label} maxFontSizeMultiplier={1.3}>
           {label}
@@ -79,28 +96,38 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
+    gap: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
   },
   pressed: {
-    opacity: 0.8,
+    backgroundColor: 'rgba(255,255,255,0.03)',
   },
   disabled: {
     opacity: 0.5,
   },
+  seal: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
   texts: {
     flex: 1,
-    gap: 2,
+    minWidth: 0,
+    gap: 3,
   },
   label: {
     fontFamily: V2Font.semiBold,
-    fontSize: 14,
-    color: V2Colors.text,
+    fontSize: 15,
+    color: V2Colors.onPrimary,
   },
   description: {
     fontFamily: V2Font.medium,
     fontSize: 12.5,
-    lineHeight: 17,
+    lineHeight: 16,
     color: V2Colors.textSecondary,
   },
   track: {

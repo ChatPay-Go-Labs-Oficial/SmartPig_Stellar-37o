@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import type { QueryClient } from '@tanstack/react-query';
 import { useNotificationsStore } from '@/lib/stores/notifications.store';
-import { readPushData, safeInternalUrl } from './config';
+import { PUSH_OPEN_ACTION, readPushData, safeInternalUrl } from './config';
 import { invalidateForPush } from './setup';
 
 /**
@@ -30,8 +30,10 @@ export function handleNotificationResponse(
   if (handled.has(key)) return;
   handled.add(key);
 
-  // Só o toque na própria notificação; o app não define ações extras.
-  if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+  // O toque na notificação e o botão dela (ver NOTIFICATION_CATEGORIES) abrem
+  // a mesma rota.
+  const action = response.actionIdentifier;
+  if (action !== Notifications.DEFAULT_ACTION_IDENTIFIER && action !== PUSH_OPEN_ACTION) return;
 
   const data = readPushData(response.notification.request.content.data);
   // Com o app em segundo plano o listener de recebimento não roda: o toque

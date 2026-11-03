@@ -1,8 +1,9 @@
 import { Stack } from 'expo-router';
 import { V2Colors } from '@/constants/theme-v2';
 
-// Stack dentro da aba, como a da Carteira: Preferências, Verificação e
-// Gerenciar conta abrem por cima do Perfil sem esconder a tab bar (Figma 26i–26q).
+// Stack dentro da aba, como a da Carteira: Preferências (e as Notificações, por
+// cima dela), Verificação e Gerenciar conta abrem por cima do Perfil sem
+// esconder a tab bar (Figma 26i–26q, 39a–39e).
 export default function ProfileLayout() {
   return (
     <Stack
@@ -21,6 +22,11 @@ export default function ProfileLayout() {
           pisca. Uma cópia só de cada, mesmo com toque duplo na linha. */}
       <Stack.Screen
         name="preferences"
+        dangerouslySingular
+        options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="notifications"
         dangerouslySingular
         options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
       />

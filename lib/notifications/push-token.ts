@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
@@ -87,6 +87,25 @@ export async function requestPushPermission(): Promise<PushPermission | null> {
   } catch {
     return refreshPushPermission();
   }
+}
+
+/**
+ * Ajustes de notificação do app, para quem negou a permissão. No Android vai
+ * direto à tela de notificações do PigFi; no iOS (e no Android que não tiver
+ * essa tela), aos ajustes do app, onde fica "Notificações".
+ */
+export async function openNotificationSettings(): Promise<void> {
+  if (Platform.OS === 'android' && Application.applicationId) {
+    try {
+      await Linking.sendIntent('android.settings.APP_NOTIFICATION_SETTINGS', [
+        { key: 'android.provider.extra.APP_PACKAGE', value: Application.applicationId },
+      ]);
+      return;
+    } catch {
+      // Cai nos ajustes do app, abaixo.
+    }
+  }
+  await Linking.openSettings().catch(() => {});
 }
 
 /**

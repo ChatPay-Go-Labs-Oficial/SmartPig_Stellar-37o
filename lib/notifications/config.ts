@@ -8,15 +8,57 @@ import { Platform } from 'react-native';
 export const isPushSupported = Platform.OS === 'ios' || Platform.OS === 'android';
 
 /**
- * Canais do Android, os mesmos `channelId` que o backend manda (contrato de
- * push, v1). O nome é o que a pessoa vê nos ajustes do sistema, onde pode
- * silenciar cada um. A importância é o nome em AndroidImportance: este
- * arquivo não importa o módulo nativo.
+ * Canais do Android (Figma, "Notificações push · Especificação"). O backend
+ * escolhe o canal de cada envio pelo `id`; o push sem canal cai no
+ * `defaultChannel` do app.json ("movimentacoes"). Nome e descrição são o que a
+ * pessoa vê nos ajustes do sistema, onde pode silenciar cada um. A importância
+ * é o nome em AndroidImportance: este arquivo não importa o módulo nativo.
  */
 export const ANDROID_CHANNELS = [
-  { id: 'transactions', name: 'Transações', importance: 'HIGH' },
-  { id: 'updates', name: 'Atualizações do app', importance: 'DEFAULT' },
-  { id: 'marketing', name: 'Novidades', importance: 'DEFAULT' },
+  {
+    id: 'movimentacoes',
+    name: 'Movimentações',
+    description: 'Depósitos, saques, envios, recebimentos e presentes',
+    importance: 'HIGH',
+  },
+  {
+    id: 'conta',
+    name: 'Conta e segurança',
+    description: 'Verificação de identidade e mudanças na conta',
+    importance: 'HIGH',
+  },
+  {
+    id: 'chama-trilha',
+    name: 'Chama e Trilha',
+    description: 'Lembretes da Chama, lições e níveis',
+    importance: 'DEFAULT',
+  },
+  {
+    id: 'novidades',
+    name: 'Novidades',
+    description: 'Lançamentos e dicas do PigFi',
+    importance: 'LOW',
+  },
+] as const;
+
+/** Identificador do botão das notificações: abre a mesma rota do toque. */
+export const PUSH_OPEN_ACTION = 'abrir';
+
+/**
+ * Botões das notificações (Figma, "v2/Notificação/Android": ações em texto).
+ * O backend escolhe a categoria em cada envio (`categoryId`). No Android o
+ * botão fica embaixo do texto; no iOS aparece ao tocar e segurar.
+ */
+export const NOTIFICATION_CATEGORIES = [
+  { id: 'ver-carteira', buttonTitle: 'Ver carteira' },
+  { id: 'ver-historico', buttonTitle: 'Ver no histórico' },
+  { id: 'ver-o-que-houve', buttonTitle: 'Ver o que houve' },
+  { id: 'resgatar', buttonTitle: 'Resgatar' },
+  { id: 'ver-presentes', buttonTitle: 'Ver presentes' },
+  { id: 'depositar', buttonTitle: 'Depositar' },
+  { id: 'enviar-de-novo', buttonTitle: 'Enviar de novo' },
+  { id: 'abrir-trilha', buttonTitle: 'Abrir a Trilha' },
+  { id: 'ver-cores', buttonTitle: 'Ver cores' },
 ] as const;
 
 /** Tipos do enum NotificationType do backend que não são de transação. */

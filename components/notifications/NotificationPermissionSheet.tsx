@@ -9,9 +9,10 @@ interface NotificationPermissionSheetProps {
 }
 
 /**
- * Pré-tela do pedido de permissão. Vem antes do diálogo do sistema porque um
- * "não" no diálogo é definitivo no iOS (e no Android, depois da segunda vez):
- * a pessoa só vê o pedido real depois de entender por que ele existe.
+ * Pré-tela do pedido de permissão (Figma 39f/39g, no padrão da 28a). Vem antes
+ * do diálogo do sistema porque um "não" no diálogo é definitivo no iOS (e no
+ * Android, depois da segunda vez): o pedido real só sai se a pessoa tocar em
+ * "Ativar notificações".
  */
 export function NotificationPermissionSheet({
   visible,
@@ -22,21 +23,13 @@ export function NotificationPermissionSheet({
     <V2Sheet
       visible={visible}
       onClose={onDecline}
-      title="Quer saber quando o dinheiro chegar?"
+      title="Deseja receber as notificações do PigFi?"
       icon="bell"
     >
       <View style={styles.body}>
-        <Text style={styles.text}>
-          A gente avisa quando um depósito cair, um Pix sair ou alguém te enviar dinheiro. Nada de
-          propaganda sem você pedir.
-        </Text>
-        <Text style={styles.text}>
-          Você escolhe o que recebe em Perfil, Preferências, e pode mudar quando quiser.
-        </Text>
-        <View style={styles.actions}>
-          <Button3D label="Ativar notificações" icon="bell" onPress={onAccept} />
-          <SheetLink label="Agora não" onPress={onDecline} />
-        </View>
+        <Text style={styles.text}>Dá para mudar quando quiser, em Preferências.</Text>
+        <Button3D label="Ativar notificações" icon="bell" onPress={onAccept} />
+        <SheetLink label="Agora não" onPress={onDecline} />
       </View>
     </V2Sheet>
   );
@@ -44,16 +37,12 @@ export function NotificationPermissionSheet({
 
 const styles = StyleSheet.create({
   body: {
-    gap: 12,
+    gap: 14,
   },
   text: {
     fontFamily: V2Font.medium,
     fontSize: 14,
     lineHeight: 21,
     color: V2Colors.textSecondary,
-  },
-  actions: {
-    gap: 8,
-    paddingTop: 6,
   },
 });
