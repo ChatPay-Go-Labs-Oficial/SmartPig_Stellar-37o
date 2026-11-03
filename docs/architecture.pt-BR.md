@@ -34,7 +34,7 @@ Este documento descreve a arquitetura observada no codigo da aplicacao mobile. O
 - `PrivyProvider` para autenticacao e carteira embarcada;
 - `QueryClientProvider` para estado remoto;
 - `AppGate`, que aguarda a hidratacao do Privy e do Zustand antes de redirecionar;
-- `NotificationsGate` (push): registro do aparelho depois do login, toque nas notificacoes (so navega quando o `AppGate` deixa de cobrir o app) e a pre-tela de permissao. Handler e canais do Android sao configurados no carregamento do modulo (`lib/notifications/setup.ts`). Nao monta na web.
+- `NotificationsGate` (push): registro do aparelho depois do login, toque e botao das notificacoes (so navega quando o `AppGate` deixa de cobrir o app: `router.navigate` com o anchor dentro das abas e `router.dismissTo` por cima delas, para a aba nunca abrir duas vezes) e a pre-tela de permissao, posta na fila pelo primeiro guardar ou pelo primeiro deposito via Pix. Handler, canais do Android e botoes das notificacoes (categorias) sao configurados no carregamento do modulo (`lib/notifications/setup.ts`, ids em `lib/notifications/config.ts`). Nao monta na web.
 
 O token Privy e registrado em `lib/api/token.ts` e anexado pelo cliente HTTP. A funcao de assinatura de hash e registrada em `lib/stellar/signer.ts` para operacoes Stellar.
 

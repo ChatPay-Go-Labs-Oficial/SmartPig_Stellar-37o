@@ -34,7 +34,7 @@ This document describes the architecture implemented in the mobile application. 
 - `PrivyProvider` for authentication and the embedded wallet;
 - `QueryClientProvider` for remote state;
 - `AppGate`, which waits for Privy and Zustand hydration before redirecting;
-- `NotificationsGate` (push): device registration after sign-in, notification taps (navigates only once the `AppGate` stops covering the app) and the permission pre-prompt. Handler and Android channels are configured at module load (`lib/notifications/setup.ts`). Not mounted on web.
+- `NotificationsGate` (push): device registration after sign-in, notification taps and buttons (navigates only once the `AppGate` stops covering the app: `router.navigate` with the anchor inside the tabs, `router.dismissTo` over them, so a tab never opens twice) and the permission pre-prompt, queued by the first save or the first Pix deposit. Handler, Android channels and notification buttons (categories) are configured at module load (`lib/notifications/setup.ts`, ids in `lib/notifications/config.ts`). Not mounted on web.
 
 The Privy token provider is registered in `lib/api/token.ts` and used by the HTTP client. The hash-signing provider is registered in `lib/stellar/signer.ts` for Stellar operations.
 

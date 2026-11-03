@@ -19,6 +19,8 @@ As implementacoes mais recentes incorporadas ate 26 de junho de 2026 incluem:
 
 Em outubro de 2026 entrou o **PigFi Experience**: nivel de usuario e XP vindos do backend, recompensa do dia, a Trilha V2 com licoes servidas pelo backend e a liberacao dos porquinhos pela trilha no modo Lite.
 
+Em novembro de 2026 entraram as **notificacoes push**: a pre-tela de permissao, Preferencias > Notificacoes, e os canais do Android e os botoes das notificacoes do Figma.
+
 ## Autenticacao e carteira
 
 1. O usuario autentica com Google, codigo enviado por e-mail ou passkey.
@@ -91,6 +93,24 @@ O backend e a fonte de verdade de XP, nivel, progresso das licoes e acesso aos p
 - aprender nunca bloqueia ver saldo, tirar do porquinho ou sacar, e liberado pela trilha nao quer dizer disponivel: a pausa operacional do vault continua valendo.
 
 Sem o `access` (backend antigo), vale a flag antiga de porquinhos so no Pro.
+
+## Notificacoes
+
+Push pelo `expo-notifications` e pelo Expo Push Service. O backend decide o que vai: texto, canal do Android, botao e destino. Referencia visual: Figma Componentes, secao "v2 - Notificacoes", e Prototipo v2, secao "Perfil - Notificacoes" (39a a 39g).
+
+**Permissao.** A pre-tela neutra ("Deseja receber as notificacoes do PigFi?") aparece uma vez por aparelho, depois do primeiro guardar concluido ou do primeiro deposito via Pix (codigo Pix gerado), o que vier antes, e so enquanto o sistema nunca perguntou. O dialogo do sistema so sai depois de "Ativar notificacoes" (iOS, e Android 13 ou mais novo; Android anterior ja vem com a permissao). "Agora nao" e o X nao perguntam de novo.
+
+**Preferencias > Notificacoes.** A linha "Notificacoes" mostra "Ligadas" ou "Desligadas" (este aparelho sem permissao) e abre `app/(tabs)/profile/notifications.tsx`:
+
+- um cartao no topo so quando este aparelho nao recebe: "Ative neste aparelho" (pede ao sistema) ou "Bloqueadas nos ajustes" ("Abrir ajustes" abre direto a tela de notificacoes do app no Android e os ajustes do app no iOS);
+- Avisos (Movimentacoes, Atualizacoes do app, Novidades) e Privacidade (Mostrar valores: desligado, o aviso nao mostra o valor nem quem enviou);
+- as escolhas sao da conta e valem em todos os aparelhos (`GET`/`PATCH /notifications/preferences`, atualizacao otimista que volta se der erro).
+
+**Canais do Android**, criados na abertura do app, antes do pedido de permissao: `movimentacoes` (alta), `conta` (alta), `chama-trilha` (padrao) e `novidades` (baixa). Push sem canal cai em `movimentacoes` (`defaultChannel` no app.json).
+
+**Toque e botoes.** O toque e o botao da notificacao (categoria mandada pelo backend: "Ver carteira", "Ver no historico", "Resgatar"...) abrem a rota interna de `data.url`, so depois da sessao desbloqueada. Com o app aberto, o banner aparece e o push de transacao atualiza saldo e historico.
+
+**Saida da conta.** O aparelho sai do push da conta antes do logout do Privy.
 
 ## Etherfuse e ramp
 
