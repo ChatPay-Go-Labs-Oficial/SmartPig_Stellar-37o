@@ -25,6 +25,7 @@ import {
   Spacing,
 } from "@/constants/theme";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useNotificationsStore } from "@/lib/stores/notifications.store";
 import { useBlindPayReceiver } from "@/lib/queries/blindpay.queries";
 import {
   useCreateOnramp,
@@ -107,6 +108,15 @@ export function BlindPayOnrampModal({
     max: string;
   } | null>(null);
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Depósito pedido (o código Pix já saiu): um dos gatilhos da pré-tela de
+  // notificações. Ela só entra com este modal fechado, enquanto a pessoa
+  // espera o dinheiro cair (ver NotificationsGate).
+  const requestedDeposit = useRef(false);
+  useEffect(() => {
+    if (visible || !requestedDeposit.current) return;
+    requestedDeposit.current = false;
+    useNotificationsStore.getState().queuePrompt();
+  }, [visible]);
 
   const getQuote = useOnrampQuote();
   const createOnramp = useCreateOnramp();
@@ -227,6 +237,7 @@ export function BlindPayOnrampModal({
       });
       setOrderId(result.id);
       setStep("pix");
+      requestedDeposit.current = true;
     } catch (e: any) {
       setErrorMsg(
         friendlyError(e?.response?.data?.message || e?.message || ""),
