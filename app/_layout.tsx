@@ -50,6 +50,8 @@ import { enableFreeze } from "react-native-screens";
 import { OpeningSplash } from "@/components/entry/OpeningSplash";
 import { EntryBlockScreen } from "@/components/entry/EntryBlockScreen";
 import { V2Colors } from "@/constants/theme-v2";
+import { NotificationsGate } from "@/components/notifications/NotificationsGate";
+import { configureNotifications } from "@/lib/notifications/setup";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -159,6 +161,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// No módulo, não num efeito: o handler do push com o app aberto e os canais
+// do Android precisam existir antes da primeira tela (e do primeiro push).
+configureNotifications(queryClient);
 
 // Sem tema, o React Navigation usa o claro padrão: o fundo quase branco dele
 // aparece por um instante nas transições (ex.: voltar do Histórico). O app é
@@ -314,6 +320,9 @@ export default function RootLayout() {
             </ThemeProvider>
             <StatusBar style="light" />
             <GiftClaimGate />
+            {/* Registro do aparelho, toque no push (navega só depois do
+                AppGate liberar) e a pré-tela de permissão. */}
+            <NotificationsGate />
             <VersionGate />
           </QueryClientProvider>
           <AppGate />

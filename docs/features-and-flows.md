@@ -19,6 +19,8 @@ The latest implementations incorporated through June 26, 2026 include:
 
 October 2026 added the **PigFi Experience**: user level and XP from the backend, the daily reward, the Trail V2 with backend-served lessons, and piggy unlocking through the trail in Lite mode.
 
+November 2026 added **push notifications**: the permission pre-prompt, Preferences › Notifications, and the Android channels and notification buttons from the Figma.
+
 ## Authentication and wallet
 
 1. The user authenticates with Google, an email code or a passkey.
@@ -91,6 +93,24 @@ The backend is the source of truth for XP, level, lesson progress and piggy acce
 - learning never blocks seeing a balance, withdrawing from a piggy or cashing out, and unlocked by the trail does not mean available: the vault's operational pause still applies.
 
 Without `access` (older backend), the old Pro-only piggy flag applies.
+
+## Notifications
+
+Push through `expo-notifications` and the Expo Push Service. The backend decides what is sent: text, Android channel, button and destination. Visual reference: Figma Components › v2 · Notificações and Prototype v2 › Perfil · Notificações (39a–39g).
+
+**Permission.** The neutral pre-prompt ("Deseja receber as notificações do PigFi?") shows once per device, after the first completed save or the first Pix deposit (Pix code generated), whichever comes first, and only while the system has never asked. The system dialog only shows after "Ativar notificações" (iOS, and Android 13 or newer; older Android grants it by default). "Agora não" and the X do not ask again.
+
+**Preferences › Notifications.** The "Notificações" row shows "Ligadas" or "Desligadas" (this device without permission) and opens `app/(tabs)/profile/notifications.tsx`:
+
+- a card on top only when this device is not receiving: "Ative neste aparelho" (asks the system) or "Bloqueadas nos ajustes" ("Abrir ajustes" opens the app's notification settings directly on Android, the app settings on iOS);
+- Alerts (Movimentações, Atualizações do app, Novidades) and Privacy (Mostrar valores: when off, the notification shows neither the amount nor the sender);
+- the choices belong to the account and apply to every device (`GET`/`PATCH /notifications/preferences`, optimistic update rolled back on error).
+
+**Android channels**, created at app start, before the permission request: `movimentacoes` (high), `conta` (high), `chama-trilha` (default) and `novidades` (low). A push without a channel falls into `movimentacoes` (`defaultChannel` in app.json).
+
+**Tap and buttons.** The tap and the notification button (category sent by the backend: "Ver carteira", "Ver no histórico", "Resgatar"...) open the internal route in `data.url`, only after the session is unlocked. With the app open, the banner shows and a transaction push refreshes balances and history.
+
+**Sign-out.** The device leaves the account's push before the Privy logout.
 
 ## Etherfuse and ramp
 

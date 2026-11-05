@@ -17,6 +17,11 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+# Chaves de conta de serviço do Google (envio à Play Store, FCM V1). O
+# google-services.json do app fica versionado: só tem identificadores públicos,
+# e o EAS só envia ao build o que está no git.
+google-service-account.json
+*-firebase-adminsdk-*.json
 
 # Metro
 .metro-health-check*

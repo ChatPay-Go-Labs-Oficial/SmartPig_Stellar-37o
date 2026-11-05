@@ -55,6 +55,7 @@ As telas novas usam `components/v2` (exportado por `components/v2/index.ts`), co
 | --- | --- |
 | `Button3D` | Tecla 3D sem animacao de afundar; tamanhos inclusive `card` (texto 16) para botoes dentro de cards e cenas |
 | `V2Sheet` | Folha inferior padrao das telas V2 |
+| `V2Switch` | Linha liga/desliga no padrao das listas do Perfil (selo com icone opcional, rotulo, apoio de uma linha e a chave a direita), dentro de um `ListCard`; a linha inteira e o toque. Figma `v2/Interruptor` e `v2/Chave`. Nao e o Switch nativo, para ter o mesmo desenho no iOS e no Android |
 | `V2Icon` | Icones do V2 (Lucide no Figma) |
 | `ScreenGlow`, `CardGlow`, `CircleGlow` | Brilhos de fundo de tela, de card e redondo |
 | `components/v2/experience` | Nivel de Usuario: `LevelCard`, `LevelAvatar`, `LevelDots`, `XpBar`, `XpGainPill`, `DailyRewardCard`, `TierJourney`, `TierLevelsSheet`, `XpWaysCard` e a cena `LevelUpScene` |
