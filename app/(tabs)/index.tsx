@@ -16,6 +16,7 @@ import { useInvestedTotal } from "@/hooks/use-invested-total";
 import { buildPiggies } from "@/lib/utils/piggy";
 import { useAppLockStore } from "@/lib/stores/app-lock.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useNotificationsStore } from "@/lib/stores/notifications.store";
 import { useClaimDailyReward, useExperienceProfile } from "@/lib/queries/experience.queries";
 import { useSound } from "@/hooks/use-sound";
 import { router, useLocalSearchParams } from "expo-router";
@@ -159,6 +160,17 @@ export default function HomeScreen() {
     setLastSeenPigLevel,
     walletAddress,
   ]);
+
+  // A pré-tela de notificações espera a Home decidir a Evolução! (depende da
+  // leitura dos saldos) e a Evolução! sair da tela: as duas subindo juntas
+  // disputariam a tela, e no iOS um segundo Modal não abre (ver NotificationsGate).
+  const holdNotificationsPrompt = levelUpModalVisible || (isAuthenticated && !balancesReady);
+  useEffect(() => {
+    if (!holdNotificationsPrompt) return;
+    const { hold, release } = useNotificationsStore.getState();
+    hold();
+    return release;
+  }, [holdNotificationsPrompt]);
 
   useEffect(() => {
     // Coberta (abertura, cadeado) ou embaixo do login, a contagem espera:

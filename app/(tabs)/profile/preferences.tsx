@@ -15,6 +15,7 @@ import {
 import { useSound } from "@/hooks/use-sound";
 import { isPushSupported } from "@/lib/notifications/config";
 import { refreshPushPermission } from "@/lib/notifications/push-token";
+import { usePrefetchNotificationPreferences } from "@/lib/queries/notifications.queries";
 import { useNotificationsStore } from "@/lib/stores/notifications.store";
 
 const MODE_OPTIONS: readonly SegmentOption<AppMode>[] = [
@@ -34,6 +35,7 @@ export default function PreferencesScreen() {
   const { playInvestirConfirmacao } = useSound();
   const [showProSheet, setShowProSheet] = useState(false);
   const pushPermission = useNotificationsStore((s) => s.permission);
+  usePrefetchNotificationPreferences();
 
   useEffect(() => {
     refreshPushPermission();

@@ -98,7 +98,7 @@ Sem o `access` (backend antigo), vale a flag antiga de porquinhos so no Pro.
 
 Push pelo `expo-notifications` e pelo Expo Push Service. O backend decide o que vai: texto, canal do Android, botao e destino. Referencia visual: Figma Componentes, secao "v2 - Notificacoes", e Prototipo v2, secao "Perfil - Notificacoes" (39a a 39g).
 
-**Permissao.** A pre-tela neutra ("Deseja receber as notificacoes do PigFi?") aparece uma vez por aparelho, depois do primeiro guardar concluido ou do primeiro deposito via Pix (codigo Pix gerado), o que vier antes, e so enquanto o sistema nunca perguntou. O dialogo do sistema so sai depois de "Ativar notificacoes" (iOS, e Android 13 ou mais novo; Android anterior ja vem com a permissao). "Agora nao" e o X nao perguntam de novo.
+**Permissao.** A pre-tela neutra ("Deseja receber as notificacoes do PigFi?") aparece uma vez por aparelho ao abrir o app, na Home, depois da abertura e de qualquer tela de entrada (resgate de presente, subida de nivel, porquinho liberado, Evolucao!), e so enquanto o sistema nunca perguntou. O dialogo do sistema so sai depois de "Ativar notificacoes" (iOS, e Android 13 ou mais novo; Android anterior ja vem com a permissao). "Agora nao" e o X nao perguntam de novo.
 
 **Preferencias > Notificacoes.** A linha "Notificacoes" mostra "Ligadas" ou "Desligadas" (este aparelho sem permissao) e abre `app/(tabs)/profile/notifications.tsx`:
 

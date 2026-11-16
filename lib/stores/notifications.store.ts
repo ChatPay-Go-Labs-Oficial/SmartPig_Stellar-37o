@@ -15,20 +15,21 @@ interface NotificationsState {
   /** Permissão do sistema, relida ao abrir e ao voltar ao app. */
   permission: PushPermission | null;
   /**
-   * Uma ação de valor terminou (primeiro guardar ou primeiro depósito via
-   * Pix): a pré-tela pode aparecer.
+   * Telas de entrada abertas que não têm store próprio (ex.: a Evolução! da
+   * Home). Enquanto houver alguma, a pré-tela espera (ver NotificationsGate).
    */
-  promptQueued: boolean;
+  holds: number;
   /**
    * Rota que um toque em notificação pediu e que ainda espera a sessão ficar
    * pronta e desbloqueada (ver components/notifications/NotificationsGate).
    */
   pendingUrl: string | null;
   setPermission: (permission: PushPermission) => void;
-  queuePrompt: () => void;
   answerPrompt: () => void;
+  hold: () => void;
+  release: () => void;
   setPendingUrl: (url: string | null) => void;
-  /** O que é da sessão (rota pendente, pré-tela na fila) não passa para a próxima conta. */
+  /** O que é da sessão (rota pendente) não passa para a próxima conta. */
   resetSession: () => void;
 }
 
@@ -37,13 +38,14 @@ export const useNotificationsStore = create<NotificationsState>()(
     (set) => ({
       promptAnswered: false,
       permission: null,
-      promptQueued: false,
+      holds: 0,
       pendingUrl: null,
       setPermission: (permission) => set({ permission }),
-      queuePrompt: () => set({ promptQueued: true }),
-      answerPrompt: () => set({ promptAnswered: true, promptQueued: false }),
+      answerPrompt: () => set({ promptAnswered: true }),
+      hold: () => set((s) => ({ holds: s.holds + 1 })),
+      release: () => set((s) => ({ holds: Math.max(0, s.holds - 1) })),
       setPendingUrl: (pendingUrl) => set({ pendingUrl }),
-      resetSession: () => set({ promptQueued: false, pendingUrl: null }),
+      resetSession: () => set({ pendingUrl: null }),
     }),
     {
       name: 'smartpig-notifications',

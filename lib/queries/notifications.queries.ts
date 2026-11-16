@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { retryUnlessClientError } from '@/lib/api/errors';
 import {
@@ -22,6 +23,25 @@ export function useNotificationPreferences() {
     enabled: isAuthenticated && !!userId,
     retry: retryUnlessClientError,
   });
+}
+
+/**
+ * Busca as preferências antes de a tela Notificações abrir (chamado nas
+ * Preferências): sem isso ela entrava com o carregando, e o conteúdo pulava
+ * para o lugar no meio da animação de entrada.
+ */
+export function usePrefetchNotificationPreferences() {
+  const qc = useQueryClient();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const userId = useAuthStore((s) => s.contractId);
+  useEffect(() => {
+    if (!isAuthenticated || !userId) return;
+    qc.prefetchQuery({
+      queryKey: notificationKeys.preferences(userId),
+      queryFn: getNotificationPreferences,
+      staleTime: 60_000,
+    });
+  }, [isAuthenticated, qc, userId]);
 }
 
 /**
