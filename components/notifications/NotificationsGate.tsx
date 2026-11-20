@@ -12,11 +12,8 @@ import {
 import { consumeLaunchResponse, handleNotificationResponse } from '@/lib/notifications/responses';
 import { useAppLockStore } from '@/lib/stores/app-lock.store';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { useGiftStore } from '@/lib/stores/gift.store';
-import { useLevelUpStore } from '@/lib/stores/level-up.store';
 import { useNotificationsStore } from '@/lib/stores/notifications.store';
 import { useOpeningStore } from '@/lib/stores/opening.store';
-import { usePiggyUnlockStore } from '@/lib/stores/piggy-unlock.store';
 import { useVersionGateStore } from '@/lib/stores/version-gate.store';
 import { NotificationPermissionSheet } from './NotificationPermissionSheet';
 
@@ -29,11 +26,14 @@ const NAVIGATE_DELAY_MS = 300;
 /**
  * Folga entre a Home ficar livre e a pré-tela subir: a abertura termina de se
  * dissolver e a Home assenta, e uma cena de entrada que abre logo em seguida
- * (subida de nível, Evolução!) ganha a vez em vez de disputar a tela.
+ * (subida de nível, Evolução!) ganha a vez em vez de disputar a tela. A mesma
+ * folga vale na volta: a pré-tela termina de descer antes de outra janela abrir.
  */
 const PROMPT_DELAY_MS = 1200;
 /** A pré-tela termina de descer antes do diálogo do sistema. */
 const REQUEST_DELAY_MS = 400;
+/** Voltar ao app depois de tanto tempo fora conta como uma nova abertura. */
+const NEW_OPENING_AFTER_MS = 30 * 60 * 1000;
 
 function logRegistrationError(error: unknown) {
   const e = error as { message?: string; response?: { status?: number } };
@@ -59,12 +59,13 @@ function NativeNotificationsGate() {
   const pendingUrl = useNotificationsStore((s) => s.pendingUrl);
   const promptAnswered = useNotificationsStore((s) => s.promptAnswered);
   const holds = useNotificationsStore((s) => s.holds);
+  const newAccount = useNotificationsStore((s) => s.newAccount);
   const openingDone = useOpeningStore((s) => s.exited);
-  const levelUpOnScreen = useLevelUpStore((s) => s.pending !== null);
-  const piggyUnlockOnScreen = usePiggyUnlockStore((s) => s.pending !== null);
-  const giftOnScreen = useGiftStore((s) => s.pendingGiftCode !== null);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const [promptVisible, setPromptVisible] = useState(false);
+  // Pedido do sistema aberto, depois do "Ativar notificações".
+  const [requesting, setRequesting] = useState(false);
+  const backgroundSince = useRef<number | null>(null);
   // Onde a pessoa está quando a rota do push sai: dentro das abas ou numa
   // tela por cima delas (lição, onboarding, porquinhos). Ref porque é lida
   // num timer.
@@ -77,14 +78,37 @@ function NativeNotificationsGate() {
   const sessionReady = isAuthenticated && !!userId && !locked && !forceUpdateRequired;
 
   // A permissão muda fora do app (ajustes do sistema): relida ao voltar.
+  // Voltar depois de muito tempo fora também conta como nova abertura para a
+  // regra da conta nova (abaixo).
   useEffect(() => {
     refreshPushPermission();
     const subscription = AppState.addEventListener('change', (next) => {
       setAppActive(next === 'active');
-      if (next === 'active') refreshPushPermission();
+      if (next === 'background') backgroundSince.current = Date.now();
+      if (next !== 'active') return;
+      refreshPushPermission();
+      const since = backgroundSince.current;
+      backgroundSince.current = null;
+      if (since !== null && Date.now() - since >= NEW_OPENING_AFTER_MS) {
+        useNotificationsStore.getState().clearNewAccount();
+      }
     });
     return () => subscription.remove();
   }, []);
+
+  // A pré-tela ocupa a tela enquanto aparece, enquanto desce e enquanto o
+  // pedido do sistema está aberto. A Evolução! da Home e a subida de nível só
+  // abrem depois (no iOS, um Modal que abre enquanto outro ainda sai não
+  // aparece).
+  useEffect(() => {
+    const { setPromptOnScreen } = useNotificationsStore.getState();
+    if (promptVisible || requesting) {
+      setPromptOnScreen(true);
+      return;
+    }
+    const timer = setTimeout(() => setPromptOnScreen(false), PROMPT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [promptVisible, requesting]);
 
   // Toques: o que abriu o app fechado e os que chegam com ele vivo. Os dois
   // só guardam a rota; quem navega é o efeito abaixo, quando a sessão libera.
@@ -139,20 +163,23 @@ function NativeNotificationsGate() {
   }, [appActive, pendingUrl, sessionReady]);
 
   // Pré-tela de permissão, uma vez por aparelho, ao abrir o app: na Home, com
-  // a abertura terminada e nenhuma outra tela de entrada na frente (presente,
-  // subida de nível, porquinho liberado, Evolução!). Só com a pergunta ainda em
-  // aberto no sistema (Android 13 ou mais novo e iPhone; no Android 12 ou
-  // anterior a permissão já vem concedida). Com "denied" não insiste: o
-  // caminho é Perfil > Preferências > Notificações.
+  // a abertura terminada e nenhuma janela segurando (presente e o depósito
+  // dele, saque, subida de nível, porquinho liberado, Evolução! e a decisão
+  // dela; cada uma avisa com useHoldNotificationsPrompt). Nunca na abertura em
+  // que a conta foi criada (decisão de produto de 19/11/2026: quem acabou de
+  // se cadastrar conhece o app antes). Só com a pergunta ainda em aberto
+  // no sistema (Android 13 ou mais novo e iPhone; no Android 12 ou anterior a
+  // permissão já vem concedida). Com "denied" não insiste: o caminho é
+  // Perfil > Preferências > Notificações.
   // A Home é a aba inicial: só o grupo das abas, sem segmento de outra aba.
   const onHome = segments[0] === '(tabs)' && segments.length === 1;
-  const entrySceneOnScreen = giftOnScreen || levelUpOnScreen || piggyUnlockOnScreen || holds > 0;
   const promptEligible =
     sessionReady &&
     appActive &&
     openingDone &&
     onHome &&
-    !entrySceneOnScreen &&
+    holds === 0 &&
+    !newAccount &&
     !promptAnswered &&
     permission === 'undetermined';
 
@@ -169,8 +196,9 @@ function NativeNotificationsGate() {
   const handleAccept = () => {
     useNotificationsStore.getState().answerPrompt();
     setPromptVisible(false);
+    setRequesting(true);
     setTimeout(() => {
-      requestPushPermission();
+      requestPushPermission().finally(() => setRequesting(false));
     }, REQUEST_DELAY_MS);
   };
 
