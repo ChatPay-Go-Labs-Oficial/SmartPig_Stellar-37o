@@ -6,6 +6,7 @@ import { AssetIcon, Button3D, ScreenGlow, V2Icon } from '@/components/v2';
 import { Confetti } from '@/components/home/Confetti';
 import { V2Colors, V2Font, V2Layout, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { useHoldNotificationsPrompt } from '@/hooks/use-hold-notifications-prompt';
 import { useSound } from '@/hooks/use-sound';
 import { useTerms } from '@/hooks/use-terms';
 import type { TermKey } from '@/lib/copy/terms';
@@ -158,6 +159,8 @@ export const PiggyUnlockScene = memo(PiggyUnlockSceneView);
 export function PiggyUnlockGate() {
   const pending = usePiggyUnlockStore((s) => s.pending);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  // A pré-tela de notificações espera a cena sair.
+  useHoldNotificationsPrompt(!!pending && isAuthenticated);
   if (!pending || !isAuthenticated) return null;
   return <ConnectedUnlock vaultId={pending} />;
 }

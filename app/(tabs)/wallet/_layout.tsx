@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { V2Colors } from '@/constants/theme-v2';
 
@@ -21,12 +22,17 @@ export default function WalletLayout() {
           comum; ao voltar, ela é remontada e fica um quadro vazio (a
           "piscada"). Como camada transparente, a Carteira continua montada
           por baixo do Histórico e a volta é tão limpa quanto a ida. O
-          Histórico pinta o próprio fundo. */}
+          Histórico pinta o próprio fundo. No iOS o modal subiria de baixo e
+          perderia o gesto de voltar: push normal (mesma escolha do Perfil e
+          de vault/[id]). */}
       {/* Uma cópia só: toque duplo no chip Histórico empilhava duas. */}
       <Stack.Screen
         name="history"
         dangerouslySingular
-        options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
+        options={{
+          presentation: Platform.OS === 'android' ? 'transparentModal' : 'card',
+          animation: 'slide_from_right',
+        }}
       />
     </Stack>
   );

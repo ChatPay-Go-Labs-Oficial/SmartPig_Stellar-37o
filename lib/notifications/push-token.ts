@@ -5,6 +5,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { registerDevice, unregisterDevice } from '@/lib/api/notifications';
+import { beginNativePicker, endNativePicker } from '@/lib/security/native-picker-guard';
 import { useNotificationsStore, type PushPermission } from '@/lib/stores/notifications.store';
 import { isPushSupported } from './config';
 import { ensureAndroidChannels } from './setup';
@@ -77,6 +78,10 @@ export async function requestPushPermission(): Promise<PushPermission | null> {
   if (!isPushSupported) return null;
   // Android 13+: sem canal criado, o diálogo de POST_NOTIFICATIONS não aparece.
   await ensureAndroidChannels();
+  // No Android o diálogo do sistema leva o app ao fundo por um instante, e o
+  // AppGate lia a volta como saída do app: pedia a digital logo depois do
+  // "Permitir". A mesma trava dos pickers nativos ignora essa transição.
+  beginNativePicker();
   try {
     const { status } = await Notifications.requestPermissionsAsync({
       ios: { allowAlert: true, allowSound: true, allowBadge: false },
@@ -86,6 +91,8 @@ export async function requestPushPermission(): Promise<PushPermission | null> {
     return permission;
   } catch {
     return refreshPushPermission();
+  } finally {
+    endNativePicker();
   }
 }
 
