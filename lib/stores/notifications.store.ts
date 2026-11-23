@@ -15,20 +15,37 @@ interface NotificationsState {
   /** Permissão do sistema, relida ao abrir e ao voltar ao app. */
   permission: PushPermission | null;
   /**
-   * Uma ação de valor terminou (primeiro guardar ou primeiro depósito via
-   * Pix): a pré-tela pode aparecer.
+   * Janelas abertas que seguram a pré-tela: toda janela que pode estar na
+   * Home avisa enquanto está aberta (ver hooks/use-hold-notifications-prompt).
+   * Enquanto houver alguma, a pré-tela espera (ver NotificationsGate).
    */
-  promptQueued: boolean;
+  holds: number;
+  /**
+   * A pré-tela ocupa a tela: aberta, descendo ou com o pedido do sistema
+   * aberto. Janela que abre sozinha (a Evolução! da Home, a subida de nível)
+   * espera ficar false: no iOS, um Modal que abre enquanto outro ainda sai não
+   * aparece.
+   */
+  promptOnScreen: boolean;
+  /**
+   * A conta foi criada nesta abertura do app (cadastro, `isNewUser` no login):
+   * a pré-tela fica para a próxima abertura. Não persistido.
+   */
+  newAccount: boolean;
   /**
    * Rota que um toque em notificação pediu e que ainda espera a sessão ficar
    * pronta e desbloqueada (ver components/notifications/NotificationsGate).
    */
   pendingUrl: string | null;
   setPermission: (permission: PushPermission) => void;
-  queuePrompt: () => void;
   answerPrompt: () => void;
+  hold: () => void;
+  release: () => void;
+  setPromptOnScreen: (onScreen: boolean) => void;
+  markNewAccount: () => void;
+  clearNewAccount: () => void;
   setPendingUrl: (url: string | null) => void;
-  /** O que é da sessão (rota pendente, pré-tela na fila) não passa para a próxima conta. */
+  /** O que é da sessão (rota pendente) não passa para a próxima conta. */
   resetSession: () => void;
 }
 
@@ -37,13 +54,19 @@ export const useNotificationsStore = create<NotificationsState>()(
     (set) => ({
       promptAnswered: false,
       permission: null,
-      promptQueued: false,
+      holds: 0,
+      promptOnScreen: false,
+      newAccount: false,
       pendingUrl: null,
       setPermission: (permission) => set({ permission }),
-      queuePrompt: () => set({ promptQueued: true }),
-      answerPrompt: () => set({ promptAnswered: true, promptQueued: false }),
+      answerPrompt: () => set({ promptAnswered: true }),
+      hold: () => set((s) => ({ holds: s.holds + 1 })),
+      release: () => set((s) => ({ holds: Math.max(0, s.holds - 1) })),
+      setPromptOnScreen: (promptOnScreen) => set({ promptOnScreen }),
+      markNewAccount: () => set({ newAccount: true }),
+      clearNewAccount: () => set({ newAccount: false }),
       setPendingUrl: (pendingUrl) => set({ pendingUrl }),
-      resetSession: () => set({ promptQueued: false, pendingUrl: null }),
+      resetSession: () => set({ pendingUrl: null }),
     }),
     {
       name: 'smartpig-notifications',

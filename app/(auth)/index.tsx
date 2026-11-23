@@ -26,6 +26,7 @@ import { BRAND_PURPLE, Button3D, Wordmark } from '@/components/v2';
 import { EntryBackdrop } from '@/components/entry/EntryBackdrop';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { useNotificationsStore } from '@/lib/stores/notifications.store';
 import { prefetchPortfolioSummary } from '@/lib/queries/portfolio.queries';
 import { prefetchVaults } from '@/lib/queries/vaults.queries';
 import { walletLogin } from '@/lib/api/auth';
@@ -229,10 +230,14 @@ export default function OnboardingScreen() {
         throw e;
       }
     }
-    const { user: backendUser, wallet, needsActivation } = loginResult;
+    const { user: backendUser, wallet, needsActivation, isNewUser } = loginResult;
     setWalletAddress(address);
     setWalletAccountId(wallet.id);
     setAccountCreatedAt(backendUser.createdAt ?? null);
+    // Conta criada agora: a pré-tela de notificações fica para a próxima
+    // abertura do app (ver NotificationsGate). Marcada antes da sessão, que
+    // leva à Home.
+    if (isNewUser) useNotificationsStore.getState().markNewAccount();
 
     // Ainda no "Entrando...": a Home chegava vazia, com "Cotação
     // temporariamente indisponível", até as primeiras leituras voltarem. A

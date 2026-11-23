@@ -6,11 +6,13 @@ import { levelFraction } from '@/constants/experience-tiers';
 import { levelProgress, type PigLevel } from '@/constants/pig-levels';
 import { V2Colors, V2Font, V2Layout, V2Radius } from '@/constants/theme-v2';
 import { useAccent } from '@/hooks/use-accent';
+import { useHoldNotificationsPrompt } from '@/hooks/use-hold-notifications-prompt';
 import { useInvestedTotal } from '@/hooks/use-invested-total';
 import { useSound } from '@/hooks/use-sound';
 import type { ExperienceLevel } from '@/lib/api/experience';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useLevelUpStore } from '@/lib/stores/level-up.store';
+import { useNotificationsStore } from '@/lib/stores/notifications.store';
 import { Button3D } from '../Button3D';
 import { ScreenGlow } from '../ScreenGlow';
 import { V2Icon } from '../V2Icon';
@@ -162,7 +164,12 @@ export const LevelUpScene = memo(LevelUpSceneView);
 export function LevelUpGate() {
   const pending = useLevelUpStore((s) => s.pending);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  if (!pending || !isAuthenticated) return null;
+  const notificationsPromptOnScreen = useNotificationsStore((s) => s.promptOnScreen);
+  // A pré-tela de notificações espera a cena sair. E o contrário: o resgate
+  // feito na Home pode voltar com a pré-tela já na tela; a cena espera ela
+  // descer (no iOS, um Modal que abre enquanto outro sai não aparece).
+  useHoldNotificationsPrompt(!!pending && isAuthenticated);
+  if (!pending || !isAuthenticated || notificationsPromptOnScreen) return null;
   return <ConnectedScene level={pending} />;
 }
 

@@ -1,5 +1,17 @@
+import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { V2Colors } from '@/constants/theme-v2';
+
+// Camada transparente só no Android, como o Histórico da Carteira: o Perfil
+// continua montado por baixo e a volta não pisca (um push comum desmontava a
+// tela de baixo e a volta mostrava um quadro vazio). No iOS o modal subia de
+// baixo para cima, um por cima do outro, e o voltar das Notificações fechava
+// também as Preferências: lá é o push normal, que entra pela direita, volta
+// uma tela por vez e tem o gesto de voltar (mesma escolha de vault/[id]).
+const subScreen = {
+  presentation: Platform.OS === 'android' ? 'transparentModal' : 'card',
+  animation: 'slide_from_right',
+} as const;
 
 // Stack dentro da aba, como a da Carteira: Preferências (e as Notificações, por
 // cima dela), Verificação e Gerenciar conta abrem por cima do Perfil sem
@@ -17,29 +29,11 @@ export default function ProfileLayout() {
       }}
     >
       <Stack.Screen name="index" />
-      {/* Camadas transparentes, como o Histórico da Carteira (ver
-          wallet/_layout): o Perfil continua montado por baixo e a volta não
-          pisca. Uma cópia só de cada, mesmo com toque duplo na linha. */}
-      <Stack.Screen
-        name="preferences"
-        dangerouslySingular
-        options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="notifications"
-        dangerouslySingular
-        options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="verification"
-        dangerouslySingular
-        options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
-      />
-      <Stack.Screen
-        name="account"
-        dangerouslySingular
-        options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
-      />
+      {/* Uma cópia só de cada, mesmo com toque duplo na linha. */}
+      <Stack.Screen name="preferences" dangerouslySingular options={subScreen} />
+      <Stack.Screen name="notifications" dangerouslySingular options={subScreen} />
+      <Stack.Screen name="verification" dangerouslySingular options={subScreen} />
+      <Stack.Screen name="account" dangerouslySingular options={subScreen} />
     </Stack>
   );
 }

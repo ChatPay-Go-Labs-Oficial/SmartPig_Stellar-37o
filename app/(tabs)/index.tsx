@@ -7,6 +7,8 @@ import { LevelCard } from "@/components/v2/experience";
 import { PIG_LEVELS, levelProgress, type PigLevel } from "@/constants/pig-levels";
 import { V2Colors, V2Layout } from "@/constants/theme-v2";
 import { useAccent } from "@/hooks/use-accent";
+import { useAppActive } from "@/hooks/use-app-active";
+import { useHoldNotificationsPrompt } from "@/hooks/use-hold-notifications-prompt";
 import { useTerms } from "@/hooks/use-terms";
 import { useScreenInsets } from "@/hooks/use-screen-insets";
 import { useVaultAccess } from "@/hooks/use-vault-access";
@@ -16,11 +18,15 @@ import { useInvestedTotal } from "@/hooks/use-invested-total";
 import { buildPiggies } from "@/lib/utils/piggy";
 import { useAppLockStore } from "@/lib/stores/app-lock.store";
 import { useAuthStore } from "@/lib/stores/auth.store";
+import { useNotificationsStore } from "@/lib/stores/notifications.store";
 import { useClaimDailyReward, useExperienceProfile } from "@/lib/queries/experience.queries";
 import { useSound } from "@/hooks/use-sound";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+
+/** Quanto a pré-tela de notificações espera a Evolução! ser decidida, no máximo. */
+const LEVEL_DECISION_TIMEOUT_MS = 8000;
 
 const BALANCE_ANIMATION_STEPS = 20;
 const BALANCE_ANIMATION_INTERVAL_MS = 30;
@@ -121,11 +127,20 @@ export default function HomeScreen() {
   const [oldLevelForAnim, setOldLevelForAnim] = useState<PigLevel | null>(null);
   const [newLevelForAnim, setNewLevelForAnim] = useState<PigLevel | null>(null);
   const [levelDirection, setLevelDirection] = useState<"up" | "down">("up");
+  // Carteira para a qual a Evolução! já foi decidida (abriu ou não precisava).
+  const [levelDecidedFor, setLevelDecidedFor] = useState<string | null>(null);
+  const [levelWaitExpired, setLevelWaitExpired] = useState(false);
+  const notificationsPromptOnScreen = useNotificationsStore((s) => s.promptOnScreen);
+  const appActive = useAppActive();
 
   useEffect(() => {
     // Montada por baixo do cadeado, a home espera o app ser liberado: aberto
-    // antes, o Modal da animação seria descartado pelo iOS sem aparecer.
-    if (!balancesReady || !walletAddress || appLocked || !isAuthenticated) return;
+    // antes, o Modal da animação seria descartado pelo iOS sem aparecer. Com o
+    // app no fundo também espera: na volta, o cadeado abre por cima.
+    if (!balancesReady || !walletAddress || appLocked || !isAuthenticated || !appActive) return;
+    // A pré-tela de notificações chegou antes: a Evolução! espera ela fechar e
+    // terminar de descer, pelo mesmo motivo. Nada é gravado até lá.
+    if (notificationsPromptOnScreen) return;
 
     // O aparelho guarda o id do nível (não o nome, que já mudou). Um valor
     // antigo, gravado como nome ("Porquinho Rei" era o 5º nível), não bate
@@ -133,16 +148,21 @@ export default function HomeScreen() {
     // evolução que não aconteceu.
     if (!lastSeenPigLevel) {
       setLastSeenPigLevel(walletAddress, levelId);
+      setLevelDecidedFor(walletAddress);
       return;
     }
 
-    if (lastSeenPigLevel === levelId) return;
+    if (lastSeenPigLevel === levelId) {
+      setLevelDecidedFor(walletAddress);
+      return;
+    }
 
     const oldIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.id === lastSeenPigLevel);
     const newIdx = PIG_LEVELS.findIndex((pigLevel) => pigLevel.id === levelId);
 
     // Persist before opening the modal so remounting the screen cannot replay it.
     setLastSeenPigLevel(walletAddress, levelId);
+    setLevelDecidedFor(walletAddress);
 
     if (oldIdx < 0 || newIdx < 0) return;
 
@@ -151,14 +171,33 @@ export default function HomeScreen() {
     setLevelDirection(newIdx > oldIdx ? "up" : "down");
     setLevelUpModalVisible(true);
   }, [
+    appActive,
     appLocked,
     balancesReady,
     isAuthenticated,
     lastSeenPigLevel,
     levelId,
+    notificationsPromptOnScreen,
     setLastSeenPigLevel,
     walletAddress,
   ]);
+
+  // A pré-tela de notificações espera a Home decidir a Evolução! e a
+  // Evolução! sair da tela: as duas subindo juntas disputariam a tela, e no
+  // iOS um segundo Modal não abre (ver NotificationsGate). A espera tem fim:
+  // solta se a leitura dos saldos terminar sem dar para decidir (erro ou
+  // porquinho sem preço) ou depois de um tempo-limite contado com o app já
+  // liberado. Se a Evolução! ficar para depois, ela espera a pré-tela (acima).
+  const levelDecided = !!walletAddress && levelDecidedFor === walletAddress;
+  const portfolioSettledWithoutLevel = portfolioQuery.isFetched && !balancesReady;
+  useEffect(() => {
+    if (!isAuthenticated || appLocked || levelDecided) return;
+    const timer = setTimeout(() => setLevelWaitExpired(true), LEVEL_DECISION_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [appLocked, isAuthenticated, levelDecided]);
+  const levelDecisionPending =
+    isAuthenticated && !levelDecided && !portfolioSettledWithoutLevel && !levelWaitExpired;
+  useHoldNotificationsPrompt(levelUpModalVisible || levelDecisionPending);
 
   useEffect(() => {
     // Coberta (abertura, cadeado) ou embaixo do login, a contagem espera:

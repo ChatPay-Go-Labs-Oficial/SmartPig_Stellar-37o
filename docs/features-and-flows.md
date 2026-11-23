@@ -98,7 +98,7 @@ Without `access` (older backend), the old Pro-only piggy flag applies.
 
 Push through `expo-notifications` and the Expo Push Service. The backend decides what is sent: text, Android channel, button and destination. Visual reference: Figma Components › v2 · Notificações and Prototype v2 › Perfil · Notificações (39a–39g).
 
-**Permission.** The neutral pre-prompt ("Deseja receber as notificações do PigFi?") shows once per device, after the first completed save or the first Pix deposit (Pix code generated), whichever comes first, and only while the system has never asked. The system dialog only shows after "Ativar notificações" (iOS, and Android 13 or newer; older Android grants it by default). "Agora não" and the X do not ask again.
+**Permission.** The neutral pre-prompt ("Deseja receber as notificações do PigFi?") shows once per device when the app opens, on the Home, after the opening and with nothing else open (gift claim, withdrawal, level up, unlocked piggy, Evolução!), and only while the system has never asked. It does not show in the opening in which the account is created: only from the next one (opening the app again, or coming back after 30 minutes away). Nor in a session in which the person went through the account-deletion withdrawal. The system dialog only shows after "Ativar notificações" (iOS, and Android 13 or newer; older Android grants it by default). "Agora não" and the X do not ask again.
 
 **Preferences › Notifications.** The "Notificações" row shows "Ligadas" or "Desligadas" (this device without permission) and opens `app/(tabs)/profile/notifications.tsx`:
 

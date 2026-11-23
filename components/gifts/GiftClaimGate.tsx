@@ -9,6 +9,7 @@ import { useAccent } from '@/hooks/use-accent';
 import { useTerms } from '@/hooks/use-terms';
 import { useSound } from '@/hooks/use-sound';
 import { useInstallReferrer } from '@/hooks/use-install-referrer';
+import { useHoldNotificationsPrompt } from '@/hooks/use-hold-notifications-prompt';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useGiftStore } from '@/lib/stores/gift.store';
 import { useGiftPreview, useClaimGift } from '@/lib/queries/gifts.queries';
@@ -79,6 +80,10 @@ export function GiftClaimGate() {
   };
 
   const showSheet = Boolean(isAuthenticated && pendingGiftCode && pendingGiftCode !== dismissedCode);
+  // A pré-tela de notificações espera o presente e o depósito que vem depois
+  // dele. Pelo que está na tela, e não pelo código guardado: fechado no X, o
+  // código continua salvo e a pré-tela ficaria presa.
+  useHoldNotificationsPrompt(showSheet || investAmount !== null);
 
   return (
     <>

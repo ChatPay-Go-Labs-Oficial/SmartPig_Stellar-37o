@@ -5,6 +5,7 @@ import {
   TransferModal,
   WithdrawModal,
 } from '@/components/ui';
+import { useHoldNotificationsPrompt } from '@/hooks/use-hold-notifications-prompt';
 
 interface WithdrawAllFlowProps {
   /** Parâmetro `sacar` da rota da Home. */
@@ -38,6 +39,11 @@ export function WithdrawAllFlow({
   const [offrampOpen, setOfframpOpen] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
   const handled = useRef(false);
+  // A pré-tela de notificações não sobe por cima do saque, nem depois dele:
+  // quem chega pela Exclusão de conta não recebe o pedido nesta sessão.
+  useHoldNotificationsPrompt(
+    trigger === '1' || methodOpen || vaultOpen || offrampOpen || transferOpen,
+  );
 
   useEffect(() => {
     if (trigger !== '1' || handled.current) return;
